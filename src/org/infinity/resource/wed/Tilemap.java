@@ -19,7 +19,6 @@ public final class Tilemap extends AbstractStruct { // WED/Tilemap-specific fiel
   public static final String WED_TILEMAP_TILE_COUNT_PRI   = "Tilemap count (primary)";
   public static final String WED_TILEMAP_TILE_INDEX_SEC   = "Tile index (secondary)";
   public static final String WED_TILEMAP_DRAW_OVERLAYS    = "Draw Overlays";
-  public static final String WED_TILEMAP_ANIMATION_SPEED  = "Animation speed";
 
   private static final String[] FLAGS_ARRAY = { "Primary overlay only", "Unused", "Overlay 1", "Overlay 2", "Overlay 3",
       "Overlay 4", "Overlay 5", "Overlay 6", "Overlay 7" };
@@ -59,8 +58,7 @@ public final class Tilemap extends AbstractStruct { // WED/Tilemap-specific fiel
       // ignore
     }
     addField(new Flag(buffer, offset + 6, 1, WED_TILEMAP_DRAW_OVERLAYS, FLAGS_ARRAY));
-    addField(new DecNumber(buffer, offset + 7, 1, WED_TILEMAP_ANIMATION_SPEED));
-    addField(new Unknown(buffer, offset + 8, 2));
+    addField(new Unknown(buffer, offset + 7, 3));
     return offset + 10;
   }
 }
