@@ -25,7 +25,7 @@ public class Opcode319 extends BaseOpcode {
   private static final String EFFECT_MODE       = "Mode";
   private static final String EFFECT_DESC_NOTE  = "Description note";
 
-  private static final String[] MODES = { "Not usable by", "Usable by" };
+  private static final String[] MODES = { "Not usable by", "Only usable by" };
   private static final String[] MODES_EEEX = { MODES[0], MODES[1], "EEex: Usable by (splprot)",
       "EEex: Not usable by (splprot)" };
 
