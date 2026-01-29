@@ -16,8 +16,8 @@ import org.infinity.resource.AbstractStruct;
 import org.infinity.resource.AddRemovable;
 import org.infinity.resource.HasChildStructs;
 import org.infinity.resource.StructEntry;
-import org.infinity.resource.vertex.ClosedVertexTiled;
-import org.infinity.resource.vertex.OpenVertexTiled;
+import org.infinity.resource.vertex.ClosedVertexImpeded;
+import org.infinity.resource.vertex.OpenVertexImpeded;
 import org.infinity.resource.vertex.Vertex;
 import org.infinity.util.io.StreamUtils;
 
@@ -27,10 +27,10 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
   public static final String ARE_TILED_NAME                       = "Name";
   public static final String ARE_TILED_ID                         = "Tile ID";
   public static final String ARE_TILED_FLAGS                      = "Tile flags";
-  public static final String ARE_TILED_FIRST_SQUARE_INDEX_OPEN    = "First search square index (open)";
-  public static final String ARE_TILED_FIRST_SQUARE_INDEX_CLOSED  = "First search square index (closed)";
-  public static final String ARE_TILED_NUM_SQUARES_OPEN           = "# search squares (open)";
-  public static final String ARE_TILED_NUM_SQUARES_CLOSED         = "# search squares (closed)";
+  public static final String ARE_TILED_FIRST_SQUARE_INDEX_OPEN    = "First impeded cell index (open)";
+  public static final String ARE_TILED_FIRST_SQUARE_INDEX_CLOSED  = "First impeded cell index (closed)";
+  public static final String ARE_TILED_NUM_SQUARES_OPEN           = "# impeded cells (open)";
+  public static final String ARE_TILED_NUM_SQUARES_CLOSED         = "# impeded cells (closed)";
 
   public static final String[] FLAGS_ARRAY = { "No flags set", "Closed tile", "Can be looked through" };
 
@@ -46,7 +46,7 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
 
   @Override
   public AddRemovable[] getPrototypes() throws Exception {
-    return new AddRemovable[] { new OpenVertexTiled(), new ClosedVertexTiled() };
+    return new AddRemovable[] { new OpenVertexImpeded(), new ClosedVertexImpeded() };
   }
 
   @Override
@@ -72,13 +72,13 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
     IsNumeric firstVertex = (IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_OPEN);
     IsNumeric numVertices = (IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_OPEN);
     for (int i = 0; i < numVertices.getValue(); i++) {
-      addField(new OpenVertexTiled(this, buffer, offset + 4 * (firstVertex.getValue() + i), i));
+      addField(new OpenVertexImpeded(this, buffer, offset + 4 * (firstVertex.getValue() + i), i));
     }
 
     firstVertex = (IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_CLOSED);
     numVertices = (IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_CLOSED);
     for (int i = 0; i < numVertices.getValue(); i++) {
-      addField(new ClosedVertexTiled(this, buffer, offset + 4 * (firstVertex.getValue() + i), i));
+      addField(new ClosedVertexImpeded(this, buffer, offset + 4 * (firstVertex.getValue() + i), i));
     }
   }
 
@@ -104,11 +104,11 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
   @Override
   protected void setAddRemovableOffset(AddRemovable datatype) {
     final int offset = ((IsNumeric) getParent().getAttribute(AreResource.ARE_OFFSET_VERTICES)).getValue();
-    if (datatype instanceof OpenVertexTiled) {
+    if (datatype instanceof OpenVertexImpeded) {
       int index = ((IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_OPEN)).getValue();
       index += ((IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_OPEN)).getValue();
       datatype.setOffset(offset + 4 * (index - 1));
-    } else if (datatype instanceof ClosedVertexTiled) {
+    } else if (datatype instanceof ClosedVertexImpeded) {
       int index = ((IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_CLOSED)).getValue();
       index += ((IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_CLOSED)).getValue();
       datatype.setOffset(offset + 4 * (index - 1));
@@ -121,8 +121,8 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
     addField(new TextString(buffer, offset + 32, 8, ARE_TILED_ID));
     addField(new Flag(buffer, offset + 40, 4, ARE_TILED_FLAGS, FLAGS_ARRAY));
     addField(new DecNumber(buffer, offset + 44, 4, ARE_TILED_FIRST_SQUARE_INDEX_OPEN));
-    addField(new SectionCount(buffer, offset + 48, 2, ARE_TILED_NUM_SQUARES_OPEN, OpenVertexTiled.class));
-    addField(new SectionCount(buffer, offset + 50, 2, ARE_TILED_NUM_SQUARES_CLOSED, ClosedVertexTiled.class));
+    addField(new SectionCount(buffer, offset + 48, 2, ARE_TILED_NUM_SQUARES_OPEN, OpenVertexImpeded.class));
+    addField(new SectionCount(buffer, offset + 50, 2, ARE_TILED_NUM_SQUARES_CLOSED, ClosedVertexImpeded.class));
     addField(new DecNumber(buffer, offset + 52, 4, ARE_TILED_FIRST_SQUARE_INDEX_CLOSED));
     addField(new Unknown(buffer, offset + 56, 48));
     return offset + 104;
