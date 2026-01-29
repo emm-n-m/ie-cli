@@ -23,14 +23,14 @@ import org.infinity.util.io.StreamUtils;
 
 public final class TiledObject extends AbstractStruct implements AddRemovable, HasVertices, HasChildStructs {
   // ARE/Tiled Object-specific field labels
-  public static final String ARE_TILED                            = "Tiled object";
-  public static final String ARE_TILED_NAME                       = "Name";
-  public static final String ARE_TILED_ID                         = "Tile ID";
-  public static final String ARE_TILED_FLAGS                      = "Tile flags";
-  public static final String ARE_TILED_FIRST_SQUARE_INDEX_OPEN    = "First impeded cell index (open)";
-  public static final String ARE_TILED_FIRST_SQUARE_INDEX_CLOSED  = "First impeded cell index (closed)";
-  public static final String ARE_TILED_NUM_SQUARES_OPEN           = "# impeded cells (open)";
-  public static final String ARE_TILED_NUM_SQUARES_CLOSED         = "# impeded cells (closed)";
+  public static final String ARE_TILED                                    = "Tiled object";
+  public static final String ARE_TILED_NAME                               = "Name";
+  public static final String ARE_TILED_ID                                 = "Tile ID";
+  public static final String ARE_TILED_FLAGS                              = "Tile flags";
+  public static final String ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_OPEN    = "First impeded cell index (open)";
+  public static final String ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_CLOSED  = "First impeded cell index (closed)";
+  public static final String ARE_TILED_NUM_VERTICES_IMPEDED_OPEN          = "# impeded cells (open)";
+  public static final String ARE_TILED_NUM_VERTICES_IMPEDED_CLOSED        = "# impeded cells (closed)";
 
   public static final String[] FLAGS_ARRAY = { "No flags set", "Closed tile", "Can be looked through" };
 
@@ -69,14 +69,14 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
 
   @Override
   public void readVertices(ByteBuffer buffer, int offset) throws Exception {
-    IsNumeric firstVertex = (IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_OPEN);
-    IsNumeric numVertices = (IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_OPEN);
+    IsNumeric firstVertex = (IsNumeric) getAttribute(ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_OPEN);
+    IsNumeric numVertices = (IsNumeric) getAttribute(ARE_TILED_NUM_VERTICES_IMPEDED_OPEN);
     for (int i = 0; i < numVertices.getValue(); i++) {
       addField(new OpenVertexImpeded(this, buffer, offset + 4 * (firstVertex.getValue() + i), i));
     }
 
-    firstVertex = (IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_CLOSED);
-    numVertices = (IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_CLOSED);
+    firstVertex = (IsNumeric) getAttribute(ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_CLOSED);
+    numVertices = (IsNumeric) getAttribute(ARE_TILED_NUM_VERTICES_IMPEDED_CLOSED);
     for (int i = 0; i < numVertices.getValue(); i++) {
       addField(new ClosedVertexImpeded(this, buffer, offset + 4 * (firstVertex.getValue() + i), i));
     }
@@ -84,10 +84,10 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
 
   @Override
   public int updateVertices(int offset, int number) {
-    ((DecNumber) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_OPEN)).setValue(number);
-    int count = ((IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_OPEN)).getValue();
-    ((DecNumber) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_CLOSED)).setValue(number + count);
-    count += ((IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_CLOSED)).getValue();
+    ((DecNumber) getAttribute(ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_OPEN)).setValue(number);
+    int count = ((IsNumeric) getAttribute(ARE_TILED_NUM_VERTICES_IMPEDED_OPEN)).getValue();
+    ((DecNumber) getAttribute(ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_CLOSED)).setValue(number + count);
+    count += ((IsNumeric) getAttribute(ARE_TILED_NUM_VERTICES_IMPEDED_CLOSED)).getValue();
 
     for (final StructEntry entry : getFields()) {
       if (entry instanceof Vertex) {
@@ -105,12 +105,12 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
   protected void setAddRemovableOffset(AddRemovable datatype) {
     final int offset = ((IsNumeric) getParent().getAttribute(AreResource.ARE_OFFSET_VERTICES)).getValue();
     if (datatype instanceof OpenVertexImpeded) {
-      int index = ((IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_OPEN)).getValue();
-      index += ((IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_OPEN)).getValue();
+      int index = ((IsNumeric) getAttribute(ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_OPEN)).getValue();
+      index += ((IsNumeric) getAttribute(ARE_TILED_NUM_VERTICES_IMPEDED_OPEN)).getValue();
       datatype.setOffset(offset + 4 * (index - 1));
     } else if (datatype instanceof ClosedVertexImpeded) {
-      int index = ((IsNumeric) getAttribute(ARE_TILED_FIRST_SQUARE_INDEX_CLOSED)).getValue();
-      index += ((IsNumeric) getAttribute(ARE_TILED_NUM_SQUARES_CLOSED)).getValue();
+      int index = ((IsNumeric) getAttribute(ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_CLOSED)).getValue();
+      index += ((IsNumeric) getAttribute(ARE_TILED_NUM_VERTICES_IMPEDED_CLOSED)).getValue();
       datatype.setOffset(offset + 4 * (index - 1));
     }
   }
@@ -120,10 +120,10 @@ public final class TiledObject extends AbstractStruct implements AddRemovable, H
     addField(new TextString(buffer, offset, 32, ARE_TILED_NAME));
     addField(new TextString(buffer, offset + 32, 8, ARE_TILED_ID));
     addField(new Flag(buffer, offset + 40, 4, ARE_TILED_FLAGS, FLAGS_ARRAY));
-    addField(new DecNumber(buffer, offset + 44, 4, ARE_TILED_FIRST_SQUARE_INDEX_OPEN));
-    addField(new SectionCount(buffer, offset + 48, 2, ARE_TILED_NUM_SQUARES_OPEN, OpenVertexImpeded.class));
-    addField(new SectionCount(buffer, offset + 50, 2, ARE_TILED_NUM_SQUARES_CLOSED, ClosedVertexImpeded.class));
-    addField(new DecNumber(buffer, offset + 52, 4, ARE_TILED_FIRST_SQUARE_INDEX_CLOSED));
+    addField(new DecNumber(buffer, offset + 44, 4, ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_OPEN));
+    addField(new SectionCount(buffer, offset + 48, 2, ARE_TILED_NUM_VERTICES_IMPEDED_OPEN, OpenVertexImpeded.class));
+    addField(new SectionCount(buffer, offset + 50, 2, ARE_TILED_NUM_VERTICES_IMPEDED_CLOSED, ClosedVertexImpeded.class));
+    addField(new DecNumber(buffer, offset + 52, 4, ARE_TILED_FIRST_VERTEX_INDEX_IMPEDED_CLOSED));
     addField(new Unknown(buffer, offset + 56, 48));
     return offset + 104;
   }
