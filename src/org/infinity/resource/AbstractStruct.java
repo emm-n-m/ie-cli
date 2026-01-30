@@ -398,7 +398,9 @@ public abstract class AbstractStruct extends AbstractTableModel
           String s = Integer.toHexString(data.getOffset()) + " h";
           if (BrowserMenuBar.getInstance().getOptions().showTableOffsetsRelative() && data.getParent() != null
               && data.getParent().getParent() != null) {
-            s += " (" + Integer.toHexString(data.getOffset() - data.getParent().getOffset()) + " h)";
+            final int relOfs = data.getOffset() - data.getParent().getOffset();
+            final String relOfsHex = ((relOfs < 0) ? "-" : "") +  Integer.toHexString(Math.abs(relOfs));
+            s += " (" + relOfsHex + " h)";
           }
           return s;
         }
