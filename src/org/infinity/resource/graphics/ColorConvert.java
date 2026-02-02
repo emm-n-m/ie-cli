@@ -852,7 +852,7 @@ public class ColorConvert {
             }
             return retVal;
           } else {
-            throw new Exception("Error loading palette: " + entry.getResourceName());
+            throw new Exception("No palette found in " + entry.getResourceName());
           }
         } else {
           throw new Exception("Invalid BMP resource: " + entry.getResourceName());
@@ -889,7 +889,7 @@ public class ColorConvert {
           }
           return retVal;
         } else {
-          throw new Exception("Error loading palette from PNG file " + file.getFileName());
+          throw new Exception("No palette found in " + file.getFileName());
         }
       } catch (IOException e) {
         Logger.error(e);
@@ -1033,7 +1033,7 @@ public class ColorConvert {
             }
             return retVal;
           } else {
-            throw new Exception("Error loading palette: " + entry.getResourceName());
+            throw new Exception("No palette found in " + entry.getResourceName());
           }
         } else {
           throw new Exception("Unsupport file type.");
