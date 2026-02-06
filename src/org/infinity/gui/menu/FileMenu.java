@@ -149,9 +149,7 @@ public class FileMenu extends JMenu implements BrowserSubMenu, ActionListener {
   }
 
   public void resourceEntrySelected(ResourceEntry entry) {
-    boolean biffEnable = entry != null &&
-        (BrowserMenuBar.getInstance().getOptions().getOverrideMode() == OverrideMode.InOverride) &&
-        entry.hasOverride();
+    final boolean biffEnable = entry != null && entry.hasOverride();
     fileOpenBiffedNew.setEnabled(biffEnable);
 
     fileOpenNew.setEnabled(entry != null);
