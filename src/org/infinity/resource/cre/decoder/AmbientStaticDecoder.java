@@ -132,11 +132,11 @@ public class AmbientStaticDecoder extends SpriteDecoder {
       ResourceEntry entry = ResourceFactory.getResourceEntry(resref + suffix + ".BAM");
       int cycle = data.getValue1();
       ResourceEntry entryE = ResourceFactory.getResourceEntry(resref + suffix + "E.BAM");
-      int cycleE = cycle + SeqDef.DIR_REDUCED_W.length;
-      if (SpriteUtils.bamCyclesExist(entry, cycle, SeqDef.DIR_REDUCED_W.length)
-          && SpriteUtils.bamCyclesExist(entryE, cycleE, SeqDef.DIR_REDUCED_E.length)) {
-        retVal = SeqDef.createSequence(seq, SeqDef.DIR_REDUCED_W, false, entry, cycle, null, behavior);
-        SeqDef tmp = SeqDef.createSequence(seq, SeqDef.DIR_REDUCED_E, false, entryE, cycleE, null, behavior);
+      int cycleE = cycle + SeqDef.DIR_REDUCED_STATIC_W.length;
+      if (SpriteUtils.bamCyclesExist(entry, cycle, SeqDef.DIR_REDUCED_STATIC_W.length)
+          && SpriteUtils.bamCyclesExist(entryE, cycleE, SeqDef.DIR_REDUCED_STATIC_E.length)) {
+        retVal = SeqDef.createSequence(seq, SeqDef.DIR_REDUCED_STATIC_W, false, entry, cycle, null, behavior);
+        SeqDef tmp = SeqDef.createSequence(seq, SeqDef.DIR_REDUCED_STATIC_E, false, entryE, cycleE, null, behavior);
         retVal.addDirections(tmp.getDirections().toArray(new DirDef[0]));
       }
     }

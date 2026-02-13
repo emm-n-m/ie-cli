@@ -36,6 +36,10 @@ public class SeqDef implements Cloneable {
   public static final Direction[] DIR_REDUCED_W = { Direction.S, Direction.SW, Direction.W, Direction.NW, Direction.N };
   /** Reduced set of 3 eastern directions. */
   public static final Direction[] DIR_REDUCED_E = { Direction.NE, Direction.E, Direction.SE };
+  /** Variation of reduced set: 4 non-eastern directions. */
+  public static final Direction[] DIR_REDUCED_STATIC_W = { Direction.S, Direction.SW, Direction.W, Direction.NW };
+  /** Variation of reduced set: 4 eastern directions. */
+  public static final Direction[] DIR_REDUCED_STATIC_E = { Direction.N, Direction.NE, Direction.E, Direction.SE };
   public static final Direction[] DIR_FULL_LIMITED_W = { Direction.S, Direction.S, Direction.SW, Direction.SW,
       Direction.W, Direction.W, Direction.NW, Direction.NW, Direction.N };
   public static final Direction[] DIR_FULL_LIMITED_E = { Direction.N, Direction.NE, Direction.NE, Direction.E,
