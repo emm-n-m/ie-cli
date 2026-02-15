@@ -542,7 +542,7 @@ public class SpellProtType extends Bitmap {
     if (value != null && !value.isEmpty()) {
       try {
         if (value.toLowerCase().startsWith("0x")) {
-          retVal = Integer.parseInt(value.substring(2), 16);
+          retVal = Integer.parseUnsignedInt(value.substring(2), 16);
         } else {
           retVal = Integer.parseInt(value);
         }
@@ -561,7 +561,7 @@ public class SpellProtType extends Bitmap {
     } else {
       IdsMap map = IdsMapCache.get(idsFile);
       if (map != null) {
-        IdsMapEntry entry = map.get(value);
+        IdsMapEntry entry = map.get(value & 0xffffffffL);
         if (entry != null) {
           if (entry.getSymbol() != null && !entry.getSymbol().isEmpty()) {
             return entry.getSymbol();
