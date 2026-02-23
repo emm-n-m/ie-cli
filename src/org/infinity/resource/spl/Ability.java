@@ -93,8 +93,8 @@ public final class Ability extends AbstractAbility implements AddRemovable, HasC
     addField(new DecNumber(buffer, offset + 16, 2, SPL_ABIL_MIN_LEVEL));
     addField(new DecNumber(buffer, offset + 18, 2, SPL_ABIL_CASTING_SPEED));
     addField(new DecNumber(buffer, offset + 20, 2, COMMON_UNUSED));
-    addField(new DecNumber(buffer, offset + 22, 2, SPL_ABIL_DICE_SIZE));
-    addField(new DecNumber(buffer, offset + 24, 2, SPL_ABIL_DICE_COUNT));
+    addField(new UnsignDecNumber(buffer, offset + 22, 2, SPL_ABIL_DICE_SIZE));
+    addField(new UnsignDecNumber(buffer, offset + 24, 2, SPL_ABIL_DICE_COUNT));
     addField(new DecNumber(buffer, offset + 26, 2, SPL_ABIL_DAMAGE_BONUS));
     addField(new DecNumber(buffer, offset + 28, 2, SPL_ABIL_DAMAGE_TYPE));
     addField(new SectionCount(buffer, offset + 30, 2, ABILITY_NUM_EFFECTS, Effect.class));

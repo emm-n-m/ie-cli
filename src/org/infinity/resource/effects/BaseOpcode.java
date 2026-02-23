@@ -26,6 +26,7 @@ import org.infinity.datatype.IsNumeric;
 import org.infinity.datatype.ResourceRef;
 import org.infinity.datatype.TextString;
 import org.infinity.datatype.Unknown;
+import org.infinity.datatype.UnsignDecNumber;
 import org.infinity.datatype.UpdateListener;
 import org.infinity.resource.AbstractStruct;
 import org.infinity.resource.Effect2;
@@ -1311,8 +1312,8 @@ public class BaseOpcode {
       boolean isVersion1) {
     final String[] saveType = getSaveType();
     if (isVersion1) {
-      list.add(new DecNumber(buffer, offset, 4, EFFECT_DICE_COUNT_MAX_LEVEL));
-      list.add(new DecNumber(buffer, offset + 4, 4, EFFECT_DICE_SIZE_MIN_LEVEL));
+      list.add(new UnsignDecNumber(buffer, offset, 4, EFFECT_DICE_COUNT_MAX_LEVEL));
+      list.add(new UnsignDecNumber(buffer, offset + 4, 4, EFFECT_DICE_SIZE_MIN_LEVEL));
       if (Profile.getEngine() == Profile.Engine.IWD2) {
         list.add(new Flag(buffer, offset + 8, 4, EFFECT_SAVE_TYPE, saveType));
         list.add(new DecNumber(buffer, offset + 12, 4, EFFECT_SAVE_PENALTY));
@@ -1329,8 +1330,8 @@ public class BaseOpcode {
         list.add(new DecNumber(buffer, offset + 12, 4, EFFECT_PARAMETER));
       }
       else {
-        list.add(new DecNumber(buffer, offset, 4, EFFECT_DICE_COUNT));
-        list.add(new DecNumber(buffer, offset + 4, 4, EFFECT_DICE_SIZE));
+        list.add(new UnsignDecNumber(buffer, offset, 4, EFFECT_DICE_COUNT));
+        list.add(new UnsignDecNumber(buffer, offset + 4, 4, EFFECT_DICE_SIZE));
         list.add(new Flag(buffer, offset + 8 , 4, EFFECT_SAVE_TYPE, saveType));
         list.add(new DecNumber(buffer, offset + 12, 4, EFFECT_SAVE_BONUS));
       }

@@ -111,19 +111,19 @@ public final class Ability extends AbstractAbility implements AddRemovable, HasC
       addField(new Bitmap(buffer, offset, 1, ABILITY_TYPE, TYPE_ARRAY));
       addField(new Flag(buffer, offset + 1, 1, ABILITY_TYPE_FLAGS, getTypeFlags()));
       addField(new Bitmap(buffer, offset + 2, 1, ABILITY_LOCATION, ABILITY_USE_ARRAY));
-      addField(new DecNumber(buffer, offset + 3, 1, ITM_ABIL_DICE_SIZE_ALT));
+      addField(new UnsignDecNumber(buffer, offset + 3, 1, ITM_ABIL_DICE_SIZE_ALT));
       addField(new ResourceRef(buffer, offset + 4, ABILITY_ICON, "BAM"));
       addField(new Bitmap(buffer, offset + 12, 1, ABILITY_TARGET, TARGET_TYPE_ARRAY));
       addField(new UnsignDecNumber(buffer, offset + 13, 1, ABILITY_NUM_TARGETS));
       addField(new DecNumber(buffer, offset + 14, 2, ABILITY_RANGE));
       addField(new Bitmap(buffer, offset + 16, 1, ITM_ABIL_LAUNCHER_REQUIRED, LAUNCHER_ARRAY));
-      addField(new DecNumber(buffer, offset + 17, 1, ITM_ABIL_DICE_COUNT_ALT));
+      addField(new UnsignDecNumber(buffer, offset + 17, 1, ITM_ABIL_DICE_COUNT_ALT));
       addField(new DecNumber(buffer, offset + 18, 1, ITM_ABIL_SPEED));
       addField(new DecNumber(buffer, offset + 19, 1, ITM_ABIL_DAMAGE_BONUS_ALT));
       addField(new DecNumber(buffer, offset + 20, 2, ABILITY_HIT_BONUS));
-      addField(new DecNumber(buffer, offset + 22, 1, ABILITY_DICE_SIZE));
+      addField(new UnsignDecNumber(buffer, offset + 22, 1, ABILITY_DICE_SIZE));
       addField(new PriTypeBitmap(buffer, offset + 23, 1, ITM_ABIL_PRIMARY_TYPE));
-      addField(new DecNumber(buffer, offset + 24, 1, ABILITY_DICE_COUNT));
+      addField(new UnsignDecNumber(buffer, offset + 24, 1, ABILITY_DICE_COUNT));
       addField(new SecTypeBitmap(buffer, offset + 25, 1, ITM_ABIL_SECONDARY_TYPE));
     } else {
       addField(new Bitmap(buffer, offset, 1, ABILITY_TYPE, TYPE_ARRAY));
@@ -135,8 +135,8 @@ public final class Ability extends AbstractAbility implements AddRemovable, HasC
       addField(new Bitmap(buffer, offset + 16, 2, ITM_ABIL_LAUNCHER_REQUIRED, LAUNCHER_ARRAY));
       addField(new DecNumber(buffer, offset + 18, 2, ITM_ABIL_SPEED));
       addField(new DecNumber(buffer, offset + 20, 2, ABILITY_HIT_BONUS));
-      addField(new DecNumber(buffer, offset + 22, 2, ABILITY_DICE_SIZE));
-      addField(new DecNumber(buffer, offset + 24, 2, ABILITY_DICE_COUNT));
+      addField(new UnsignDecNumber(buffer, offset + 22, 2, ABILITY_DICE_SIZE));
+      addField(new UnsignDecNumber(buffer, offset + 24, 2, ABILITY_DICE_COUNT));
     }
     addField(new DecNumber(buffer, offset + 26, 2, ABILITY_DAMAGE_BONUS));
     addField(new Bitmap(buffer, offset + 28, 2, ABILITY_DAMAGE_TYPE, DMG_TYPE_ARRAY));
