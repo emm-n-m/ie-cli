@@ -2,6 +2,28 @@
 // Copyright (C) 2001 Jon Olav Hauglid
 // See LICENSE.txt for license information
 
+// *******  Super XBR Scaler  *******
+//
+// Copyright (c) 2016 Hyllian - sergiogdb@gmail.com
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
 package org.infinity.gui.converter;
 
 import java.awt.AlphaComposite;
@@ -54,6 +76,7 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
     BICUBIC("Bicubic"),
     SCALE_X("Scale2x/3x/4x"),
     LANCZOS("Lanczos"),
+    SUPER_XBR("Super xBR")
     ;
 
     private final String label;
@@ -370,6 +393,7 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
       case BILINEAR:
       case BICUBIC:
       case LANCZOS:
+      case SUPER_XBR:
         taInfo.setText(String.format(fmtSupport1, ConvertToBam.BAM_VERSION_ITEMS[ConvertToBam.VERSION_BAMV2]));
         setFactor(spinnerFactor, factor, 0.01, 10.0, 0.05);
         setFactor(spinnerFactorX, factorX, 0.01, 10.0, 0.05);
@@ -410,6 +434,7 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
       case BILINEAR:
       case BICUBIC:
       case LANCZOS:
+      case SUPER_XBR:
         return !getConverter().isBamV1Selected();
       default:
         return true;
@@ -491,6 +516,9 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
           break;
         case LANCZOS:
           dstImage = scaleLanczos(entry.getFrame(), factorX, factorY, LANCZOS_KERNEL_SIZE);
+          break;
+        case SUPER_XBR:
+          dstImage = scaleSuperXBR(entry.getFrame(), factorX, factorY);
           break;
         default:
           dstImage = entry.getFrame();
@@ -898,5 +926,308 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
 
     x *= Math.PI;
     return (kernelSize * FastMath.sin(x) * FastMath.sin(x / kernelSize)) / (x * x);
+  }
+
+  // Wrapper for Super xBR that supports arbitrary scaling factors
+  private static BufferedImage scaleSuperXBR(BufferedImage srcImage, double factorX, double factorY) {
+    if (srcImage == null || srcImage.getType() != BufferedImage.TYPE_INT_ARGB || factorX <= 0.0 || factorY <= 0.0 ) {
+      return srcImage;
+    }
+
+    BufferedImage outImage = srcImage;
+    final double epsilonX = 1.0 / srcImage.getWidth();
+    final double epsilonY = 1.0 / srcImage.getHeight();
+
+    double curFactorX = factorX;
+    double curFactorY = factorY;
+    while (Math.abs(curFactorX - 1.0) > epsilonX || Math.abs(curFactorY - 1.0) > epsilonY) {
+      if (curFactorX > 1.0 || curFactorY > 1.0) {
+        // using xBR scaler for fixed 2x scaling
+        outImage = scaleSuperXBR2x(outImage);
+        curFactorX /= 2.0;
+        curFactorY /= 2.0;
+      } else if (curFactorX < 1.0 && curFactorY < 1.0) {
+        // using Lanczos scaler for odd scaling factors
+        outImage = scaleLanczos(outImage, curFactorX, curFactorY, LANCZOS_KERNEL_SIZE);
+        curFactorX /= curFactorX;
+        curFactorY /= curFactorY;
+      }
+    }
+
+    return outImage;
+  }
+
+  // Performs Super xBR resampling with a fixed 2x scaling factor
+  private static BufferedImage scaleSuperXBR2x(BufferedImage srcImage) {
+    if (srcImage == null || srcImage.getType() != BufferedImage.TYPE_INT_ARGB) {
+      return srcImage;
+    }
+
+/*
+                             P1
+    |P0|B |C |P1|         C     F4          |a0|b1|c2|d3|
+    |D |E |F |F4|      B     F     I4       |b0|c1|d2|e3|   |e1|i1|i2|e2|
+    |G |H |I |I4|   P0    E  A  I     P3    |c0|d1|e2|f3|   |e3|i3|i4|e4|
+    |P2|H5|I5|P3|      D     H     I5       |d0|e1|f2|g3|
+                          G     H5
+                             P2
+
+    sx, sy
+    -1  -1 | -2  0   (x+y) (x-y)    -3  1  (x+y-1)  (x-y+1)
+    -1   0 | -1 -1                  -2  0
+    -1   1 |  0 -2                  -1 -1
+    -1   2 |  1 -3                   0 -2
+
+     0  -1 | -1  1   (x+y) (x-y)      ...     ...     ...
+     0   0 |  0  0
+     0   1 |  1 -1
+     0   2 |  2 -2
+
+     1  -1 |  0  2   ...
+     1   0 |  1  1
+     1   1 |  2  0
+     1   2 |  3 -1
+
+     2  -1 |  1  3   ...
+     2   0 |  2  2
+     2   1 |  3  1
+     2   2 |  4  0
+ */
+
+    final int factor = 2;
+    final int srcWidth = srcImage.getWidth();
+    final int srcHeight = srcImage.getHeight();
+    final int dstWidth = Math.max(1, srcWidth * factor);
+    final int dstHeight = Math.max(1, srcHeight * factor);
+    final BufferedImage outImage = new BufferedImage(dstWidth, dstHeight, BufferedImage.TYPE_INT_ARGB);
+
+    final int[] srcPixels = ((DataBufferInt)srcImage.getRaster().getDataBuffer()).getData();
+    final int[] dstPixels = ((DataBufferInt)outImage.getRaster().getDataBuffer()).getData();
+
+    final float wgt1 = 0.129633f;
+    final float wgt2 = 0.175068f;
+    final float w1 = -wgt1;
+    final float w2 = wgt1 + 0.5f;
+    final float w3 = -wgt2;
+    final float w4 = wgt2 + 0.5f;
+
+    // first pass
+    final int[] wp = { 2, 1, -1, 4, -1, 1 };
+    final int[][] r = new int[4][4], g = new int[4][4], b = new int[4][4], a = new int[4][4], Y = new int[4][4];
+    for (int y = 0; y < dstHeight; y++) {
+      for (int x = 0; x < dstWidth; x++) {
+        final int cx = x >> 1, cy = y >> 1; // central pixels on original images
+        // sample supporting pixels in original image
+        for (int sx = -1; sx <= 2; sx++) {
+          for (int sy = -1; sy <= 2; sy++) {
+            // clamp pixel locations
+            final int csy = Misc.clamp(sy + cy, 0, srcHeight - 1);
+            final int csx = Misc.clamp(sx + cx, 0, srcWidth - 1);
+            // sample & add weighted components
+            final int sample = srcPixels[csy * srcWidth + csx];
+            a[sx + 1][sy + 1] = sample >>> 24;
+            r[sx + 1][sy + 1] = (sample >> 16) & 0xff;
+            g[sx + 1][sy + 1] = (sample >> 8) & 0xff;
+            b[sx + 1][sy + 1] = sample & 0xff;
+            Y[sx + 1][sy + 1] = (int)(0.2126f * r[sx + 1][sy + 1] + 0.7152f * g[sx + 1][sy + 1] + 0.0722f * b[sx + 1][sy + 1]);
+          }
+        }
+        final int minAlphaSample = Math.max(0, Math.min(Math.min(Math.min(a[1][1], a[2][1]), a[1][2]), a[2][2]));
+        final int minRedSample = Math.max(0, Math.min(Math.min(Math.min(r[1][1], r[2][1]), r[1][2]), r[2][2]));
+        final int minGreenSample = Math.max(0, Math.min(Math.min(Math.min(g[1][1], g[2][1]), g[1][2]), g[2][2]));
+        final int minBlueSample = Math.max(0, Math.min(Math.min(Math.min(b[1][1], b[2][1]), b[1][2]), b[2][2]));
+        final int maxAlphaSample = Math.min(255, Math.max(Math.max(Math.max(a[1][1], a[2][1]), a[1][2]), a[2][2]));
+        final int maxRedSample = Math.min(255, Math.max(Math.max(Math.max(r[1][1], r[2][1]), r[1][2]), r[2][2]));
+        final int maxGreenSample = Math.min(255, Math.max(Math.max(Math.max(g[1][1], g[2][1]), g[1][2]), g[2][2]));
+        final int maxBlueSample = Math.min(255, Math.max(Math.max(Math.max(b[1][1], b[2][1]), b[1][2]), b[2][2]));
+        final int diagEdge = diagonalEdge(Y, wp);
+
+        int ai, ri, gi, bi;
+        if (diagEdge <= 0) {
+          ai = (int)(w1 * (a[0][3] + a[3][0]) + w2 * (a[1][2] + a[2][1]));
+          ri = (int)(w1 * (r[0][3] + r[3][0]) + w2 * (r[1][2] + r[2][1]));
+          gi = (int)(w1 * (g[0][3] + g[3][0]) + w2 * (g[1][2] + g[2][1]));
+          bi = (int)(w1 * (b[0][3] + b[3][0]) + w2 * (b[1][2] + b[2][1]));
+        } else {
+          ai = (int)(w1 * (a[0][0] + a[3][3]) + w2 * (a[1][1] + a[2][2]));
+          ri = (int)(w1 * (r[0][0] + r[3][3]) + w2 * (r[1][1] + r[2][2]));
+          gi = (int)(w1 * (g[0][0] + g[3][3]) + w2 * (g[1][1] + g[2][2]));
+          bi = (int)(w1 * (b[0][0] + b[3][3]) + w2 * (b[1][1] + b[2][2]));
+        }
+        // anti-ringing, clamp
+        ai = Misc.clamp(ai, minAlphaSample, maxAlphaSample);
+        ri = Misc.clamp(ri, minRedSample, maxRedSample);
+        gi = Misc.clamp(gi, minGreenSample, maxGreenSample);
+        bi = Misc.clamp(bi, minBlueSample, maxBlueSample);
+        dstPixels[y * dstWidth + x] = dstPixels[y * dstWidth + x + 1] = dstPixels[(y + 1) * dstWidth + x] = srcPixels[cy * srcWidth + cx];
+        dstPixels[(y + 1) * dstWidth + x + 1] = (ai << 24) | (ri << 16) | (gi << 8) | bi;
+        x++;
+      }
+      y++;
+    }
+
+    // second pass
+    wp[0] = 2;
+    wp[1] = wp[2] = wp[3] = wp[4] = wp[5] = 0;
+    for (int y= 0; y < dstHeight; y++) {
+      for (int x = 0; x < dstWidth; x++) {
+        // sample supporting pixels in original image
+        for (int sx = -1; sx <= 2; sx++) {
+          for (int sy = -1; sy <= 2; sy++) {
+            // clamp pixel locations
+            final int csy = Misc.clamp(sx - sy + y, 0, factor * srcHeight - 1);
+            final int csx = Misc.clamp(sx + sy + x, 0, factor * srcWidth - 1);
+            // sample & add weighted components
+            final int sample = dstPixels[csy * dstWidth + csx];
+            a[sx + 1][sy + 1] = sample >>> 24;
+            r[sx + 1][sy + 1] = (sample >> 16) & 0xff;
+            g[sx + 1][sy + 1] = (sample >> 8) & 0xff;
+            b[sx + 1][sy + 1] = sample & 0xff;
+            Y[sx + 1][sy + 1] = (int)(0.2126f * r[sx + 1][sy + 1] + 0.7152f * g[sx + 1][sy + 1] + 0.0722f * b[sx + 1][sy + 1]);
+          }
+        }
+        final int minAlphaSample = Math.max(0, Math.min(Math.min(Math.min(a[1][1], a[2][1]), a[1][2]), a[2][2]));
+        final int minRedSample = Math.max(0, Math.min(Math.min(Math.min(r[1][1], r[2][1]), r[1][2]), r[2][2]));
+        final int minGreenSample = Math.max(0, Math.min(Math.min(Math.min(g[1][1], g[2][1]), g[1][2]), g[2][2]));
+        final int minBlueSample = Math.max(0, Math.min(Math.min(Math.min(b[1][1], b[2][1]), b[1][2]), b[2][2]));
+        final int maxAlphaSample = Math.min(255, Math.max(Math.max(Math.max(a[1][1], a[2][1]), a[1][2]), a[2][2]));
+        final int maxRedSample = Math.min(255, Math.max(Math.max(Math.max(r[1][1], r[2][1]), r[1][2]), r[2][2]));
+        final int maxGreenSample = Math.min(255, Math.max(Math.max(Math.max(g[1][1], g[2][1]), g[1][2]), g[2][2]));
+        final int maxBlueSample = Math.min(255, Math.max(Math.max(Math.max(b[1][1], b[2][1]), b[1][2]), b[2][2]));
+        int diagEdge = diagonalEdge(Y, wp);
+
+        int ai, ri, gi, bi;
+        if (diagEdge <= 0) {
+          ai = (int)(w3 * (a[0][3] + a[3][0]) + w4 * (a[1][2] + a[2][1]));
+          ri = (int)(w3 * (r[0][3] + r[3][0]) + w4 * (r[1][2] + r[2][1]));
+          gi = (int)(w3 * (g[0][3] + g[3][0]) + w4 * (g[1][2] + g[2][1]));
+          bi = (int)(w3 * (b[0][3] + b[3][0]) + w4 * (b[1][2] + b[2][1]));
+        } else {
+          ai = (int)(w3 * (a[0][0] + a[3][3]) + w4 * (a[1][1] + a[2][2]));
+          ri = (int)(w3 * (r[0][0] + r[3][3]) + w4 * (r[1][1] + r[2][2]));
+          gi = (int)(w3 * (g[0][0] + g[3][3]) + w4 * (g[1][1] + g[2][2]));
+          bi = (int)(w3 * (b[0][0] + b[3][3]) + w4 * (b[1][1] + b[2][2]));
+        }
+        // anti-ringing, clamp
+        ai = Misc.clamp(ai, minAlphaSample, maxAlphaSample);
+        ri = Misc.clamp(ri, minRedSample, maxRedSample);
+        gi = Misc.clamp(gi, minGreenSample, maxGreenSample);
+        bi = Misc.clamp(bi, minBlueSample, maxBlueSample);
+        dstPixels[y * dstWidth + x + 1] = (ai << 24) | (ri << 16) | (gi << 8) | bi;
+
+        for (int sx = -1; sx <= 2; sx++) {
+          for (int sy = -1; sy <= 2; sy++) {
+            // clamp pixel locations
+            final int csy = Misc.clamp(sx - sy + 1 + y, 0, factor * srcHeight - 1);
+            final int csx = Misc.clamp(sx + sy - 1 + x, 0, factor * srcWidth - 1);
+            // sample & add weighted components
+            final int sample = dstPixels[csy * dstWidth + csx];
+            a[sx + 1][sy + 1] = sample >>> 24;
+            r[sx + 1][sy + 1] = (sample >> 16) & 0xff;
+            g[sx + 1][sy + 1] = (sample >> 8) & 0xff;
+            b[sx + 1][sy + 1] = sample & 0xff;
+            Y[sx + 1][sy + 1] = (int)(0.2126f * r[sx + 1][sy + 1] + 0.7152f * g[sx + 1][sy + 1] + 0.0722f * b[sx + 1][sy + 1]);
+          }
+        }
+        diagEdge = diagonalEdge(Y, wp);
+        if (diagEdge <= 0) {
+          ai = (int)(w3 * (a[0][3] + a[3][0]) + w4 * (a[1][2] + a[2][1]));
+          ri = (int)(w3 * (r[0][3] + r[3][0]) + w4 * (r[1][2] + r[2][1]));
+          gi = (int)(w3 * (g[0][3] + g[3][0]) + w4 * (g[1][2] + g[2][1]));
+          bi = (int)(w3 * (b[0][3] + b[3][0]) + w4 * (b[1][2] + b[2][1]));
+        } else {
+          ai = (int)(w3 * (a[0][0] + a[3][3]) + w4 * (a[1][1] + a[2][2]));
+          ri = (int)(w3 * (r[0][0] + r[3][3]) + w4 * (r[1][1] + r[2][2]));
+          gi = (int)(w3 * (g[0][0] + g[3][3]) + w4 * (g[1][1] + g[2][2]));
+          bi = (int)(w3 * (b[0][0] + b[3][3]) + w4 * (b[1][1] + b[2][2]));
+        }
+        // anti-ringing, clamp
+        ai = Misc.clamp(ai, minAlphaSample, maxAlphaSample);
+        ri = Misc.clamp(ri, minRedSample, maxRedSample);
+        gi = Misc.clamp(gi, minGreenSample, maxGreenSample);
+        bi = Misc.clamp(bi, minBlueSample, maxBlueSample);
+        dstPixels[(y + 1) * dstWidth + x] = (ai << 24) | (ri << 16) | (gi << 8) | bi;
+        x++;
+      }
+      y++;
+    }
+
+    // third pass
+    wp[0] =  2;
+    wp[1] =  1;
+    wp[2] = -1;
+    wp[3] =  4;
+    wp[4] = -1;
+    wp[5] =  1;
+    for (int y = dstHeight - 1; y >= 0; y--) {
+      for (int x = dstWidth - 1; x >= 0; x--) {
+        for (int sx = -2; sx <= 1; sx++) {
+          for (int sy = -2; sy <= 1; sy++) {
+            // clamp pixel locations
+            final int csy = Misc.clamp(sy + y, 0, factor * srcHeight - 1);
+            final int csx = Misc.clamp(sx + x, 0, factor * srcWidth - 1);
+            // sample & add weighted components
+            final int sample = dstPixels[csy * dstWidth + csx];
+            a[sx + 2][sy + 2] = sample >>> 24;
+            r[sx + 2][sy + 2] = (sample >> 16) & 0xff;
+            g[sx + 2][sy + 2] = (sample >> 8) & 0xff;
+            b[sx + 2][sy + 2] = sample & 0xff;
+            Y[sx + 2][sy + 2] = (int)(0.2126f * r[sx + 2][sy + 2] + 0.7152f * g[sx + 2][sy + 2] + 0.0722f * b[sx + 2][sy + 2]);
+          }
+        }
+        final int minAlphaSample = Math.max(0, Math.min(Math.min(Math.min(a[1][1], a[2][1]), a[1][2]), a[2][2]));
+        final int minRedSample = Math.max(0, Math.min(Math.min(Math.min(r[1][1], r[2][1]), r[1][2]), r[2][2]));
+        final int minGreenSample = Math.max(0, Math.min(Math.min(Math.min(g[1][1], g[2][1]), g[1][2]), g[2][2]));
+        final int minBlueSample = Math.max(0, Math.min(Math.min(Math.min(b[1][1], b[2][1]), b[1][2]), b[2][2]));
+        final int maxAlphaSample = Math.min(255, Math.max(Math.max(Math.max(a[1][1], a[2][1]), a[1][2]), a[2][2]));
+        final int maxRedSample = Math.min(255, Math.max(Math.max(Math.max(r[1][1], r[2][1]), r[1][2]), r[2][2]));
+        final int maxGreenSample = Math.min(255, Math.max(Math.max(Math.max(g[1][1], g[2][1]), g[1][2]), g[2][2]));
+        final int maxBlueSample = Math.min(255, Math.max(Math.max(Math.max(b[1][1], b[2][1]), b[1][2]), b[2][2]));
+        int diagEdge = diagonalEdge(Y, wp);
+
+        int ai, ri, gi, bi;
+        if (diagEdge <= 0) {
+          ai = (int)(w1 * (a[0][3] + a[3][0]) + w2 * (a[1][2] + a[2][1]));
+          ri = (int)(w1 * (r[0][3] + r[3][0]) + w2 * (r[1][2] + r[2][1]));
+          gi = (int)(w1 * (g[0][3] + g[3][0]) + w2 * (g[1][2] + g[2][1]));
+          bi = (int)(w1 * (b[0][3] + b[3][0]) + w2 * (b[1][2] + b[2][1]));
+        } else {
+          ai = (int)(w1 * (a[0][0] + a[3][3]) + w2 * (a[1][1] + a[2][2]));
+          ri = (int)(w1 * (r[0][0] + r[3][3]) + w2 * (r[1][1] + r[2][2]));
+          gi = (int)(w1 * (g[0][0] + g[3][3]) + w2 * (g[1][1] + g[2][2]));
+          bi = (int)(w1 * (b[0][0] + b[3][3]) + w2 * (b[1][1] + b[2][2]));
+        }
+        // anti-ringing, clamp
+        ai = Misc.clamp(ai, minAlphaSample, maxAlphaSample);
+        ri = Misc.clamp(ri, minRedSample, maxRedSample);
+        gi = Misc.clamp(gi, minGreenSample, maxGreenSample);
+        bi = Misc.clamp(bi, minBlueSample, maxBlueSample);
+        dstPixels[y * dstWidth + x] = (ai << 24) | (ri << 16) | (gi << 8) | bi;
+      }
+    }
+
+    return outImage;
+  }
+
+  private static int diagonalEdge(int[][] mat, int[] wp) {
+    final int dw1 =
+        wp[0] * (Math.abs(mat[0][2] - mat[1][1]) + Math.abs(mat[1][1] - mat[2][0]) +
+            Math.abs(mat[1][3] - mat[2][2]) + Math.abs(mat[2][2] - mat[3][1])) +
+        wp[1] * (Math.abs(mat[0][3] - mat[1][2]) + Math.abs(mat[2][1] - mat[3][0])) +
+        wp[2] * (Math.abs(mat[0][3] - mat[2][1]) + Math.abs(mat[1][2] - mat[3][0])) +
+        wp[3] *  Math.abs(mat[1][2] - mat[2][1]) +
+        wp[4] * (Math.abs(mat[0][2] - mat[2][0]) + Math.abs(mat[1][3] - mat[3][1])) +
+        wp[5] * (Math.abs(mat[0][1] - mat[1][0]) + Math.abs(mat[2][3] - mat[3][2]));
+
+    final int dw2 =
+        wp[0] * (Math.abs(mat[0][1] - mat[1][2]) + Math.abs(mat[1][2] - mat[2][3]) +
+            Math.abs(mat[1][0] - mat[2][1]) + Math.abs(mat[2][1] - mat[3][2])) +
+        wp[1] * (Math.abs(mat[0][0] - mat[1][1]) + Math.abs(mat[2][2] - mat[3][3])) +
+        wp[2] * (Math.abs(mat[0][0] - mat[2][2]) + Math.abs(mat[1][1] - mat[3][3])) +
+        wp[3] *  Math.abs(mat[1][1] - mat[2][2]) +
+        wp[4] * (Math.abs(mat[1][0] - mat[3][2]) + Math.abs(mat[0][1] - mat[2][3])) +
+        wp[5] * (Math.abs(mat[0][2] - mat[1][3]) + Math.abs(mat[2][0] - mat[3][1]));
+
+    return dw1 - dw2;
   }
 }

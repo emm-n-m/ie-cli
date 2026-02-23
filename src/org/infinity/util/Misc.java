@@ -292,6 +292,26 @@ public class Misc {
     return defValue;
   }
 
+  /** Clamps {@code int} value {@code v} between {@code min} and {@code max}. */
+  public static int clamp(int v, int min, int max) {
+    return (v < min) ? min : (v > max) ? max : v;
+  }
+
+  /** Clamps {@code long} value {@code v} between {@code min} and {@code max}. */
+  public static long clamp(long v, long min, long max) {
+    return (v < min) ? min : (v > max) ? max : v;
+  }
+
+  /** Clamps {@code float} value {@code v} between {@code min} and {@code max}. */
+  public static float clamp(float v, float min, float max) {
+    return (v < min) ? min : (v > max) ? max : v;
+  }
+
+  /** Clamps {@code double} value {@code v} between {@code min} and {@code max}. */
+  public static double clamp(double v, double min, double max) {
+    return (v < min) ? min : (v > max) ? max : v;
+  }
+
   /** Swaps byte order of the specified short value. */
   public static short swap16(short v) {
     return (short) (((v & 0xff) << 8) | ((v >> 8) & 0xff));
