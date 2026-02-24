@@ -42,6 +42,8 @@ import java.awt.image.DataBuffer;
 import java.awt.image.DataBufferByte;
 import java.awt.image.DataBufferInt;
 import java.awt.image.IndexColorModel;
+import java.util.HashMap;
+import java.util.function.Function;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBox;
@@ -57,9 +59,12 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
 import org.infinity.gui.ViewerUtil;
+import org.infinity.resource.graphics.ColorConvert;
+import org.infinity.resource.graphics.PseudoBamDecoder;
 import org.infinity.resource.graphics.PseudoBamDecoder.PseudoBamFrameEntry;
 import org.infinity.util.FastMath;
 import org.infinity.util.Misc;
+import org.infinity.util.tuples.Couple;
 
 /**
  * Transform filter: adjust the size of the BAM frames.
@@ -434,7 +439,6 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
       case BILINEAR:
       case BICUBIC:
       case LANCZOS:
-      case SUPER_XBR:
         return !getConverter().isBamV1Selected();
       default:
         return true;
@@ -930,11 +934,14 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
 
   // Wrapper for Super xBR that supports arbitrary scaling factors
   private static BufferedImage scaleSuperXBR(BufferedImage srcImage, double factorX, double factorY) {
-    if (srcImage == null || srcImage.getType() != BufferedImage.TYPE_INT_ARGB || factorX <= 0.0 || factorY <= 0.0 ) {
+    if (srcImage == null || factorX <= 0.0 || factorY <= 0.0 ) {
       return srcImage;
     }
 
-    BufferedImage outImage = srcImage;
+    final Couple<BufferedImage, IndexColorModel> couple = prepareImage(srcImage);
+    final IndexColorModel palette = couple.getValue1();
+    BufferedImage outImage = couple.getValue0();
+
     final double epsilonX = 1.0 / srcImage.getWidth();
     final double epsilonY = 1.0 / srcImage.getHeight();
 
@@ -953,6 +960,8 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
         curFactorY /= curFactorY;
       }
     }
+
+    outImage = finalizeImage(outImage, palette);
 
     return outImage;
   }
@@ -1229,5 +1238,67 @@ public class BamFilterTransformResize extends BamFilterBaseTransform implements 
         wp[5] * (Math.abs(mat[0][2] - mat[1][3]) + Math.abs(mat[2][0] - mat[3][1]));
 
     return dw1 - dw2;
+  }
+
+  /** Returns a truecolor version of the given image and optional palette if source image was paletted. */
+  private static Couple<BufferedImage, IndexColorModel> prepareImage(BufferedImage image) {
+    BufferedImage outImage = image;
+    IndexColorModel outPalette = null;
+    if (image != null && image.getType() == BufferedImage.TYPE_BYTE_INDEXED) {
+      // preparing (target) paletted image
+      final IndexColorModel palette = (IndexColorModel)outImage.getColorModel();
+      final int[] colors = new int[1 << palette.getPixelSize()];
+      palette.getRGBs(colors);
+      outPalette = new IndexColorModel(palette.getPixelSize(), colors.length, colors, 0, palette.hasAlpha(),
+          palette.getTransparentPixel(), DataBuffer.TYPE_BYTE);
+      outImage = ColorConvert.toBufferedImage(image, true, true);
+    }
+    return Couple.with(outImage, outPalette);
+  }
+
+  /** Returns a paletted image from the given image if {@code palette} is not {@code null}. */
+  private static BufferedImage finalizeImage(BufferedImage image, IndexColorModel palette) {
+    BufferedImage outImage = image;
+
+    if (image != null && image.getType() == BufferedImage.TYPE_INT_ARGB && palette != null) {
+      final int[] srcPixels = ((DataBufferInt)image.getRaster().getDataBuffer()).getData();
+
+      final int[] colors = new int[1 << palette.getPixelSize()];
+      palette.getRGBs(colors);
+      outImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_BYTE_INDEXED, palette);
+      final byte[] dstPixels = ((DataBufferByte)outImage.getRaster().getDataBuffer()).getData();
+
+      // determining use of alpha and transparent color index in palette
+      boolean hasAlpha = false;
+      int transIdx = -1;
+      for (int i = 0; i < colors.length; i++) {
+        final int c = colors[i] & 0x00ffffff;
+        final int a = colors[i] >>> 24;
+        hasAlpha = (a != 0 && a != 0xff);
+        transIdx = (transIdx < 0 && c == 0x0000ff00) ? i : transIdx;
+        if (hasAlpha && transIdx >= 0) {
+          break;
+        }
+      }
+      final byte transparentIndex = (transIdx < 0) ? 0 : (byte)transIdx;
+      final int transparentThreshold = hasAlpha ? -1 : 127;
+      final double alphaWeight = hasAlpha ? 1.0 : 0.0;
+
+      final Function<Integer, Byte> findNearestColor = color -> {
+        if (PseudoBamDecoder.isTransparentColor(color, transparentThreshold)) {
+          return transparentIndex;
+        } else {
+          return (byte)ColorConvert.getNearestColor(color, colors, alphaWeight, null, true);
+        }
+      };
+
+      // performing color conversion
+      final HashMap<Integer, Byte> colorCache = new HashMap<>(4096);
+      for (int i = 0; i < srcPixels.length; i++) {
+        dstPixels[i] = colorCache.computeIfAbsent(srcPixels[i], findNearestColor);
+      }
+    }
+
+    return outImage;
   }
 }
