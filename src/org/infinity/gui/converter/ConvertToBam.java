@@ -62,8 +62,10 @@ import java.util.function.Consumer;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.swing.AbstractAction;
+import javax.swing.AbstractButton;
 import javax.swing.AbstractListModel;
 import javax.swing.BorderFactory;
+import javax.swing.ButtonModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DropMode;
 import javax.swing.InputVerifier;
@@ -132,6 +134,7 @@ import org.infinity.util.IniMapEntry;
 import org.infinity.util.IniMapSection;
 import org.infinity.util.Logger;
 import org.infinity.util.Misc;
+import org.infinity.util.Operation;
 import org.infinity.util.SimpleListModel;
 import org.infinity.util.io.FileEx;
 import org.infinity.util.io.FileManager;
@@ -187,6 +190,18 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
 
   private static Path currentPath;
 
+  // Performed if a user-defined amount of cycles should be added at once
+  private final Operation opCyclesAdd = () -> {
+    final Object result = JOptionPane.showInputDialog(this, "Number of cycles to add:", "Add cycles",
+        JOptionPane.QUESTION_MESSAGE, null, null, "1");
+    if (result != null) {
+      int count = Misc.toNumber(result.toString(), 0);
+      if (count > 0) {
+        cyclesAdd(count);
+      }
+    }
+  };
+
   // Global BamDecoder instance for managing frames and cycles
   private final PseudoBamDecoder bamDecoder = new PseudoBamDecoder();
   // BamDecoder instance containing the final result of the current BAM structure
@@ -197,6 +212,9 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
   private final PseudoBamFrameEntry entryFilterPreview = new PseudoBamFrameEntry(null, 0, 0);
   // The palette dialog instance for BAM v1 export
   private final BamPaletteDialog paletteDialog = new BamPaletteDialog(this);
+
+  // Handles firing delayed action events
+  private final DelayedButtonAction delayedAction = new DelayedButtonAction();
 
   private JTabbedPane tpMain;
   private JTabbedPane tpCyclesSection;
@@ -688,7 +706,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     } else if (event.getSource() == bVersionHelp) {
       showVersionHelp();
     } else if (event.getSource() == bCyclesAdd) {
-      cyclesAdd();
+      cyclesAdd(1);
     } else if (event.getSource() == bCyclesRemove) {
       cyclesRemove();
     } else if (event.getSource() == bCyclesRemoveAll) {
@@ -989,6 +1007,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
 
   @Override
   public void mousePressed(MouseEvent event) {
+    if (event.getSource() == bCyclesAdd) {
+      // long-tap action: add user-defined amount of cycles to the BAM
+      delayedAction.performDelayedAction(bCyclesAdd, 1000, opCyclesAdd);
+    }
   }
 
   @Override
@@ -1416,7 +1438,9 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     // creating "Cycles" section
     JPanel pCyclesButtons = new JPanel(new GridBagLayout());
     bCyclesAdd = new JButton("Add cycle");
+    bCyclesAdd.setToolTipText("Press and hold button to specify amount of cycles to add.");
     bCyclesAdd.addActionListener(this);
+    bCyclesAdd.addMouseListener(this);
     bCyclesRemove = new JButton("Remove cycle(s)");
     bCyclesRemove.addActionListener(this);
     bCyclesRemoveAll = new JButton("Remove all");
@@ -3031,13 +3055,23 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     }
   }
 
-  /** Action for "Add cycle": adds a new empty cycle at the current cycle index to the cycles list. */
-  private void cyclesAdd() {
+  /** Action for "Add cycle": adds "count" new empty cycles at the current cycle index to the cycles list. */
+  private void cyclesAdd(int count) {
     int idx = listCycles.getSelectedIndex() + 1;
     if (idx < 0) {
       idx = modelCycles.getSize();
     }
-    cyclesAdd(idx, new int[0]);
+
+    count = Math.max(0, count);
+    if (isBamV1Selected()) {
+      // BAM V1 supports only up to 255 cycles
+      count = Math.min(256, idx + count) - idx;
+    }
+
+    for (int i = 0; i < count; ++i) {
+      cyclesAdd(idx, new int[0]);
+      idx++;
+    }
   }
 
   /** Specific: adds a new cycle with the specified frame indices at the specified position. */
@@ -6166,6 +6200,127 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
       ViewerUtil.setGBC(c, 1, 0, 1, 1, 0.0, 0.0, GridBagConstraints.LINE_START, GridBagConstraints.NONE,
           new Insets(4, 4, 4, 4), 0, 0);
       add(cycleInput, c);
+    }
+  }
+
+  /**
+   * Handles delayed execution of user-defined operations action events from button controls.
+   */
+  private static class DelayedButtonAction implements ActionListener, MouseListener {
+    private final Timer actionTimer;
+
+    private AbstractButton button;
+    private Operation operation;
+
+    public DelayedButtonAction() {
+      this.actionTimer = new Timer(1 << 31, null);
+      this.actionTimer.stop();
+      this.actionTimer.setRepeats(false);
+    }
+
+    /**
+     * <p>
+     * Sets up a delayed operation. The operation is executed in the event-dispatching thread. The original action event
+     * that is fired if the specified button is released will be temporarily suppressed when the delayed operation is
+     * performed.
+     * </p>
+     * <p>
+     * Setting up a new delayed action will terminate any previously defined delayed actions.
+     * </p>
+     *
+     * @param button {@link AbstractButton} instance of the button control that performs the delayed operation.
+     * @param delay  Delay in milliseconds.
+     * @param op     {@link Operation} to perform after the specified delay. Specifying {@code null} still fires at the
+     *                 specified delay but doesn't perform any operations.
+     */
+    public synchronized void performDelayedAction(AbstractButton button, int delay, Operation op) {
+      resetDelayedAction();
+
+      this.button = button;
+      if (this.button != null) {
+        // we also have to deal with cancelled long-taps
+        this.button.addMouseListener(this);
+      }
+      operation = op;
+
+      actionTimer.addActionListener(e -> {
+        // current button click is cancelled to prevent firing action events twice
+        if (this.button != null) {
+          this.button.getModel().setArmed(false);
+          this.button.getModel().setPressed(false);
+          this.button.getModel().setArmed(true);
+        }
+        resetDelayedAction();
+        if (op != null) {
+          op.perform();
+        }
+      });
+
+      actionTimer.setInitialDelay(Math.max(0, delay));
+      actionTimer.start();
+    }
+
+    /**
+     * Terminates an ongoing delayed action that was set up by
+     * {@link #performDelayedAction(ButtonModel, int, Operation)}.
+     */
+    public synchronized void resetDelayedAction() {
+      if (actionTimer.isRunning()) {
+        actionTimer.stop();
+      }
+
+      operation = null;
+      if (button != null) {
+        button.removeMouseListener(this);
+        button = null;
+      }
+
+      // removing active listeners
+      final ActionListener[] listeners = actionTimer.getActionListeners();
+      for (int i = listeners.length - 1; i >= 0; i--) {
+        actionTimer.removeActionListener(listeners[i]);
+      }
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+      final AbstractButton button = this.button;
+      final Operation op = this.operation;
+
+      resetDelayedAction();
+
+      // current button click is cancelled to prevent firing action events multiple times
+      if (button != null) {
+        button.getModel().setArmed(false);
+        button.getModel().setPressed(false);
+        button.getModel().setArmed(true);
+      }
+
+      if (op != null) {
+        op.perform();
+      }
+    }
+
+    @Override
+    public void mouseClicked(MouseEvent e) {
+    }
+
+    @Override
+    public void mousePressed(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+      resetDelayedAction();
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
+      resetDelayedAction();
     }
   }
 }
