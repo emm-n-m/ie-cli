@@ -83,6 +83,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
+import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -1091,10 +1092,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     listFrameEntries.add(bamDecoderFinal.getFramesList()); // processed frames list
     bamDecoderFinal.setCyclesList(bamDecoder.getCyclesList()); // shared cycles list
 
-    JPanel pFrames = createFramesTab();
-    JPanel pCycles = createCyclesTab();
-    JPanel pPreview = createPreviewTab();
-    JPanel pFilters = createFiltersTab();
+    JComponent pFrames = createFramesTab();
+    JComponent pCycles = createCyclesTab();
+    JComponent pPreview = createPreviewTab();
+    JComponent pFilters = createFiltersTab();
 
     // setting up tabbed pane
     tpMain = new JTabbedPane(SwingConstants.TOP);
@@ -1179,7 +1180,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
   }
 
   /** Creating panel "Frames". */
-  private JPanel createFramesTab() {
+  private JComponent createFramesTab() {
     GridBagConstraints c = new GridBagConstraints();
 
     // creating "Frames List"
@@ -1432,12 +1433,12 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     return pFrames;
   }
 
-  private JPanel createCyclesTab() {
+  private JComponent createCyclesTab() {
     GridBagConstraints c = new GridBagConstraints();
 
     // creating "Cycles" section
     JPanel pCyclesButtons = new JPanel(new GridBagLayout());
-    bCyclesAdd = new JButton("Add cycle");
+    bCyclesAdd = new JButton("Add cycle(s)");
     bCyclesAdd.setToolTipText("Press and hold button to specify amount of cycles to add.");
     bCyclesAdd.addActionListener(this);
     bCyclesAdd.addMouseListener(this);
@@ -1639,18 +1640,13 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     pCurrentCycle.add(pCurCycleArrows, c);
 
     // putting all together
-    JPanel pCycles = new JPanel(new GridBagLayout());
-    c = ViewerUtil.setGBC(c, 0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
-        new Insets(4, 4, 4, 4), 0, 0);
-    pCycles.add(pTopHalf, c);
-    c = ViewerUtil.setGBC(c, 0, 1, 1, 1, 1.0, 2.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
-        new Insets(4, 4, 4, 4), 0, 0);
-    pCycles.add(pCurrentCycle, c);
+    JSplitPane pCycles = new JSplitPane(JSplitPane.VERTICAL_SPLIT, true, pTopHalf, pCurrentCycle);
+    pCycles.setBorder(BorderFactory.createEmptyBorder(4, 4, 4, 4));
 
     return pCycles;
   }
 
-  private JPanel createPreviewTab() {
+  private JComponent createPreviewTab() {
     bamControlPreview = null;
 
     GridBagConstraints c = new GridBagConstraints();
@@ -1816,7 +1812,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     return pPreview;
   }
 
-  private JPanel createFiltersTab() {
+  private JComponent createFiltersTab() {
     GridBagConstraints c = new GridBagConstraints();
 
     // creating "Filters" section
@@ -1950,8 +1946,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     rcFiltersPreview.setHorizontalAlignment(SwingConstants.CENTER);
     rcFiltersPreview.setVerticalAlignment(SwingConstants.CENTER);
     scrollFiltersPreview = new JScrollPane(rcFiltersPreview);
-    scrollFiltersPreview.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-    scrollFiltersPreview.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+    scrollFiltersPreview.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    scrollFiltersPreview.getHorizontalScrollBar().setUnitIncrement(32);
+    scrollFiltersPreview.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+    scrollFiltersPreview.getVerticalScrollBar().setUnitIncrement(32);
     scrollFiltersPreview.setBorder(BorderFactory.createEmptyBorder());
 
     c = ViewerUtil.setGBC(c, 0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
@@ -1966,7 +1964,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     c = ViewerUtil.setGBC(c, 0, 0, 1, 2, 0.0, 1.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
         new Insets(8, 8, 8, 0), 0, 0);
     pFilters.add(pFiltersList, c);
-    c = ViewerUtil.setGBC(c, 1, 0, 1, 1, 1.0, 0.5, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
+    c = ViewerUtil.setGBC(c, 1, 0, 1, 1, 1.0, 0.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
         new Insets(8, 8, 0, 8), 0, 0);
     pFilters.add(pFiltersSettingsMain, c);
     c = ViewerUtil.setGBC(c, 1, 1, 1, 1, 1.0, 1.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
