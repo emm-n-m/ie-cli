@@ -1566,10 +1566,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
 
     JPanel pTopHalf = new JPanel(new GridBagLayout());
     c = ViewerUtil.setGBC(c, 0, 0, 1, 1, 1.0, 1.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
-        new Insets(4, 8, 0, 0), 0, 0);
+        new Insets(4, 4, 4, 0), 0, 0);
     pTopHalf.add(pCyclesList, c);
     c = ViewerUtil.setGBC(c, 1, 0, 1, 1, 0.0, 0.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.HORIZONTAL,
-        new Insets(8, 16, 0, 0), 0, 0);
+        new Insets(8, 16, 4, 0), 0, 0);
     pTopHalf.add(tpCyclesSection, c);
 
     // creating "Current Cycles" section
