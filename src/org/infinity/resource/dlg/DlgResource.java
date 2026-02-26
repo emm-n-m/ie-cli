@@ -50,6 +50,7 @@ import org.infinity.resource.key.ResourceEntry;
 import org.infinity.updater.Utils;
 import org.infinity.util.Logger;
 import org.infinity.util.StringTable;
+import org.infinity.util.io.FileManager;
 import org.infinity.util.io.StreamUtils;
 
 /**
@@ -563,14 +564,15 @@ public final class DlgResource extends AbstractStruct
       writer.println("// creator  : " + niPath);
       writer.println("// game     : " + Profile.getGameRoot().toString());
       writer.println("// resource : " + getResourceEntry().getResourceName());
-      writer.println("// source   : " + Profile.getGameRoot().relativize(getResourceEntry().getActualPath()));
+      writer.println("// source   : "
+          + FileManager.getRelativizedPath(Profile.getGameRoot(), getResourceEntry().getActualPath()));
 
-      Path path = Profile.getGameRoot().relativize(Profile.getProperty(Profile.Key.GET_GAME_DIALOG_FILE));
+      Path path = FileManager.getRelativizedPath(Profile.getGameRoot(), Profile.getProperty(Profile.Key.GET_GAME_DIALOG_FILE));
       writer.println("// dialog   : " + path);
 
       path = Profile.getProperty(Profile.Key.GET_GAME_DIALOGF_FILE);
       if (path != null) {
-        path = Profile.getGameRoot().relativize(path);
+        path = FileManager.getRelativizedPath(Profile.getGameRoot(), path);
         writer.println("// dialogF  : " + path);
       } else {
         writer.println("// dialogF  : (none)");

@@ -10,6 +10,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.ProviderMismatchException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -17,6 +18,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.BiFunction;
 
+import org.infinity.resource.Profile;
 import org.infinity.util.Logger;
 import org.infinity.util.Platform;
 
@@ -37,7 +39,7 @@ public class FileManager {
   }
 
   private static final BiFunction<Path, Boolean, Path> pathResolver = makePathResolver();
-  
+
   private static BiFunction<Path, Boolean, Path> makePathResolver() {
     return isCaseSensitiveMode() ? new CaseAwarePathResolver()::resolve : (p, f) -> p;
   }
@@ -278,6 +280,44 @@ public class FileManager {
     String retVal = null;
     if (path != null) {
       retVal = getFileExtension(path.getFileName().toString());
+    }
+    return retVal;
+  }
+
+  /**
+   * Attempts to create a relative path between {@code basePath} and {@code path}.
+   * Handles incompatible system providers (e.g. DLC filesystem) without throwing an exception.
+   *
+   * @param basePath The path to relativize against. Game root path is used if {@code null} is specified.
+   * @param path     The path to relativize.
+   * @return Relativized path if successful, {@code path} otherwise.
+   */
+  public static Path getRelativizedPath(Path basePath, Path path) {
+    if (basePath == null) {
+      basePath = Profile.getGameRoot();
+    }
+    Path retVal = path;
+    if (basePath != null && path != null) {
+      try {
+        retVal = basePath.relativize(path);
+      } catch (ProviderMismatchException e) {
+        // provide helpful debugging information
+        if (e.getMessage() == null || e.getMessage().isEmpty()) {
+          final StackTraceElement[] traces = e.getStackTrace();
+          String msg = "Incompatible filesystem providers ({} vs. {})";
+          if (traces != null) {
+            for (int i = 0; i < traces.length; i++) {
+              if (traces[i].getClassName().startsWith("org.infinity")) {
+                msg += "\n\t" + traces[i].toString();
+                i = traces.length;
+              }
+            }
+          }
+          Logger.debug(msg, basePath.getFileSystem().getClass().getSimpleName(), path.getFileSystem().getClass().getSimpleName());
+        } else {
+          Logger.debug(e.getMessage());
+        }
+      }
     }
     return retVal;
   }
