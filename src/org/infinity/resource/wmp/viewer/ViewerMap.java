@@ -18,6 +18,8 @@ import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -33,13 +35,16 @@ import java.util.List;
 
 import javax.imageio.ImageIO;
 import javax.swing.BorderFactory;
+import javax.swing.ButtonGroup;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.ListSelectionModel;
@@ -79,6 +84,32 @@ public class ViewerMap extends JPanel {
     NORTH, WEST, SOUTH, EAST
   }
 
+  /** Map icon display mode. */
+  public enum IconDisplayMode {
+    /** Show no icons at all. */
+    NONE,
+    /** Show only icons that are flagged as "visible" in the WMP resource. */
+    VISIBLE,
+    /** Show all icons listed in the WMP resource. */
+    ALL,
+    ;
+
+    /** Convenience method that returns {@code true} if this enum value is {@link #NONE}. */
+    public boolean isNone() {
+      return (this == NONE);
+    }
+
+    /** Convenience method that returns {@code true} if this enum value is {@link #VISIBLE}. */
+    public boolean isVisible() {
+      return (this == VISIBLE);
+    }
+
+    /** Convenience method that returns {@code true} if this enum value is {@link #ALL}. */
+    public boolean isAll() {
+      return (this == ALL);
+    }
+  }
+
   private static final EnumMap<Direction, Color> TRAVEL_COLORS = new EnumMap<>(Direction.class);
 
   static {
@@ -90,7 +121,10 @@ public class ViewerMap extends JPanel {
 
   private final JPopupMenu pmOptions = new JPopupMenu("Options");
   private final JMenuItem miExportMap = new JMenuItem("Export as PNG...");
-  private final JCheckBoxMenuItem miShowIcons = new JCheckBoxMenuItem("Show all map icons", true);
+  private final JRadioButtonMenuItem miShowIconsNone = new JRadioButtonMenuItem("None", false);
+  private final JRadioButtonMenuItem miShowIconsVisible = new JRadioButtonMenuItem("Visible", false);
+  private final JRadioButtonMenuItem miShowIconsAll = new JRadioButtonMenuItem("All", true);
+  private final JMenu mShowIcons = new JMenu("Show map icons");
   private final JCheckBoxMenuItem miShowIconLabels = new JCheckBoxMenuItem("Show icons labels", true);
   private final JCheckBoxMenuItem miShowDistances = new JCheckBoxMenuItem("Show travel distances", false);
   private final JCheckBoxMenuItem miScaling = new JCheckBoxMenuItem("Scale map icons",
@@ -131,10 +165,26 @@ public class ViewerMap extends JPanel {
       dotBackup = new BufferedImage(iconDot.getWidth(), iconDot.getHeight(), iconDot.getType());
       dotX = dotY = -1;
 
+      final ButtonGroup showIconsGroup = new ButtonGroup();
+      showIconsGroup.add(miShowIconsNone);
+      showIconsGroup.add(miShowIconsVisible);
+      showIconsGroup.add(miShowIconsAll);
+      mShowIcons.add(miShowIconsNone);
+      mShowIcons.add(miShowIconsVisible);
+      mShowIcons.add(miShowIconsAll);
+      mShowIcons.setMnemonic('i');
+      miShowIconsNone.addItemListener(listeners);
+      miShowIconsNone.setToolTipText("Hide all map icons.");
+      miShowIconsNone.setMnemonic('n');
+      miShowIconsVisible.addItemListener(listeners);
+      miShowIconsVisible.setToolTipText("Show only map icons that are flagged as \"visible\" on the worldmap.");
+      miShowIconsVisible.setMnemonic('v');
+      miShowIconsAll.addItemListener(listeners);
+      miShowIconsAll.setToolTipText("Show all map icons.");
+      miShowIconsAll.setMnemonic('a');
+
       miExportMap.setMnemonic('x');
       miExportMap.addActionListener(listeners);
-      miShowIcons.setMnemonic('i');
-      miShowIcons.addActionListener(listeners);
       miShowIconLabels.setMnemonic('l');
       miShowIconLabels.addActionListener(listeners);
       miShowDistances.setMnemonic('d');
@@ -145,7 +195,7 @@ public class ViewerMap extends JPanel {
           "Scales map icon locations according to the worldmap's scaling factor. (Needed for some games)");
       pmOptions.add(miExportMap);
       pmOptions.addSeparator();
-      pmOptions.add(miShowIcons);
+      pmOptions.add(mShowIcons);
       pmOptions.add(miShowIconLabels);
       pmOptions.add(miShowDistances);
       pmOptions.add(miScaling);
@@ -204,10 +254,46 @@ public class ViewerMap extends JPanel {
       }
 
       // applying preselected overlays
-      showOverlays(miShowIcons.isSelected(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
+      showOverlays(getIconDisplayMode(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
     } finally {
       WindowBlocker.blockWindow(false);
     }
+  }
+
+  /** Returns the currenctly selected icon display option as {@link IconDisplayMode} enum. */
+  private IconDisplayMode getIconDisplayMode() {
+    if (miShowIconsNone != null && miShowIconsNone.isSelected()) {
+      return IconDisplayMode.NONE;
+    } else if (miShowIconsVisible != null && miShowIconsVisible.isSelected()) {
+      return IconDisplayMode.VISIBLE;
+    } else {
+      return IconDisplayMode.ALL;
+    }
+  }
+
+  /** Selects the specified icon display mode. Defaults to {@link IconDisplayMode#ALL}. */
+  private void setIconDisplayMode(IconDisplayMode mode) {
+    if (mode == null) {
+      mode = IconDisplayMode.ALL;
+    }
+    switch (mode) {
+      case NONE:
+        miShowIconsNone.setSelected(true);
+        break;
+      case VISIBLE:
+        miShowIconsVisible.setSelected(true);
+        break;
+      default:
+        miShowIconsAll.setSelected(true);
+    }
+  }
+
+  /** Returns whether the specified area is flagged as "visible" on the map. */
+  private boolean isMapIconVisible(WmpAreaInfo wai) {
+    if (wai != null) {
+      return (wai.getFlags() & 1) != 0;
+    }
+    return false;
   }
 
   /** Returns current map entry structure. */
@@ -232,23 +318,25 @@ public class ViewerMap extends JPanel {
   }
 
   /** Display either or both map icons and travel distances. */
-  private void showOverlays(boolean showIcons, boolean showIconLabels, boolean showDistances) {
+  private void showOverlays(IconDisplayMode iconDisplayMode, boolean showIconLabels, boolean showDistances) {
     resetMap();
-    if (showIcons) {
-      showMapIcons();
-      if (showIconLabels) {
-        showMapIconLabels();
-      }
-      if (showDistances) {
-        showMapDistances(listPanel.getList().getSelectedIndices());
-      }
+    showMapIcons(iconDisplayMode);
+    if (showIconLabels) {
+      showMapIconLabels(iconDisplayMode);
+    }
+    if (showDistances) {
+      showMapDistances(iconDisplayMode, listPanel.getList().getSelectedIndices());
     }
     showDot(listPanel.getList().getSelectedValue(), false);
     rcMap.repaint();
   }
 
   /** Draws map icons onto the map. */
-  private void showMapIcons() {
+  private void showMapIcons(IconDisplayMode iconDisplayMode) {
+    if (iconDisplayMode.isNone()) {
+      return;
+    }
+
     if (mapInfo.getMapIcons() != null) {
       Graphics2D g = ((BufferedImage) rcMap.getImage()).createGraphics();
       try {
@@ -258,6 +346,10 @@ public class ViewerMap extends JPanel {
 
           final WmpAreaInfo wai = getAreaInfo(i, true);
           if (wai != null) {
+            final boolean visible = iconDisplayMode.isAll() || isMapIconVisible(wai);
+            if (!visible) {
+              continue;
+            }
             iconIndex = wai.getIconIndex();
             p = getAreaEntryPosition(wai);
           }
@@ -297,7 +389,11 @@ public class ViewerMap extends JPanel {
   }
 
   /** Draws map icon labels onto the map. */
-  private void showMapIconLabels() {
+  private void showMapIconLabels(IconDisplayMode iconDisplayMode) {
+    if (iconDisplayMode.isNone()) {
+      return;
+    }
+
     if (mapInfo.getMapIcons() != null) {
       Graphics2D g = ((BufferedImage) rcMap.getImage()).createGraphics();
       try {
@@ -311,6 +407,11 @@ public class ViewerMap extends JPanel {
 
           final WmpAreaInfo wai = getAreaInfo(i, true);
           if (wai != null) {
+            final boolean visible = iconDisplayMode.isAll() || isMapIconVisible(wai);
+            if (!visible) {
+              continue;
+            }
+
             iconIndex = wai.getIconIndex();
             strref = wai.getAreaNameStrref();
             if (strref < 0) {
@@ -407,7 +508,11 @@ public class ViewerMap extends JPanel {
    * @param areaIndices Sequence of map indices for showing distances. Specify no parameters to show distances for all
    *                    available maps.
    */
-  private void showMapDistances(int[] areaIndices) {
+  private void showMapDistances(IconDisplayMode iconDisplayMode, int[] areaIndices) {
+    if (iconDisplayMode.isNone()) {
+      return;
+    }
+
     final List<Integer> areaIndicesList = new ArrayList<>();
     if (areaIndices.length == 0) {
       for (int i = 0, count = mapInfo.getAreaList().size(); i < count; i++) {
@@ -428,55 +533,63 @@ public class ViewerMap extends JPanel {
       g.setFont(g.getFont().deriveFont(g.getFont().getSize2D() * 0.8f));
       for (final int curAreaIndex : areaIndicesList) {
         final WmpAreaInfo srcAreaInfo = getAreaInfo(curAreaIndex, false);
-        if (srcAreaInfo != null) {
-          for (final WmpLinkInfo wli : srcAreaInfo.getLinksList()) {
-            final Point ptOrigin = getMapIconCoordinate(curAreaIndex, wli.getDirection(), false);
-            final int targetAreaIndex = wli.getTargetAreaIndex();
-            if (targetAreaIndex < 0 || targetAreaIndex >= mapInfo.getAreaList().size()) {
-              Logger.warn("Invalid target area link: {}", targetAreaIndex);
+        final boolean srcVisible = (srcAreaInfo != null) && (iconDisplayMode.isAll() || isMapIconVisible(srcAreaInfo));
+        if (!srcVisible) {
+          continue;
+        }
+
+        for (final WmpLinkInfo wli : srcAreaInfo.getLinksList()) {
+          final Point ptOrigin = getMapIconCoordinate(curAreaIndex, wli.getDirection(), false);
+          final int targetAreaIndex = wli.getTargetAreaIndex();
+          if (targetAreaIndex < 0 || targetAreaIndex >= mapInfo.getAreaList().size()) {
+            Logger.warn("Invalid target area link: {}", targetAreaIndex);
+            continue;
+          }
+          final WmpAreaInfo dstAreaInfo = mapInfo.getAreaList().get(targetAreaIndex);
+          final int dstAreaIndex = dstAreaInfo.getAreaIndex();
+          if (areaIndicesList.size() > 1 && areaIndices.length != 0) {
+            // finding corresponding travel distances between selected areas
+            boolean found = false;
+            for (final int idx : areaIndicesList) {
+              if (idx == dstAreaIndex) {
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
               continue;
             }
-            final WmpAreaInfo dstAreaInfo = mapInfo.getAreaList().get(wli.getTargetAreaIndex());
-            final int dstAreaIndex = dstAreaInfo.getAreaIndex();
-            if (areaIndicesList.size() > 1 && areaIndices.length != 0) {
-              // finding corresponding travel distances between selected areas
-              boolean found = false;
-              for (final int idx : areaIndicesList) {
-                if (idx == dstAreaIndex) {
-                  found = true;
-                  break;
-                }
-              }
-              if (!found) {
-                continue;
-              }
-            }
-
-            final Direction dstDir;
-            switch (wli.getDefaultEntrance()) {
-              case 2:
-                dstDir = Direction.EAST;
-                break;
-              case 4:
-                dstDir = Direction.SOUTH;
-                break;
-              case 8:
-                dstDir = Direction.WEST;
-                break;
-              default:
-                dstDir = Direction.NORTH;
-                break;
-            }
-            final Point ptTarget = getMapIconCoordinate(dstAreaIndex, dstDir, false);
-
-            // checking random encounters
-            int rndEncProb = (wli.getRandomEncounterProbability() > 0 && wli.getRandomEncounterAreaCount() != 0)
-                ? wli.getRandomEncounterProbability()
-                : 0;
-
-            drawMapDistance(ptOrigin, ptTarget, wli.getDistanceScale() * 4, rndEncProb,
-                TRAVEL_COLORS.get(wli.getDirection()), g);
           }
+
+          final boolean dstVisible = iconDisplayMode.isAll() || isMapIconVisible(dstAreaInfo);
+          if (!dstVisible) {
+            continue;
+          }
+
+          final Direction dstDir;
+          switch (wli.getDefaultEntrance()) {
+            case 2:
+              dstDir = Direction.EAST;
+              break;
+            case 4:
+              dstDir = Direction.SOUTH;
+              break;
+            case 8:
+              dstDir = Direction.WEST;
+              break;
+            default:
+              dstDir = Direction.NORTH;
+              break;
+          }
+          final Point ptTarget = getMapIconCoordinate(dstAreaIndex, dstDir, false);
+
+          // checking random encounters
+          int rndEncProb = (wli.getRandomEncounterProbability() > 0 && wli.getRandomEncounterAreaCount() != 0)
+              ? wli.getRandomEncounterProbability()
+              : 0;
+
+          drawMapDistance(ptOrigin, ptTarget, wli.getDistanceScale() * 4, rndEncProb,
+              TRAVEL_COLORS.get(wli.getDirection()), g);
         }
       }
     } finally {
@@ -829,7 +942,8 @@ public class ViewerMap extends JPanel {
 
   // -------------------------- INNER CLASSES --------------------------
 
-  private class Listeners implements ActionListener, MouseListener, MouseMotionListener, ListSelectionListener {
+  private class Listeners
+      implements ActionListener, MouseListener, MouseMotionListener, ListSelectionListener, ItemListener {
     public Listeners() {
     }
 
@@ -837,41 +951,31 @@ public class ViewerMap extends JPanel {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-      if (e.getSource() == miShowIcons) {
-        try {
-          WindowBlocker.blockWindow(true);
-          if (!miShowIcons.isSelected() && miShowDistances.isSelected()) {
-            miShowDistances.setSelected(false);
-          }
-          showOverlays(miShowIcons.isSelected(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
-        } finally {
-          WindowBlocker.blockWindow(false);
-        }
-      } else if (e.getSource() == miShowIconLabels) {
+      if (e.getSource() == miShowIconLabels) {
         WindowBlocker.blockWindow(true);
         try {
-          if (miShowIconLabels.isSelected() && !miShowIcons.isSelected()) {
-            miShowIcons.setSelected(true);
+          if (miShowIconLabels.isSelected() && getIconDisplayMode().isNone()) {
+            setIconDisplayMode(IconDisplayMode.VISIBLE);
           }
-          showOverlays(miShowIcons.isSelected(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
+          showOverlays(getIconDisplayMode(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
         } finally {
           WindowBlocker.blockWindow(false);
         }
       } else if (e.getSource() == miShowDistances) {
         try {
           WindowBlocker.blockWindow(true);
-          if (miShowDistances.isSelected() && !miShowIcons.isSelected()) {
-            miShowIcons.setSelected(true);
+          if (miShowDistances.isSelected() && getIconDisplayMode().isNone()) {
+            setIconDisplayMode(IconDisplayMode.VISIBLE);
           }
-          showOverlays(miShowIcons.isSelected(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
+          showOverlays(getIconDisplayMode(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
         } finally {
           WindowBlocker.blockWindow(false);
         }
       } else if (e.getSource() == miScaling) {
         try {
           WindowBlocker.blockWindow(true);
-          if (miShowIcons.isSelected()) {
-            showOverlays(miShowIcons.isSelected(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
+          if (!getIconDisplayMode().isNone()) {
+            showOverlays(getIconDisplayMode(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
           }
         } finally {
           WindowBlocker.blockWindow(false);
@@ -898,12 +1002,16 @@ public class ViewerMap extends JPanel {
           if ((e.getModifiers() & BrowserMenuBar.getCtrlMask()) != 0) {
             listPanel.getList().clearSelection();
           } else {
-            if (miShowIcons.isSelected()) {
+            if (!getIconDisplayMode().isNone()) {
               final Rectangle rect = rcMap.getCanvasBounds();
               final int index = locationToMapIconIndex(e.getX() - rect.x, e.getY() - rect.y, true);
               if (index >= 0) {
-                listPanel.getList().setSelectedIndex(index);
-                listPanel.getList().ensureIndexIsVisible(index);
+                final WmpAreaInfo wai = getAreaInfo(index, true);
+                final boolean visible = getIconDisplayMode().isAll() || isMapIconVisible(wai);
+                if (visible) {
+                  listPanel.getList().setSelectedIndex(index);
+                  listPanel.getList().ensureIndexIsVisible(index);
+                }
               }
             }
           }
@@ -963,7 +1071,7 @@ public class ViewerMap extends JPanel {
       if (!event.getValueIsAdjusting()) {
         JList<?> list = (JList<?>) event.getSource();
         if (miShowDistances.isSelected()) {
-          showOverlays(miShowIcons.isSelected(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
+          showOverlays(getIconDisplayMode(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
         } else {
           showDot((StructEntry)list.getSelectedValue(), true);
         }
@@ -972,5 +1080,24 @@ public class ViewerMap extends JPanel {
     }
 
     // --------------------- End Interface ListSelectionListener ---------------------
+
+    // --------------------- Begin Interface ItemListener ---------------------
+
+    @Override
+    public void itemStateChanged(ItemEvent e) {
+      if (e.getSource() instanceof JRadioButtonMenuItem) {
+        try {
+          WindowBlocker.blockWindow(true);
+          if (getIconDisplayMode().isNone() && miShowDistances.isSelected()) {
+            miShowDistances.setSelected(false);
+          }
+          showOverlays(getIconDisplayMode(), miShowIconLabels.isSelected(), miShowDistances.isSelected());
+        } finally {
+          WindowBlocker.blockWindow(false);
+        }
+      }
+    }
+
+    // --------------------- End Interface ItemListener ---------------------
   }
 }
