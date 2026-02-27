@@ -148,6 +148,9 @@ public class AppOption {
   /** Menu Options > Resources: HighlightOverridden (Boolean, Default: true) */
   public static final AppOption HIGHLIGHT_OVERRIDDEN = new AppOption(OptionsMenuItem.OPTION_HIGHLIGHT_OVERRIDDEN,
       "Show Overridden Files in Bold in Resource Tree", true);
+  /** Menu Options > Resources: OverrideSortByType (Boolean, Default: false) */
+  public static final AppOption OVERRIDE_SORT_BY_TYPE = new AppOption(OptionsMenuItem.OPTION_OVERRIDE_SORT_BY_TYPE,
+      "Sort Override Files in Resource Tree by Type", false);
   /** Menu Options > Resources: CacheOverride (Boolean, Default: true) */
   public static final AppOption CACHE_OVERRIDE = new AppOption(OptionsMenuItem.OPTION_CACHEOVERRIDE,
       "Autocheck for Overrides", true);

@@ -167,6 +167,7 @@ public class OptionsMenuItem extends JMenuItem {
   public static final String OPTION_SHOW_RESOURCE_LIST_ICONS  = "ShowResourceListIcons";
   public static final String OPTION_SHOW_RESOURCE_TREE_ICONS  = "ShowResourceTreeIcons";
   public static final String OPTION_HIGHLIGHT_OVERRIDDEN      = "HighlightOverridden";
+  public static final String OPTION_OVERRIDE_SORT_BY_TYPE     = "OverrideSortByType";
   public static final String OPTION_CACHEOVERRIDE             = "CacheOverride";
   public static final String OPTION_IDS_SYMBOL_DISPLAY        = "IdsSymbolDisplay";
   public static final String OPTION_OPEN_RESOURCE_TEXT_MENU   = "OpenResourceTextMenu";
@@ -597,6 +598,11 @@ public class OptionsMenuItem extends JMenuItem {
   /** Returns whether overridden files are displayed in bold in the resource tree. */
   public boolean highlightOverridden() {
     return AppOption.HIGHLIGHT_OVERRIDDEN.getBoolValue();
+  }
+
+  /** Returns whether resources listed in the resource tree folder "Override" are sorted by type/extension. */
+  public boolean sortOverrideByType() {
+    return AppOption.OVERRIDE_SORT_BY_TYPE.getBoolValue();
   }
 
   /** Returns whether the "Autocheck for Overrides" option is enabled. */

@@ -174,8 +174,15 @@ public class PreferencesDialog extends JDialog {
                           + "Override folder, will be shown in <strong>bold</strong> in the resource tree."
                           + "<p><strong>Note:</strong> This setting has no effect if overridden files are only shown in "
                           + "the override folder (see <code>" + Category.VISUAL_OPTIONS.getLabel() + "</code> &gt; <code>"
-                          + AppOption.SHOW_OVERRIDES_IN.getLabel() + "</code>.)",
+                          + AppOption.SHOW_OVERRIDES_IN.getLabel() + "</code>.)</p>",
                       AppOption.HIGHLIGHT_OVERRIDDEN),
+                  OptionCheckBox.create(AppOption.OVERRIDE_SORT_BY_TYPE.getName(), AppOption.OVERRIDE_SORT_BY_TYPE.getLabel(),
+                      "If checked, files that are listed in the Override folder of the resource tree will be sorted by file "
+                          + "extension instead of file name."
+                          + "<p><strong>Note:</strong> This setting has no effect if overridden files are only shown in "
+                          + "the respective type folders (see <code>" + Category.VISUAL_OPTIONS.getLabel() + "</code> &gt; <code>"
+                          + AppOption.SHOW_OVERRIDES_IN.getLabel() + "</code>.)</p>",
+                      AppOption.OVERRIDE_SORT_BY_TYPE),
                   OptionCheckBox.create(AppOption.CACHE_OVERRIDE.getName(), AppOption.CACHE_OVERRIDE.getLabel(),
                       "With this option enabled Near Infinity checks whether resources have been overridden every time a "
                       + "resource has been requested."

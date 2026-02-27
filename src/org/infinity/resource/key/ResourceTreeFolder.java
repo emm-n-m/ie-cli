@@ -13,6 +13,9 @@ import java.util.NoSuchElementException;
 import java.util.SortedSet;
 import java.util.Spliterator;
 
+import org.infinity.gui.menu.BrowserMenuBar;
+import org.infinity.resource.Profile;
+
 public final class ResourceTreeFolder implements Comparable<ResourceTreeFolder> {
   private final SortedListSet<ResourceEntry> resourceEntries = new SortedListSet<>();
   private final List<ResourceTreeFolder> folders = new ArrayList<>();
@@ -22,6 +25,13 @@ public final class ResourceTreeFolder implements Comparable<ResourceTreeFolder> 
   public ResourceTreeFolder(ResourceTreeFolder parentFolder, String folderName) {
     this.parentFolder = parentFolder;
     this.folderName = folderName;
+    if (Profile.getOverrideFolderName().equalsIgnoreCase(folderName)) {
+      if (BrowserMenuBar.getInstance() != null && BrowserMenuBar.getInstance().getOptions().sortOverrideByType()) {
+        resourceEntries.setSortType(SortedListSet.SortType.BY_TYPE);
+      } else {
+        resourceEntries.setSortType(SortedListSet.SortType.BY_NAME);
+      }
+    }
   }
 
   // --------------------- Begin Interface Comparable ---------------------
@@ -126,13 +136,72 @@ public final class ResourceTreeFolder implements Comparable<ResourceTreeFolder> 
 
   // A thread-safe sorted set using an ArrayList as backend for indexed element access
   private static class SortedListSet<T extends Comparable<? super T>> extends ArrayList<T> implements SortedSet<T> {
+    /** Enum with supported sort types. */
+    public enum SortType {
+      /** List is sorted by file name. */
+      BY_NAME,
+      /** List is sorted by file extension (if available). */
+      BY_TYPE,
+    }
+
+    /** Comparator for sorting by name. */
+    private final Comparator<T> sortByName = (item1, item2) -> {
+      final String s1 = (item1 != null) ? item1.toString() : "";
+      final String s2 = (item2 != null) ? item2.toString() : "";
+      return s1.compareToIgnoreCase(s2);
+    };
+
+    /** Comparator for sorting by file type. */
+    private final Comparator<T> sortByExt = (item1, item2) -> {
+      final String s1 = (item1 != null) ? item1.toString() : "";
+      final int p1 = s1.indexOf('.');
+      final String ext1 = (p1 >= 0) ? s1.substring(p1 + 1) : "";
+
+      final String s2 = (item2 != null) ? item2.toString() : "";
+      final int p2 = s2.indexOf('.');
+      final String ext2 = (p2 >= 0) ? s2.substring(p2 + 1) : "";
+
+      final int cmpExt = ext1.compareToIgnoreCase(ext2);
+      if (cmpExt != 0) {
+        return cmpExt;
+      }
+
+      final String name1 = (p1 >= 0) ? s1.substring(0, p1) : s1;
+      final String name2 = (p2 >= 0) ? s2.substring(0, p2) : s2;
+      return name1.compareToIgnoreCase(name2);
+    };
+
+    private SortType sortType;
+
     public SortedListSet() {
+      this(null);
+    }
+
+    public SortedListSet(SortType type) {
       super();
+      this.sortType = (type != null) ? type : SortType.BY_NAME;
+    }
+
+    /** Returns the currently selected sort type. */
+    @SuppressWarnings("unused")
+    public SortType getSortType() {
+      return sortType;
+    }
+
+    /** Changes the sort type of the sorted set. */
+    public void setSortType(SortType type) {
+      if (type == null) {
+        type = SortType.BY_NAME;
+      }
+      if (type != sortType) {
+        this.sortType = type;
+        sort(comparator());
+      }
     }
 
     @Override
     public synchronized boolean add(T item) {
-      int index = Collections.binarySearch(this, item);
+      int index = Collections.binarySearch(this, item, comparator());
       if (index >= 0) {
         return false;
       }
@@ -174,7 +243,7 @@ public final class ResourceTreeFolder implements Comparable<ResourceTreeFolder> 
     @Override
     public int indexOf(Object o) {
       @SuppressWarnings("unchecked")
-      int index = Collections.binarySearch(this, (T) o);
+      int index = Collections.binarySearch(this, (T) o, comparator());
       return (index >= 0) ? index : -1;
     }
 
@@ -245,7 +314,12 @@ public final class ResourceTreeFolder implements Comparable<ResourceTreeFolder> 
 
     @Override
     public Comparator<? super T> comparator() {
-      return Comparator.naturalOrder();
+      switch (sortType) {
+        case BY_TYPE:
+          return sortByExt;
+        default:
+          return sortByName;
+      }
     }
 
     @Override
