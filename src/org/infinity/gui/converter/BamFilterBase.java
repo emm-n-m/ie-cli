@@ -34,6 +34,8 @@ public abstract class BamFilterBase {
   private final List<ChangeListener> listChangeListeners = new ArrayList<>();
   private final JPanel controls;
 
+  private boolean enabled;
+
   protected BamFilterBase(ConvertToBam converter, String name, String desc, Type type) {
     if (converter == null) {
       throw new NullPointerException();
@@ -42,6 +44,7 @@ public abstract class BamFilterBase {
     this.name = (name != null) ? name : "";
     this.description = (desc != null) ? desc : "";
     this.type = type;
+    this.enabled = true;
     this.controls = loadControls();
   }
 
@@ -75,6 +78,27 @@ public abstract class BamFilterBase {
   /** This method is called whenever a change has occured in associated the ConvertToBam instance. */
   public void updateControls() {
     // does nothing by default
+  }
+
+  /**
+   * Returns whether the filter should be applied to the preview or output BAM.
+   *
+   * @return {@code true} if filter is applied, {@code false} otherwise.
+   */
+  public boolean isEnabled() {
+    return enabled;
+  }
+
+  /**
+   * Sets the enabled state of the filter. A disabled filter is not applied to preview or output BAM.
+   *
+   * @param enable New enabled state of the filter.
+   */
+  public void setEnabled(boolean enable) {
+    if (enable != enabled) {
+      enabled = enable;
+      fireChangeListener();
+    }
   }
 
   /**
@@ -140,7 +164,8 @@ public abstract class BamFilterBase {
 
   @Override
   public String toString() {
-    return name;
+    final String state = isEnabled() ? "" : " [deactivated]";
+    return name + state;
   }
 
   /** Initializes the control panel that will be returned by {@link #getControls()}. */

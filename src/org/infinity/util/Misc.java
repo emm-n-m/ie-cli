@@ -25,10 +25,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.jar.JarEntry;
@@ -773,6 +777,187 @@ public class Misc {
     } else {
       return def;
     }
+  }
+
+  // TODO: remove when upgrading code base to Java 9 or later
+  /**
+   * Returns an unmodifiable map containing a single mapping.
+   *
+   * @param <K> The map's key type.
+   * @param <V> The map's value type.
+   * @param k1  the mapping's key.
+   * @param v1  the mapping's value.
+   * @return a {@link Map} containing the specified mapping.
+   * @throws NullPointerException if the key or value is {@code null}
+   */
+  public static <K, V> Map<K, V> mapOf(K k1, V v1) {
+    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1));
+  }
+
+  // TODO: remove when upgrading code base to Java 9 or later
+  /**
+   * Returns an unmodifiable map containing two mappings.
+   *
+   * @param <K> The map's key type.
+   * @param <V> The map's value type.
+   * @param k1  the first mapping's key.
+   * @param v1  the first mapping's value.
+   * @param k2  the second mapping's key.
+   * @param v2  the second mapping's value.
+   * @return a {@link Map} containing the specified mappings.
+   * @throws IllegalArgumentException if the keys are duplicates
+   * @throws NullPointerException     if any key or value is {@code null}
+   */
+  public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2) {
+    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
+        new AbstractMap.SimpleEntry<K, V>(k2, v2));
+  }
+
+  // TODO: remove when upgrading code base to Java 9 or later
+  /**
+   * Returns an unmodifiable map containing three mappings.
+   *
+   * @param <K> The map's key type.
+   * @param <V> The map's value type.
+   * @param k1  the first mapping's key.
+   * @param v1  the first mapping's value.
+   * @param k2  the second mapping's key.
+   * @param v2  the second mapping's value.
+   * @param k3  the third mapping's key.
+   * @param v3  the third mapping's value.
+   * @return a {@link Map} containing the specified mappings.
+   * @throws IllegalArgumentException if the keys are duplicates
+   * @throws NullPointerException     if any key or value is {@code null}
+   */
+  public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3) {
+    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
+        new AbstractMap.SimpleEntry<K, V>(k2, v2),
+        new AbstractMap.SimpleEntry<K, V>(k3, v3));
+  }
+
+  // TODO: remove when upgrading code base to Java 9 or later
+  /**
+   * Returns an unmodifiable map containing four mappings.
+   *
+   * @param <K> The map's key type.
+   * @param <V> The map's value type.
+   * @param k1  the first mapping's key.
+   * @param v1  the first mapping's value.
+   * @param k2  the second mapping's key.
+   * @param v2  the second mapping's value.
+   * @param k3  the third mapping's key.
+   * @param v3  the third mapping's value.
+   * @param k4  the fourth mapping's key.
+   * @param v4  the fourth mapping's value.
+   * @return a {@link Map} containing the specified mappings.
+   * @throws IllegalArgumentException if the keys are duplicates
+   * @throws NullPointerException     if any key or value is {@code null}
+   */
+  public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4) {
+    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
+        new AbstractMap.SimpleEntry<K, V>(k2, v2),
+        new AbstractMap.SimpleEntry<K, V>(k3, v3),
+        new AbstractMap.SimpleEntry<K, V>(k4, v4));
+  }
+
+  // TODO: remove when upgrading code base to Java 9 or later
+  /**
+   * Returns an unmodifiable map containing five mappings.
+   *
+   * @param <K> The map's key type.
+   * @param <V> The map's value type.
+   * @param k1  the first mapping's key.
+   * @param v1  the first mapping's value.
+   * @param k2  the second mapping's key.
+   * @param v2  the second mapping's value.
+   * @param k3  the third mapping's key.
+   * @param v3  the third mapping's value.
+   * @param k4  the fourth mapping's key.
+   * @param v4  the fourth mapping's value.
+   * @param k5  the fifth mapping's key.
+   * @param v5  the fifth mapping's value.
+   * @return a {@link Map} containing the specified mappings.
+   * @throws IllegalArgumentException if the keys are duplicates
+   * @throws NullPointerException     if any key or value is {@code null}
+   */
+  public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4, K k5, V v5) {
+    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
+        new AbstractMap.SimpleEntry<K, V>(k2, v2),
+        new AbstractMap.SimpleEntry<K, V>(k3, v3),
+        new AbstractMap.SimpleEntry<K, V>(k4, v4),
+        new AbstractMap.SimpleEntry<K, V>(k5, v5));
+  }
+
+  // TODO: remove when upgrading code base to Java 9 or later
+  /**
+   * Returns an unmodifiable map containing six mappings.
+   *
+   * @param <K> The map's key type.
+   * @param <V> The map's value type.
+   * @param k1  the first mapping's key.
+   * @param v1  the first mapping's value.
+   * @param k2  the second mapping's key.
+   * @param v2  the second mapping's value.
+   * @param k3  the third mapping's key.
+   * @param v3  the third mapping's value.
+   * @param k4  the fourth mapping's key.
+   * @param v4  the fourth mapping's value.
+   * @param k5  the fifth mapping's key.
+   * @param v5  the fifth mapping's value.
+   * @param k6  the sixth mapping's key.
+   * @param v6  the sixth mapping's value.
+   * @return a {@link Map} containing the specified mappings.
+   * @throws IllegalArgumentException if the keys are duplicates
+   * @throws NullPointerException     if any key or value is {@code null}
+   */
+  public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4, K k5, V v5, K k6, V v6) {
+    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
+        new AbstractMap.SimpleEntry<K, V>(k2, v2),
+        new AbstractMap.SimpleEntry<K, V>(k3, v3),
+        new AbstractMap.SimpleEntry<K, V>(k4, v4),
+        new AbstractMap.SimpleEntry<K, V>(k5, v5),
+        new AbstractMap.SimpleEntry<K, V>(k6, v6));
+  }
+
+  // TODO: remove when upgrading code base to Java 9 or later
+  /**
+   * Returns an unmodifiable map containing keys and values extracted from the given entries. The entries themselves are
+   * not stored in the map.
+   *
+   * @param <K>     the {@link Map}'s key type
+   * @param <V>     the {@link Map}'s value type
+   * @param entries {@link Map.Entry}s containing the keys and values from which the map is populated
+   * @return a {@link Map} containing the specified mappings
+   * @throws IllegalArgumentException if there are any duplicate keys
+   * @throws NullPointerException     if any entry key, or value is {@code null}, or if the {@code entries} array is
+   *                                    {@code null}
+   */
+  @SafeVarargs
+  public static <K, V> Map<K, V> mapOfEntries(Map.Entry<? extends K, ? extends V>... entries) {
+    if (entries == null) {
+      throw new NullPointerException("entries array is null");
+    }
+
+    final HashMap<K, V> map = new HashMap<>(Math.min(2, 1 + entries.length * 4 / 3));
+
+    for (int i = 0; i < entries.length; i++) {
+      final Map.Entry<? extends K, ? extends V> entry = entries[i];
+      if (entry == null) {
+        throw new NullPointerException("entry " + i + " is null");
+      }
+
+      if (entry.getKey() == null || entry.getValue() == null) {
+        throw new NullPointerException("key or value of entry " + i + " is null");
+      }
+
+      if (!map.containsKey(entry.getKey())) {
+        map.put(entry.getKey(), entry.getValue());
+      } else {
+        throw new IllegalArgumentException("Duplicate keys specified");
+      }
+    }
+
+    return Collections.unmodifiableMap(map);
   }
 
   /**

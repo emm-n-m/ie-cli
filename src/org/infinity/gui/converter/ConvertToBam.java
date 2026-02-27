@@ -189,6 +189,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
   protected static final int BAM_ORIGINAL = 0; // the original unprocessed frames list
   protected static final int BAM_FINAL    = 1; // final frames list including palette and/or post-processor
 
+  // Maps activation state of BAM filters to button labels
+  protected static final Map<Boolean, String> FILTER_ACTIVATE_LABELS =
+      Misc.mapOf(Boolean.FALSE, "Deactivate", Boolean.TRUE, "Activate");
+
   private static Path currentPath;
 
   // Performed if a user-defined amount of cycles should be added at once
@@ -280,6 +284,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
   private JButton bPreviewPlay;
   private JButton bPreviewStop;
   private JButton bFiltersAdd;
+  private JButton bFiltersActivate;
   private JButton bFiltersRemove;
   private JButton bFiltersRemoveAll;
   private JButton bFiltersUp;
@@ -781,6 +786,8 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
       previewSetMarkerVisible(cbPreviewShowMarker.isSelected());
     } else if (event.getSource() == bFiltersAdd) {
       filterAdd();
+    } else if (event.getSource() == bFiltersActivate) {
+      filterToggleState();
     } else if (event.getSource() == bFiltersRemove) {
       filterRemove();
     } else if (event.getSource() == bFiltersRemoveAll) {
@@ -1832,6 +1839,9 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
         new Insets(0, 4, 0, 0), 0, 0);
     pFiltersAdd.add(bFiltersAdd, c);
 
+    bFiltersActivate = new JButton(FILTER_ACTIVATE_LABELS.get(false));
+    bFiltersActivate.addActionListener(this);
+    bFiltersActivate.setEnabled(false);
     bFiltersRemove = new JButton("Remove");
     bFiltersRemove.addActionListener(this);
     bFiltersRemoveAll = new JButton("Remove all");
@@ -1839,11 +1849,14 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     JPanel pFiltersRemove = new JPanel(new GridBagLayout());
     c = ViewerUtil.setGBC(c, 0, 0, 1, 1, 0.0, 0.0, GridBagConstraints.LINE_START, GridBagConstraints.NONE,
         new Insets(0, 0, 0, 0), 0, 0);
-    pFiltersRemove.add(bFiltersRemove, c);
+    pFiltersRemove.add(bFiltersActivate, c);
     c = ViewerUtil.setGBC(c, 1, 0, 1, 1, 1.0, 0.0, GridBagConstraints.LINE_START, GridBagConstraints.HORIZONTAL,
         new Insets(0, 0, 0, 0), 0, 0);
     pFiltersRemove.add(new JPanel(), c);
     c = ViewerUtil.setGBC(c, 2, 0, 1, 1, 0.0, 0.0, GridBagConstraints.LINE_START, GridBagConstraints.NONE,
+        new Insets(0, 4, 0, 0), 0, 0);
+    pFiltersRemove.add(bFiltersRemove, c);
+    c = ViewerUtil.setGBC(c, 3, 0, 1, 1, 0.0, 0.0, GridBagConstraints.LINE_START, GridBagConstraints.NONE,
         new Insets(0, 4, 0, 0), 0, 0);
     pFiltersRemove.add(bFiltersRemoveAll, c);
 
@@ -2305,6 +2318,11 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     bFiltersDown.setEnabled(!modelFilters.isEmpty() && idx >= 0 && idx < modelFilters.size() - 1);
     bFiltersRemove.setEnabled(!modelFilters.isEmpty() && !listFilters.isSelectionEmpty());
     bFiltersRemoveAll.setEnabled(!modelFilters.isEmpty());
+
+    final boolean isEnabled = !modelFilters.isEmpty() && !listFilters.isSelectionEmpty();
+    final boolean activate = (idx < 0 || listFilters.getModel().getElementAt(idx).isEnabled());
+    bFiltersActivate.setText(FILTER_ACTIVATE_LABELS.get(!activate));
+    bFiltersActivate.setEnabled(isEnabled);
 
     updateFilterInfo();
     updateFilterControls();
@@ -3779,6 +3797,18 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     outputSetModified(true);
   }
 
+  /** Toggles activation state of the currently selected filter. */
+  private void filterToggleState() {
+    int index = listFilters.getSelectedIndex();
+    if (index >= 0 && index < modelFilters.size()) {
+      final BamFilterBase filter = modelFilters.get(index);
+      filter.setEnabled(!filter.isEnabled());
+      updateFilterList();
+      outputSetModified(true);
+      listFilters.repaint();
+    }
+  }
+
   /** Moves the currently selected filter up. */
   private void filterMoveUp() {
     int index = listFilters.getSelectedIndex();
@@ -4144,7 +4174,9 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
       for (int i = 0; i < curFilterIdx; i++) {
         if (modelFilters.get(i) != null) {
           BamFilterBase filter = modelFilters.get(i);
-          entry = filter.updatePreview(frameIdx, entry);
+          if (filter.isEnabled()) {
+            entry = filter.updatePreview(frameIdx, entry);
+          }
         }
       }
       entryFilterPreview.setFrame(entry.getFrame());
@@ -4158,7 +4190,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
       entry = new PseudoBamFrameEntry(ColorConvert.cloneImage(entryFilterPreview.getFrame()),
           entryFilterPreview.getCenterX(), entryFilterPreview.getCenterY());
       BamFilterBase filter = modelFilters.get(curFilterIdx);
-      if (filter != null) {
+      if (filter != null && filter.isEnabled()) {
         entry = filter.updatePreview(frameIdx, entry);
       }
     }
@@ -4176,6 +4208,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
       // Processing each filter sequentially
       List<BamFilterBase> filters = createFilterList(false);
       for (final BamFilterBase filter : filters) {
+        if (filter != null && !filter.isEnabled()) {
+          continue;
+        }
+
         if (filter instanceof BamFilterBaseColor) {
           // processing color filter
           try {
@@ -4252,8 +4288,9 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
   private List<BamFilterBaseOutput> createOutputFilterList() {
     List<BamFilterBaseOutput> retVal = new ArrayList<>();
     for (int i = 0; i < modelFilters.size(); i++) {
-      if (modelFilters.get(i) instanceof BamFilterBaseOutput) {
-        retVal.add((BamFilterBaseOutput) modelFilters.get(i));
+      final BamFilterBase filter = modelFilters.get(i);
+      if (filter instanceof BamFilterBaseOutput && filter.isEnabled()) {
+        retVal.add((BamFilterBaseOutput)filter);
       }
     }
     if (retVal.isEmpty()) {
@@ -5166,24 +5203,28 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
      *  - name value: the filter name
      *  - config key: config_n (where n is a positive number)
      *  - config value: a configuration string (can be empty)
+     *  - enabled key: enabled_n (where n is a positive number)
+     *  - enabled value: a single integer number that indicates whether the filter is enabled (0: false, !0: true)
      *  - Example:
      *      name_0=Brightness/Contrast/Gamma
      *      config_0=25;100;128;[0,18,19,20,192,193,194,195]
+     *      enabled_0=1
      * @formatter:on
      */
-    private static final String SECTION_GLOBAL    = "Global"; // global section name
-    private static final String SECTION_FRAMES    = "Frames"; // frames section name
-    private static final String SECTION_CENTER    = "Center"; // center point section name
-    private static final String SECTION_CYCLES    = "Cycles"; // cycles section name
-    private static final String SECTION_FILTERS   = "Filters"; // filters section name
-    private static final String KEY_VERSION       = "version"; // key in global section
-    private static final String KEY_FILTER_NAME   = "name_"; // key in global section
-    private static final String KEY_FILTER_CONFIG = "config_"; // key in global section
-    private static final char SEPARATOR_FRAME     = ':'; // used in frame source definition to separate frame name from index
-    private static final char SEPARATOR_NUMBER    = ','; // number separator for cycle definitions or center point data
-    private static final int VERSION              = 1; // supported file version
-    private static final String QUESTION_EXPORT   = "What do you want to export?";
-    private static final String QUESTION_IMPORT   = "What do you want to import?";
+    private static final String SECTION_GLOBAL      = "Global"; // global section name
+    private static final String SECTION_FRAMES      = "Frames"; // frames section name
+    private static final String SECTION_CENTER      = "Center"; // center point section name
+    private static final String SECTION_CYCLES      = "Cycles"; // cycles section name
+    private static final String SECTION_FILTERS     = "Filters"; // filters section name
+    private static final String KEY_VERSION         = "version"; // key in global section
+    private static final String KEY_FILTER_NAME     = "name_"; // key in filters section
+    private static final String KEY_FILTER_CONFIG   = "config_"; // key in filters section
+    private static final String KEY_FILTER_ENABLED  = "enabled_"; // key in filters sections
+    private static final char SEPARATOR_FRAME       = ':'; // used in frame source definition to separate frame name from index
+    private static final char SEPARATOR_NUMBER      = ','; // number separator for cycle definitions or center point data
+    private static final int VERSION                = 2; // max. supported file version
+    private static final String QUESTION_EXPORT     = "What do you want to export?";
+    private static final String QUESTION_IMPORT     = "What do you want to import?";
 
     private final JLabel lSelect = new JLabel();
     private final JCheckBox cbFrames = new JCheckBox("Frame source files", true);
@@ -5199,6 +5240,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     private IniMapSection sectionCycles;
     private IniMapSection sectionFilters;
     private boolean accepted;
+    private int version;
 
     /** Returns a extension filter for INI files. */
     private static FileNameExtensionFilter getIniFilter() {
@@ -5315,9 +5357,12 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
           if (ini.getSection(SECTION_GLOBAL) == null || ini.getSection(SECTION_GLOBAL).getEntry(KEY_VERSION) == null) {
             throw new Exception("Invalid BAM session file.");
           }
-          if (Misc.toNumber(ini.getSection(SECTION_GLOBAL).getEntry(KEY_VERSION).getValue(), -1) != VERSION) {
+
+          final int version = Misc.toNumber(ini.getSection(SECTION_GLOBAL).getEntry(KEY_VERSION).getValue(), -1);
+          if (version < 0 || version > VERSION) {
             throw new Exception("Invalid or unsupported file version.");
           }
+          this.version = version;
 
           if (ini.getSection(SECTION_FRAMES) != null) {
             if (!loadFrameData(ini.getSection(SECTION_FRAMES), inFile)) {
@@ -5445,6 +5490,12 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     }
 
     private boolean loadFilterData(IniMapSection filters) throws Exception {
+      final ArrayList<String> keyMatches = new ArrayList<>(4);
+      keyMatches.add(KEY_FILTER_CONFIG + "\\d+");
+      if (getVersion() >= 2) {
+        keyMatches.add(KEY_FILTER_ENABLED + "\\d+");
+      }
+
       if (filters != null && filters.getName().equalsIgnoreCase(SECTION_FILTERS)) {
         for (final IniMapEntry entry : filters) {
           String key = entry.getKey().trim();
@@ -5454,8 +5505,17 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
               throw new Exception(
                   "BAM filter \"" + value.substring(0, Math.min(value.length(), 256)) + "\" does not exist.");
             }
-          } else if (!key.matches(KEY_FILTER_CONFIG + "\\d+")) {
-            throw new Exception("Invalid key value found at line " + (entry.getLine() + 1));
+          } else {
+            boolean match = false;
+            for (final String regex : keyMatches) {
+              if (key.matches(regex)) {
+                match = true;
+                break;
+              }
+            }
+            if (!match) {
+              throw new Exception("Invalid key value found at line " + (entry.getLine() + 1));
+            }
           }
         }
         sectionFilters = filters;
@@ -5703,8 +5763,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
       class Config {
         public String name;
         public String param;
+        public boolean enabled;
 
         public Config() {
+          enabled = true;
         }
       }
 
@@ -5742,6 +5804,18 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
               config.param = param;
               maxIndex = Math.max(maxIndex, idx);
             }
+          } else if (getVersion() >= 2 && key.startsWith(KEY_FILTER_ENABLED)) {
+            final int idx = Misc.toNumber(key.substring(KEY_FILTER_ENABLED.length()), -1);
+            if (idx >= 0) {
+              final boolean enabled = (Misc.toNumber(entry.getValue(), 1) != 0);
+              Config config = filterMap.get(idx);
+              if (config == null) {
+                config = new Config();
+                filterMap.put(idx, config);
+              }
+              config.enabled = enabled;
+              maxIndex = Math.max(maxIndex, idx);
+            }
           }
         }
         if (maxIndex < 0) {
@@ -5770,6 +5844,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
               BamFilterBase filter = bam.filterAdd(info);
               if (filter != null) {
                 filter.setConfiguration(config.param);
+                filter.setEnabled(config.enabled);
               }
             }
           }
@@ -5791,6 +5866,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
         sb.append('[').append(SECTION_GLOBAL).append(']').append(Misc.LINE_SEPARATOR);
         sb.append(KEY_VERSION).append('=').append(VERSION).append(Misc.LINE_SEPARATOR);
         sb.append(Misc.LINE_SEPARATOR);
+        this.version = VERSION;
 
         // creating frames section
         if (isFramesSelected()) {
@@ -5850,6 +5926,8 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
             BamFilterBase filter = bam.modelFilters.getElementAt(i);
             sb.append(KEY_FILTER_NAME).append(i).append('=').append(filter.getName()).append(Misc.LINE_SEPARATOR);
             sb.append(KEY_FILTER_CONFIG).append(i).append('=').append(filter.getConfiguration())
+                .append(Misc.LINE_SEPARATOR);
+            sb.append(KEY_FILTER_ENABLED).append(i).append('=').append(filter.isEnabled() ? 1 : 0)
                 .append(Misc.LINE_SEPARATOR);
           }
           sb.append(Misc.LINE_SEPARATOR);
@@ -5955,6 +6033,11 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     /** Returns whether the filter configuration option has been selected. */
     private boolean isFiltersSelected() {
       return (cbFilters.isEnabled() && cbFilters.isSelected());
+    }
+
+    /** Returns the version number of the imported configuration file. */
+    private int getVersion() {
+      return version;
     }
 
     /** Disposes the dialog and marks it as accepted. */
