@@ -1790,8 +1790,10 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
     rcPreview.setInterpolationType(RenderCanvas.TYPE_NEAREST_NEIGHBOR);
     rcPreview.setScalingEnabled(true);
     scrollPreview = new JScrollPane(rcPreview);
-    scrollPreview.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-    scrollPreview.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_NEVER);
+    scrollPreview.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    scrollPreview.getHorizontalScrollBar().setUnitIncrement(32);
+    scrollPreview.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+    scrollPreview.getVerticalScrollBar().setUnitIncrement(32);
     scrollPreview.setBorder(BorderFactory.createEmptyBorder());
     previewCanvas = null;
 
