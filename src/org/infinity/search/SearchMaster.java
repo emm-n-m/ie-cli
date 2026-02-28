@@ -14,6 +14,8 @@ import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
@@ -27,6 +29,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
 
 import org.infinity.gui.Center;
 import org.infinity.gui.ChildFrame;
@@ -34,6 +37,7 @@ import org.infinity.gui.ViewerUtil;
 import org.infinity.gui.WindowBlocker;
 import org.infinity.icon.Icons;
 import org.infinity.util.Logger;
+import org.infinity.util.tuples.Couple;
 
 public final class SearchMaster extends JPanel implements Runnable, ActionListener {
   private final JButton bnext = new JButton("Find Next", Icons.ICON_FIND_AGAIN_16.getIcon());
@@ -196,15 +200,19 @@ public final class SearchMaster extends JPanel implements Runnable, ActionListen
     if (cbwhole.isSelected()) {
       term = "\\b" + term + "\\b";
     }
-    Pattern regPattern;
+    int flags = Pattern.DOTALL;
+    if (!cbcase.isSelected()) {
+      flags |= Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
+    }
+    final Pattern regPattern;
     try {
-      if (cbcase.isSelected()) {
-        regPattern = Pattern.compile(term, Pattern.DOTALL);
-      } else {
-        regPattern = Pattern.compile(term, Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
-      }
+      regPattern = Pattern.compile(term, flags);
     } catch (PatternSyntaxException e) {
-      JOptionPane.showMessageDialog(this, "Syntax error in search string.", "Error", JOptionPane.ERROR_MESSAGE);
+      String msg = "Syntax error in search string.";
+      if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+        msg += "\nError: " + e.getMessage();
+      }
+      JOptionPane.showMessageDialog(this, msg, "Error", JOptionPane.ERROR_MESSAGE);
       return;
     }
     blocker.setBlocked(true);
@@ -214,13 +222,25 @@ public final class SearchMaster extends JPanel implements Runnable, ActionListen
     cbcase.setEnabled(false);
     cbregex.setEnabled(false);
     tfinput.setEnabled(false);
+    final ArrayList<Couple<Integer, Integer>> matchList = new ArrayList<>();
     while (true) {
       String s = slave.getText(index);
       if (s == null) {
         break;
       }
-      if (regPattern.matcher(s).find()) {
+      final Matcher regMatcher = regPattern.matcher(s);
+      if (regMatcher.find()) {
         slave.hitFound(index);
+
+        // highlight every match in the current string entry
+        regMatcher.reset();
+        matchList.clear();
+        while (regMatcher.find()) {
+          matchList.add(Couple.with(regMatcher.start(), regMatcher.end()));
+        }
+        // XXX: solve potential race condition
+        SwingUtilities.invokeLater(() -> matchList.forEach(c -> slave.highlight(c.getValue0(), c.getValue1())));
+
         blocker.setBlocked(false);
         container.requestFocus();
         bnext.setEnabled(true);

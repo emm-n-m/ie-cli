@@ -6,6 +6,7 @@ package org.infinity.check;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.ArrayList;
@@ -21,7 +22,6 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -31,6 +31,7 @@ import org.infinity.datatype.Bestiary;
 import org.infinity.datatype.StringRef;
 import org.infinity.gui.Center;
 import org.infinity.gui.ChildFrame;
+import org.infinity.gui.InfinityTextArea;
 import org.infinity.gui.ResultPane;
 import org.infinity.gui.SortableTable;
 import org.infinity.gui.TableItem;
@@ -203,7 +204,7 @@ public final class StringUseChecker extends AbstractSearcher
 
   private ChildFrame resultFrame;
   private ResultPane<SortableTable> resultPane;
-  private JTextArea textArea;
+  private InfinityTextArea textArea;
 
   private boolean[] strUsed;
   private JMenuItem miSave;
@@ -293,10 +294,14 @@ public final class StringUseChecker extends AbstractSearcher
     menuBar.add(fileMenu);
     resultFrame.setJMenuBar(menuBar);
 
-    textArea = new JTextArea(10, 10);
+    textArea = new InfinityTextArea(10, 10, true);
+    textArea.applyExtendedSettings(InfinityTextArea.Language.TLK, null);
+    textArea.setFont(Misc.getScaledFont(textArea.getFont()));
+    textArea.setHighlightCurrentLine(false);
     textArea.setEditable(false);
     textArea.setWrapStyleWord(true);
     textArea.setLineWrap(true);
+    textArea.setMargin(new Insets(3, 3, 3, 3));
     final JScrollPane scrollText = new JScrollPane(textArea);
 
     final JPanel bottomPanel = new JPanel(new BorderLayout());
@@ -364,7 +369,7 @@ public final class StringUseChecker extends AbstractSearcher
     if (nr < 0 || nr >= table.getRowCount()) {
       return null;
     }
-    return table.getTableItemAt(nr).toString();
+    return table.getTableItemAt(nr).getObjectAt(0).toString();
   }
 
   @Override
@@ -372,6 +377,12 @@ public final class StringUseChecker extends AbstractSearcher
     final SortableTable table = resultPane.getTable();
     table.getSelectionModel().addSelectionInterval(nr, nr);
     table.scrollRectToVisible(table.getCellRect(table.getSelectionModel().getMinSelectionIndex(), 0, true));
+    textArea.clearHighlight(null);
+  }
+
+  @Override
+  public void highlight(int start, int end) {
+    textArea.highlightText(start, end);
   }
 
   // --------------------- End Interface SearchClient ---------------------

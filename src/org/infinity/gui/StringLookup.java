@@ -86,6 +86,12 @@ public final class StringLookup extends ChildFrame implements SearchClient {
   @Override
   public void hitFound(int index) {
     strref.setValue(index);
+    strref.getPanel().clearHighlightedText(null);
+  }
+
+  @Override
+  public void highlight(int start, int end) {
+    strref.getPanel().highlightText(start, end);
   }
 
   // --------------------- End Interface SearchClient ---------------------

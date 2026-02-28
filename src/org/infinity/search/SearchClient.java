@@ -19,4 +19,12 @@ public interface SearchClient {
    * @param nr Index of the matched object
    */
   void hitFound(int nr);
+
+  /**
+   * Instructs the client to highlight a region of text in the associated text component.
+   *
+   * @param start Start position of the highlighted region in the current string entry.
+   * @param end   End position of the highlighted region in the current string entry.
+   */
+  void highlight(int start, int end);
 }

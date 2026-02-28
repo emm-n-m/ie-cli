@@ -224,6 +224,12 @@ public class StringEditor extends ChildFrame implements SearchClient {
   @Override
   public void hitFound(int index) {
     showEntry(index);
+    taText.clearHighlight(null);
+  }
+
+  @Override
+  public void highlight(int start, int end) {
+    taText.highlightText(start, end);
   }
 
   // --------------------- End Interface SearchClient ---------------------
@@ -367,6 +373,8 @@ public class StringEditor extends ChildFrame implements SearchClient {
 
     splitCenter.setDividerLocation(splitCenter.getWidth() / 2);
     splitAttrib.setDividerLocation(splitAttrib.getHeight() / 3);
+
+    slider.requestFocusInWindow();
   }
 
   private void updateStringTableUI(int tabIndex) {
@@ -1072,6 +1080,11 @@ public class StringEditor extends ChildFrame implements SearchClient {
     @Override
     public void hitFound(int index) {
       showEntry(index);
+    }
+
+    @Override
+    public void highlight(int start, int end) {
+      // no action
     }
   }
 

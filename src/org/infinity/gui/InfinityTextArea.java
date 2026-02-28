@@ -48,6 +48,8 @@ import javax.swing.event.ChangeListener;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultHighlighter;
+import javax.swing.text.Highlighter;
 
 import org.fife.ui.rsyntaxtextarea.AbstractTokenMakerFactory;
 import org.fife.ui.rsyntaxtextarea.RSyntaxDocument;
@@ -820,6 +822,52 @@ public class InfinityTextArea extends RSyntaxTextArea
       }
     }
     gutterIcons.clear();
+  }
+
+  /**
+   * Adds a highlight to the selected text region.
+   *
+   * @param start Start position of the highlighted region.
+   * @param end   End position of the highlighted region.
+   * @return A tag that can be used to clear the highlighted region (see {@link #clearHighlight(Object)}). Returns
+   *         {@code null} if highlighting could not be applied.
+   */
+  public Object highlightText(int start, int end) {
+    if (start < 0) {
+      end += start;
+      start = 0;
+    }
+
+    final int textSize = getText().length();
+    end = Math.min(textSize, end);
+    if (start >= textSize || end <= start) {
+      return null;
+    }
+
+    final Highlighter hilite = getHighlighter();
+    final Highlighter.HighlightPainter painter = new DefaultHighlighter.DefaultHighlightPainter(getSelectionColor());
+    try {
+      return hilite.addHighlight(start, end, painter);
+    } catch (BadLocationException e) {
+      Logger.error(e);
+    }
+
+    return null;
+  }
+
+  /**
+   * Removes the specified highlighted region from the text component.
+   *
+   * @param tag A tag that identifies the highlighted region (see {@link #highlightText(int, int)}). Specify
+   *              {@code null} to clear all highlighted regions in the text component.
+   */
+  public void clearHighlight(Object tag) {
+    final Highlighter hilite = getHighlighter();
+    if (tag == null) {
+      hilite.removeAllHighlights();
+    } else {
+      hilite.removeHighlight(tag);
+    }
   }
 
   /** Returns the currently min/max visible line numbers. */

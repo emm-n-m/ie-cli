@@ -20,6 +20,8 @@ import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.swing.JButton;
@@ -36,6 +38,7 @@ import javax.swing.event.ChangeListener;
 
 import org.infinity.gui.InfinityScrollPane;
 import org.infinity.gui.InfinityTextArea;
+import org.infinity.gui.InfinityTextArea.Language;
 import org.infinity.gui.StringEditor;
 import org.infinity.gui.StructViewer;
 import org.infinity.gui.ViewFrame;
@@ -67,41 +70,17 @@ import org.infinity.util.io.FileManager;
  * <li>Value meaning: number of the string in the TLK</li>
  * </ul>
  */
-public final class StringRef extends Datatype
-    implements Editable, IsNumeric, IsTextual, ActionListener, ChangeListener {
+public final class StringRef extends Datatype implements Editable, IsNumeric, IsTextual {
   /**
    * If this value is defined then it overrides the default check and/or application of TLK syntax highlighting.
    */
   private final InfinityTextArea.Language syntaxLanguageOverride;
 
-  /**
-   * Button that opens dialog with sound associated with this reference if that sound exists. If no sound assotiated
-   * with this string entry, button is disabled.
-   */
-  private JButton bPlay;
-
-  /** Button that opens editor of the talk table(s) of the game (dialog.tlk and dialogF.tlk). */
-  private JButton bEdit;
-
-  /**
-   * Button that used to update reference in parent struct if editor of this string reference opened in embedded mode.
-   * Hidden if editor opened not in embedded mode
-   */
-  private JButton bUpdate;
-
-  /**
-   * Button that opens dialog with settings for searching usage of this string in another game files.
-   */
-  private JButton bSearch;
-
-  /** Text area that contains content of string from main talk table (dialog.tlk). */
-  private InfinityTextArea taRefText;
-
-  /** Editor for numerical index in talk table for this string reference. */
-  private JSpinner sRefNr;
-
   /** Index of this string in the talk table (TLK file). */
   private int value;
+
+  /** Panel with the string reference user interface */
+  private StringRefPanel panel;
 
   /**
    * Constructs field description.
@@ -155,144 +134,14 @@ public final class StringRef extends Datatype
     read(buffer, offset);
   }
 
-  // --------------------- Begin Interface ActionListener ---------------------
-
-  @Override
-  public void actionPerformed(ActionEvent event) {
-    final int newValue = getValueFromEditor();
-    if (event.getSource() == bUpdate) {
-      taRefText.setText(getStringRef(newValue));
-      updateButtonStates(newValue);
-    } else if (event.getSource() == bEdit) {
-      StringEditor.edit(newValue);
-    } else if (event.getSource() == bPlay) {
-      final ResourceEntry entry = ResourceFactory.getResourceEntry(StringTable.getSoundResource(newValue) + ".WAV", true);
-      new ViewFrame(bPlay.getTopLevelAncestor(), ResourceFactory.getResource(entry));
-    } else if (event.getSource() == bSearch) {
-      new StringReferenceSearcher(newValue, bSearch.getTopLevelAncestor());
-    }
-  }
-
-  // --------------------- End Interface ActionListener ---------------------
-
-  // --------------------- Begin Interface ChangeListener ---------------------
-
-  @Override
-  public void stateChanged(ChangeEvent e) {
-    // updating text area only
-    final int newValue = getValueFromEditor();
-    taRefText.setText(getStringRef(newValue));
-    updateButtonStates(newValue);
-  }
-
-  // --------------------- End Interface ChangeListener ---------------------
-
   // --------------------- Begin Interface Editable ---------------------
 
   @Override
   public JComponent edit(ActionListener container) {
-    if (sRefNr == null) {
-      sRefNr = new JSpinner(new SpinnerNumberModel(value, -0x80000000L, 0xFFFFFFFFL, 1L));
-      sRefNr.setEditor(new JSpinner.NumberEditor(sRefNr, "#")); // no special formatting
-
-      // Restore click events for text field in JSpinner component
-      if (sRefNr.getEditor() instanceof DefaultEditor) {
-        DefaultEditor edit = (DefaultEditor) sRefNr.getEditor();
-        edit.getTextField().addMouseListener(new MouseAdapter() {
-          @Override
-          public void mouseClicked(MouseEvent e) {
-            if (SwingUtilities.isLeftMouseButton(e) && e.getSource() instanceof JTextField) {
-              JTextField edit = (JTextField) e.getSource();
-              // Invoke later to circumvent content validation (may not work correctly on every platform)
-              if (e.getClickCount() == 2) {
-                SwingUtilities.invokeLater(edit::selectAll);
-              } else {
-                SwingUtilities.invokeLater(() -> edit.setCaretPosition(edit.viewToModel(e.getPoint())));
-              }
-            }
-          }
-        });
-      }
-
-      sRefNr.addChangeListener(this);
-      taRefText = new InfinityTextArea(1, 200, true);
-      if (syntaxLanguageOverride != null) {
-        taRefText.applyExtendedSettings(syntaxLanguageOverride, null);
-      } else if (BrowserMenuBar.getInstance().getOptions().getTlkSyntaxHighlightingEnabled()) {
-        taRefText.applyExtendedSettings(InfinityTextArea.Language.TLK, null);
-      }
-      taRefText.setFont(Misc.getScaledFont(taRefText.getFont()));
-      taRefText.setHighlightCurrentLine(false);
-      taRefText.setEditable(false);
-      taRefText.setLineWrap(true);
-      taRefText.setWrapStyleWord(true);
-      taRefText.setMargin(new Insets(3, 3, 3, 3));
-      bPlay = new JButton("Sound", Icons.ICON_VOLUME_16.getIcon());
-      bPlay.setToolTipText("Opens associated sound");
-      bPlay.addActionListener(this);
-      bEdit = new JButton("Edit", Icons.ICON_EDIT_16.getIcon());
-      bEdit.setToolTipText("Opens string editor");
-      bEdit.setMnemonic('e');
-      bEdit.addActionListener(this);
-      bSearch = new JButton("Find references...", Icons.ICON_FIND_16.getIcon());
-      bSearch.addActionListener(this);
-      bSearch.setMnemonic('f');
+    if (panel == null) {
+      panel = new StringRefPanel(this, container);
     }
-    updateButtonStates(value);
-    taRefText.setText(getStringRef(value));
-    taRefText.setCaretPosition(0);
-    InfinityScrollPane scroll = new InfinityScrollPane(taRefText, true);
-    scroll.setLineNumbersEnabled(false);
-    sRefNr.setValue(value);
-    JLabel label = new JLabel("StringRef: ");
-    label.setLabelFor(sRefNr);
-    label.setDisplayedMnemonic('s');
-    bPlay.setMargin(new Insets(1, 3, 1, 3));
-    bEdit.setMargin(bPlay.getMargin());
-    bSearch.setMargin(bPlay.getMargin());
-    sRefNr.setMinimumSize(new Dimension(sRefNr.getPreferredSize().width, bPlay.getPreferredSize().height));
-
-    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
-    if (container != null) {
-      bUpdate = new JButton("Update value", Icons.ICON_REFRESH_16.getIcon());
-      bUpdate.setMargin(bPlay.getMargin());
-      bUpdate.setActionCommand(StructViewer.UPDATE_VALUE);
-      bUpdate.addActionListener(this);
-      bUpdate.addActionListener(container);
-      buttonPanel.add(bUpdate);
-    }
-    buttonPanel.add(bPlay);
-    buttonPanel.add(bEdit);
-    buttonPanel.add(bSearch);
-
-    GridBagLayout gbl = new GridBagLayout();
-    GridBagConstraints gbc = new GridBagConstraints();
-    JPanel panel = new JPanel(gbl);
-
-    gbc.weightx = 0.0;
-    gbc.weighty = 0.0;
-    gbc.insets = new Insets(0, 0, 3, 3);
-    gbc.fill = GridBagConstraints.NONE;
-    gbl.setConstraints(label, gbc);
-    panel.add(label);
-
-    gbc.anchor = GridBagConstraints.WEST;
-    gbl.setConstraints(sRefNr, gbc);
-    panel.add(sRefNr);
-
-    gbc.insets.right = 0;
-    gbc.gridwidth = GridBagConstraints.REMAINDER;
-    gbl.setConstraints(buttonPanel, gbc);
-    panel.add(buttonPanel);
-
-    gbc.weightx = 1.0;
-    gbc.weighty = 1.0;
-    gbc.fill = GridBagConstraints.BOTH;
-    gbl.setConstraints(scroll, gbc);
-    panel.add(scroll);
-
-    panel.setMinimumSize(Misc.getScaledDimension(DIM_BROAD));
-    panel.setPreferredSize(Misc.getScaledDimension(DIM_BROAD));
+    panel.setValue(getValue());
     return panel;
   }
 
@@ -303,7 +152,7 @@ public final class StringRef extends Datatype
   @Override
   public boolean updateValue(AbstractStruct struct) {
     long oldValue = getLongValue();
-    setValue(getValueFromEditor());
+    setValue(getPanel().getValue());
 
     // notifying listeners
     if (getLongValue() != oldValue) {
@@ -397,9 +246,7 @@ public final class StringRef extends Datatype
   public void setValue(int newValue) {
     final int oldValue = value;
     value = newValue;
-    taRefText.setText(getStringRef(newValue));
-    sRefNr.setValue(newValue);
-    updateButtonStates(newValue);
+    getPanel().setValue(newValue);
 
     if (oldValue != newValue) {
       firePropertyChange(oldValue, newValue);
@@ -407,41 +254,25 @@ public final class StringRef extends Datatype
   }
 
   /**
-   * Enables or disables buttons in the string reference UI component depending on availability of the
-   * respective resource.
-   *
-   * @param value Value of string reference.
+   * Returns the {@link StringRefPanel} associated with this datatype.
+   * Returns {@code null} if the panel has not been initialized yet.
    */
-  private void updateButtonStates(int value) {
-    enablePlay(value);
-    enableEdit(value);
+  public StringRefPanel getPanel() {
+    return panel;
   }
 
   /**
-   * Enables or disables button for view associated sound for specified StringRef value.
+   * Returns the syntax highlighting Language for this StringRef instance.
    *
-   * @param value Value of string reference
+   * @return The syntax highlighting {@link Language} to use, or {@code null} if syntax highlighting is not enabled.
    */
-  private void enablePlay(int value) {
-    final String resname = StringTable.getSoundResource(value);
-    bPlay.setEnabled(!resname.isEmpty() && ResourceFactory.resourceExists(resname + ".WAV", true));
-  }
-
-  /**
-   * Enables or disables button for opening the string table editor with the specified StringRef value.
-   *
-   * @param value Value of string reference
-   */
-  private void enableEdit(int value) {
-    bEdit.setEnabled(StringTable.isValidStringRef(value));
-  }
-
-  /**
-   * Extracts current value of string reference from editor. This value may not be saved yet in string field of
-   * {@link #getParent() owner structure}, it is value of current string that editor is display.
-   */
-  private int getValueFromEditor() {
-    return ((Number) sRefNr.getValue()).intValue();
+  private Language getHighlightingLanguage() {
+    if (syntaxLanguageOverride != null) {
+      return syntaxLanguageOverride;
+    } else if (BrowserMenuBar.getInstance().getOptions().getTlkSyntaxHighlightingEnabled()) {
+      return InfinityTextArea.Language.TLK;
+    }
+    return null;
   }
 
   private String getStringRef(int strref) {
@@ -504,5 +335,268 @@ public final class StringRef extends Datatype
     }
 
     return retVal;
+  }
+
+  // -------------------------- INNER CLASSES --------------------------
+
+  public static class StringRefPanel extends JPanel implements ActionListener, ChangeListener {
+    private final StringRef stringRef;
+    private final ActionListener container;
+
+    /**
+     * Button that opens dialog with sound associated with this reference if that sound exists. If no sound assotiated
+     * with this string entry, button is disabled.
+     */
+    private JButton bPlay;
+
+    /** Button that opens editor of the talk table(s) of the game (dialog.tlk and dialogF.tlk). */
+    private JButton bEdit;
+
+    /**
+     * Button that used to update reference in parent struct if editor of this string reference opened in embedded mode.
+     * Hidden if editor opened not in embedded mode
+     */
+    private JButton bUpdate;
+
+    /**
+     * Button that opens dialog with settings for searching usage of this string in another game files.
+     */
+    private JButton bSearch;
+
+    /** Text area that contains content of string from main talk table (dialog.tlk). */
+    private InfinityTextArea taRefText;
+
+    /** Editor for numerical index in talk table for this string reference. */
+    private JSpinner sRefNr;
+
+    public StringRefPanel(StringRef stringRef, ActionListener container) {
+      super(new GridBagLayout());
+      this.stringRef = stringRef;
+      this.container = container;
+      init();
+    }
+
+    /** Returns the currently selected stringref index. */
+    public int getValue() {
+      return ((Number)sRefNr.getValue()).intValue();
+    }
+
+    public void setValue(int newValue) {
+      if (newValue != getValue()) {
+        taRefText.setText(stringRef.getStringRef(newValue));
+        sRefNr.setValue(newValue);
+        updateButtonStates(newValue);
+      }
+    }
+
+    /** Returns the text associated with the currently selected stringref index. */
+    public String getText() {
+      return getText(getValue());
+    }
+
+    /** Returns the text associated with the specified stringref index. */
+    public String getText(int index) {
+      return stringRef.getStringRef(index);
+    }
+
+    /** Returns the {@link InfinityTextArea} instance used for displaying talk table text. */
+    public InfinityTextArea getTextControl() {
+      return taRefText;
+    }
+
+    /** Selects the text region that matches {@code text} in the currently selected stringref. */
+    public Object highlightText(String text, boolean ignoreCase) {
+      if (text == null || text.length() == 0) {
+        return null;
+      }
+
+      int flags = Pattern.LITERAL;
+      if (ignoreCase) {
+        flags |= Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE;
+      }
+      final Pattern p = Pattern.compile(text, flags);
+      final Matcher m = p.matcher(getText());
+      if (m.matches()) {
+        return highlightText(m.start(), m.end());
+      }
+      return null;
+    }
+
+    /** Selects the text region specified by the start and end positions in the currently selected stringref. */
+    public Object highlightText(int start, int end) {
+      return taRefText.highlightText(start, end);
+    }
+
+    /**
+     * Removes the specified highlighted region from the text component. Specify {@code null} to remove all
+     * highlighted regions.
+     */
+    public void clearHighlightedText(Object tag) {
+      taRefText.clearHighlight(tag);
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent event) {
+      final int newValue = getValueFromEditor();
+      if (event.getSource() == bUpdate) {
+        taRefText.setText(stringRef.getStringRef(newValue));
+        updateButtonStates(newValue);
+      } else if (event.getSource() == bEdit) {
+        StringEditor.edit(newValue);
+      } else if (event.getSource() == bPlay) {
+        final ResourceEntry entry = ResourceFactory.getResourceEntry(StringTable.getSoundResource(newValue) + ".WAV", true);
+        new ViewFrame(bPlay.getTopLevelAncestor(), ResourceFactory.getResource(entry));
+      } else if (event.getSource() == bSearch) {
+        new StringReferenceSearcher(newValue, bSearch.getTopLevelAncestor());
+      }
+    }
+
+    @Override
+    public void stateChanged(ChangeEvent event) {
+      // updating text area only
+      final int newValue = getValueFromEditor();
+      taRefText.setText(stringRef.getStringRef(newValue));
+      updateButtonStates(newValue);
+    }
+
+    /**
+     * Enables or disables buttons in the string reference UI component depending on availability of the
+     * respective resource.
+     *
+     * @param value Value of string reference.
+     */
+    private void updateButtonStates(int value) {
+      enablePlay(value);
+      enableEdit(value);
+    }
+
+    /**
+     * Enables or disables button for view associated sound for specified StringRef value.
+     *
+     * @param value Value of string reference
+     */
+    private void enablePlay(int value) {
+      final String resname = StringTable.getSoundResource(value);
+      bPlay.setEnabled(!resname.isEmpty() && ResourceFactory.resourceExists(resname + ".WAV", true));
+    }
+
+    /**
+     * Enables or disables button for opening the string table editor with the specified StringRef value.
+     *
+     * @param value Value of string reference
+     */
+    private void enableEdit(int value) {
+      bEdit.setEnabled(StringTable.isValidStringRef(value));
+    }
+
+    /**
+     * Extracts current value of string reference from editor. This value may not be saved yet in string field of
+     * {@link #getParent() owner structure}, it is value of current string that editor is display.
+     */
+    private int getValueFromEditor() {
+      return ((Number) sRefNr.getValue()).intValue();
+    }
+
+    private void init() {
+      sRefNr = new JSpinner(new SpinnerNumberModel(0, -0x80000000L, 0xFFFFFFFFL, 1L));
+      sRefNr.setEditor(new JSpinner.NumberEditor(sRefNr, "#")); // no special formatting
+
+      // Restore click events for text field in JSpinner component
+      if (sRefNr.getEditor() instanceof DefaultEditor) {
+        DefaultEditor edit = (DefaultEditor) sRefNr.getEditor();
+        edit.getTextField().addMouseListener(new MouseAdapter() {
+          @Override
+          public void mouseClicked(MouseEvent e) {
+            if (SwingUtilities.isLeftMouseButton(e) && e.getSource() instanceof JTextField) {
+              JTextField edit = (JTextField) e.getSource();
+              // Invoke later to circumvent content validation (may not work correctly on every platform)
+              if (e.getClickCount() == 2) {
+                SwingUtilities.invokeLater(edit::selectAll);
+              } else {
+                SwingUtilities.invokeLater(() -> edit.setCaretPosition(edit.viewToModel(e.getPoint())));
+              }
+            }
+          }
+        });
+      }
+
+      sRefNr.addChangeListener(this);
+      taRefText = new InfinityTextArea(1, 200, true);
+      final Language language = stringRef.getHighlightingLanguage();
+      if (language != null) {
+        taRefText.applyExtendedSettings(language, null);
+      }
+      taRefText.setFont(Misc.getScaledFont(taRefText.getFont()));
+      taRefText.setHighlightCurrentLine(false);
+      taRefText.setEditable(false);
+      taRefText.setLineWrap(true);
+      taRefText.setWrapStyleWord(true);
+      taRefText.setMargin(new Insets(3, 3, 3, 3));
+      bPlay = new JButton("Sound", Icons.ICON_VOLUME_16.getIcon());
+      bPlay.setToolTipText("Opens associated sound");
+      bPlay.addActionListener(this);
+      bEdit = new JButton("Edit", Icons.ICON_EDIT_16.getIcon());
+      bEdit.setToolTipText("Opens string editor");
+      bEdit.setMnemonic('e');
+      bEdit.addActionListener(this);
+      bSearch = new JButton("Find references...", Icons.ICON_FIND_16.getIcon());
+      bSearch.addActionListener(this);
+      bSearch.setMnemonic('f');
+
+      updateButtonStates(stringRef.getValue());
+      taRefText.setText(stringRef.getStringRef(stringRef.getValue()));
+      taRefText.setCaretPosition(0);
+      InfinityScrollPane scroll = new InfinityScrollPane(taRefText, true);
+      scroll.setLineNumbersEnabled(false);
+      sRefNr.setValue(stringRef.getValue());
+      JLabel label = new JLabel("StringRef: ");
+      label.setLabelFor(sRefNr);
+      label.setDisplayedMnemonic('s');
+      bPlay.setMargin(new Insets(1, 3, 1, 3));
+      bEdit.setMargin(bPlay.getMargin());
+      bSearch.setMargin(bPlay.getMargin());
+      sRefNr.setMinimumSize(new Dimension(sRefNr.getPreferredSize().width, bPlay.getPreferredSize().height));
+
+      final JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+      if (container != null) {
+        bUpdate = new JButton("Update value", Icons.ICON_REFRESH_16.getIcon());
+        bUpdate.setMargin(bPlay.getMargin());
+        bUpdate.setActionCommand(StructViewer.UPDATE_VALUE);
+        bUpdate.addActionListener(this);
+        bUpdate.addActionListener(container);
+        buttonPanel.add(bUpdate);
+      }
+      buttonPanel.add(bPlay);
+      buttonPanel.add(bEdit);
+      buttonPanel.add(bSearch);
+
+      final GridBagLayout gbl = (GridBagLayout)getLayout();
+      final GridBagConstraints gbc = new GridBagConstraints();
+
+      gbc.weightx = 0.0;
+      gbc.weighty = 0.0;
+      gbc.insets = new Insets(0, 0, 3, 3);
+      gbc.fill = GridBagConstraints.NONE;
+      gbl.setConstraints(label, gbc);
+      add(label);
+
+      gbc.anchor = GridBagConstraints.WEST;
+      gbl.setConstraints(sRefNr, gbc);
+      add(sRefNr);
+
+      gbc.insets.right = 0;
+      gbc.gridwidth = GridBagConstraints.REMAINDER;
+      gbl.setConstraints(buttonPanel, gbc);
+      add(buttonPanel);
+
+      gbc.weightx = 1.0;
+      gbc.weighty = 1.0;
+      gbc.fill = GridBagConstraints.BOTH;
+      gbl.setConstraints(scroll, gbc);
+      add(scroll);
+
+      setMinimumSize(Misc.getScaledDimension(DIM_BROAD));
+      setPreferredSize(Misc.getScaledDimension(DIM_BROAD));
+    }
   }
 }
