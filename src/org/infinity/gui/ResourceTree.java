@@ -604,6 +604,14 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
 
     @Override
     public void keyTyped(KeyEvent event) {
+      final int modMask = KeyEvent.META_DOWN_MASK | KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK;
+//      final int ignoreMask = modMask & ~KeyEvent.SHIFT_DOWN_MASK;
+//      final boolean ctrlPressed = (event.getModifiers() & Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()) != 0;
+//      if (ctrlPressed) {
+      if ((event.getModifiersEx() & modMask) != 0) {
+        return;
+      }
+
       currentkey += Character.toString(event.getKeyChar()).toUpperCase(Locale.ENGLISH);
       if (timer.isRunning()) {
         timer.restart();
@@ -919,7 +927,12 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     @Override
     public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
       if (flavor == binaryFlavor) {
-        return Collections.singletonList(resource.getActualPath().toString());
+        try {
+          return Collections.singletonList(resource.getActualPath().toFile());
+        } catch (UnsupportedOperationException uoe) {
+          final String msg = uoe.getMessage() != null ? uoe.getMessage() : "File path is not compatible with the local filesystem";
+          throw new IOException(msg);
+        }
       } else if (flavor == textFlavor) {
         return resource.getResourceName();
       }
