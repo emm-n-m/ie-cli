@@ -605,9 +605,6 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     @Override
     public void keyTyped(KeyEvent event) {
       final int modMask = KeyEvent.META_DOWN_MASK | KeyEvent.CTRL_DOWN_MASK | KeyEvent.ALT_DOWN_MASK;
-//      final int ignoreMask = modMask & ~KeyEvent.SHIFT_DOWN_MASK;
-//      final boolean ctrlPressed = (event.getModifiers() & Toolkit.getDefaultToolkit().getMenuShortcutKeyMask()) != 0;
-//      if (ctrlPressed) {
       if ((event.getModifiersEx() & modMask) != 0) {
         return;
       }
