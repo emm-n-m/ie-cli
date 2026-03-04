@@ -11,6 +11,9 @@ import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
@@ -21,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -28,6 +32,7 @@ import java.util.Stack;
 
 import javax.swing.Icon;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
@@ -39,6 +44,7 @@ import javax.swing.JTree;
 import javax.swing.SwingConstants;
 import javax.swing.SwingWorker;
 import javax.swing.Timer;
+import javax.swing.TransferHandler;
 import javax.swing.UIManager;
 import javax.swing.event.PopupMenuEvent;
 import javax.swing.event.PopupMenuListener;
@@ -100,6 +106,7 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     tree.setRootVisible(false);
     tree.addTreeSelectionListener(this);
     tree.setShowsRootHandles(true);
+    tree.setTransferHandler(new TreeTransferHandler());
 
     bnext.addActionListener(this);
     bprev.addActionListener(this);
@@ -672,6 +679,23 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     }
   }
 
+  private final class TreeTransferHandler extends TransferHandler {
+
+    @Override
+    protected Transferable createTransferable(JComponent c) {
+      ResourceEntry resource = NearInfinity.getInstance().getResourceTree().getSelected();
+      if (resource == null) {
+        return null;
+      }
+      return new CopiedResource(resource);
+    }
+
+    @Override
+    public int getSourceActions(JComponent c) {
+      return COPY;
+    }
+  }
+
   private final class TreePopupMenu extends JPopupMenu implements ActionListener, PopupMenuListener {
     private final JMenuItem miOpen = new JMenuItem("Open");
     private final JMenuItem miOpenNew = new JMenuItem("Open in new window");
@@ -870,6 +894,36 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
       }
       setFont(font);
       return this;
+    }
+  }
+
+  private static final class CopiedResource implements Transferable {
+    private final ResourceEntry resource;
+    private static final DataFlavor binaryFlavor = DataFlavor.javaFileListFlavor;
+    private static final DataFlavor textFlavor = DataFlavor.stringFlavor;
+
+    public CopiedResource(ResourceEntry resource) {
+      this.resource = resource;
+    }
+
+    @Override
+    public DataFlavor[] getTransferDataFlavors() {
+      return new DataFlavor[] { binaryFlavor, textFlavor };
+    }
+
+    @Override
+    public boolean isDataFlavorSupported(DataFlavor flavor) {
+      return flavor == binaryFlavor || flavor == textFlavor;
+    }
+
+    @Override
+    public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
+      if (flavor == binaryFlavor) {
+        return Collections.singletonList(resource.getActualPath().toString());
+      } else if (flavor == textFlavor) {
+        return resource.getResourceName();
+      }
+      throw new UnsupportedFlavorException(flavor);
     }
   }
 }
