@@ -351,7 +351,7 @@ public final class ItmResource extends AbstractStruct implements Resource, HasCh
       if (isV20) {
         addField(new Flag(buffer, 30, 4, ITM_UNUSABLE_BY, USABILITY20_ARRAY));
       } else {
-        addField(new Flag(buffer, 30, 4, ITM_UNUSABLE_BY, USABILITY_ARRAY));
+        addField(new Flag(buffer, 30, 4, ITM_UNUSABLE_BY, getUpdatedUsability()));
       }
       addField(new TextBitmap(buffer, 34, 2, ITM_EQUIPPED_APPEARANCE, Profile.getEquippedAppearanceMap()));
     }
@@ -511,6 +511,23 @@ public final class ItmResource extends AbstractStruct implements Resource, HasCh
         }
       }
     }
+  }
+
+  /** Returns an updated ITM V1 usability array for the current engine version. */
+  private static String[] getUpdatedUsability() {
+    final String[] usability;
+
+    if (Profile.isEnhancedEdition() || Profile.getEngine() == Profile.Engine.BG2) {
+      usability = Arrays.copyOf(USABILITY_ARRAY, USABILITY_ARRAY.length);
+      usability[19] = "Mage and Sorcerer";
+      if (Profile.isEnhancedEdition()) {
+        usability[31] = "Druid and Shaman";
+      }
+    } else {
+      usability = USABILITY_ARRAY;
+    }
+
+    return usability;
   }
 
   /**
