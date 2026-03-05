@@ -10,6 +10,7 @@ import java.util.List;
 import org.infinity.datatype.ColorPicker;
 import org.infinity.datatype.Datatype;
 import org.infinity.datatype.DecNumber;
+import org.infinity.gui.ColorChooser;
 import org.infinity.resource.AbstractStruct;
 import org.infinity.resource.Profile;
 import org.infinity.resource.StructEntry;
@@ -47,7 +48,7 @@ public class Opcode194 extends BaseOpcode {
   @Override
   protected String makeEffectParamsPST(Datatype parent, ByteBuffer buffer, int offset, List<StructEntry> list,
       boolean isVersion1) {
-    list.add(new ColorPicker(buffer, offset, EFFECT_COLOR, ColorPicker.Format.RGBX));
+    list.add(new ColorPicker(buffer, offset, EFFECT_COLOR, ColorChooser.ColorFormat.RGBA));
     list.add(new DecNumber(buffer, offset + 4, 4, AbstractStruct.COMMON_UNUSED));
     return null;
   }

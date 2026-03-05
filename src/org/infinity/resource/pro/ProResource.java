@@ -25,6 +25,7 @@ import org.infinity.datatype.TextString;
 import org.infinity.datatype.Unknown;
 import org.infinity.datatype.UpdateEvent;
 import org.infinity.datatype.UpdateListener;
+import org.infinity.gui.ColorChooser;
 import org.infinity.gui.StructViewer;
 import org.infinity.gui.hexview.BasicColorMap;
 import org.infinity.gui.hexview.StructHexViewer;
@@ -250,7 +251,7 @@ public final class ProResource extends AbstractStruct implements Resource, HasCh
       Flag flag = new Flag(buffer, offset + 44, 4, PRO_EX_FLAGS, FLAGS_EX_ARRAY);
       addField(flag);
       addField(new StringRef(buffer, offset + 48, PRO_STRING));
-      addField(new ColorPicker(buffer, offset + 52, PRO_COLOR, ColorPicker.Format.BGRX));
+      addField(new ColorPicker(buffer, offset + 52, PRO_COLOR, ColorChooser.ColorFormat.BGRA));
       addField(new DecNumber(buffer, offset + 56, 2, PRO_COLOR_SPEED));
       addField(new DecNumber(buffer, offset + 58, 2, PRO_SCREEN_SHAKE_AMOUNT));
       flag.addUpdateListener(this);

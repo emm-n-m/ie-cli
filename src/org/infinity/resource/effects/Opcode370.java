@@ -10,6 +10,7 @@ import java.util.List;
 import org.infinity.datatype.ColorPicker;
 import org.infinity.datatype.Datatype;
 import org.infinity.datatype.Flag;
+import org.infinity.gui.ColorChooser;
 import org.infinity.resource.Profile;
 import org.infinity.resource.StructEntry;
 
@@ -48,7 +49,7 @@ public class Opcode370 extends BaseOpcode {
   protected String makeEffectParamsEE(Datatype parent, ByteBuffer buffer, int offset, List<StructEntry> list,
       boolean isVersion1) {
     if (Profile.getGame() == Profile.Game.PSTEE) {
-      list.add(new ColorPicker(buffer, offset, EFFECT_COLOR, ColorPicker.Format.RGBX));
+      list.add(new ColorPicker(buffer, offset, EFFECT_COLOR, ColorChooser.ColorFormat.RGBA));
       list.add(new Flag(buffer, offset + 4, 4, EFFECT_FLAGS, FLAGS));
       return RES_TYPE;
     } else {

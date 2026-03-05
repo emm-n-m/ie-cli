@@ -11,6 +11,7 @@ import org.infinity.datatype.ColorPicker;
 import org.infinity.datatype.Datatype;
 import org.infinity.datatype.DecNumber;
 import org.infinity.datatype.Flag;
+import org.infinity.gui.ColorChooser;
 import org.infinity.resource.AbstractStruct;
 import org.infinity.resource.Profile;
 import org.infinity.resource.StructEntry;
@@ -49,7 +50,7 @@ public class Opcode187 extends BaseOpcode {
   @Override
   protected String makeEffectParamsPST(Datatype parent, ByteBuffer buffer, int offset, List<StructEntry> list,
       boolean isVersion1) {
-    list.add(new ColorPicker(buffer, offset, EFFECT_COLOR, ColorPicker.Format.RGBX));
+    list.add(new ColorPicker(buffer, offset, EFFECT_COLOR, ColorChooser.ColorFormat.RGBA));
     list.add(new Flag(buffer, offset + 4, 4, EFFECT_METHOD, METHOD_TYPES_PST));
     return RES_TYPE;
   }

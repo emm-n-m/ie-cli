@@ -21,6 +21,7 @@ import org.infinity.datatype.ResourceRef;
 import org.infinity.datatype.StringRef;
 import org.infinity.datatype.TextString;
 import org.infinity.datatype.Unknown;
+import org.infinity.gui.ColorChooser;
 import org.infinity.resource.AbstractStruct;
 import org.infinity.resource.Profile;
 import org.infinity.resource.StructEntry;
@@ -218,9 +219,9 @@ final public class Control extends AbstractStruct { // implements AddRemovable
           addField(new ResourceRef(buffer, offset + 14, CHU_CONTROL_TA_FONT_MAIN, "BAM"));
           addField(new ResourceRef(buffer, offset + 22, CHU_CONTROL_TA_FONT_INITIALS, "BAM"));
         }
-        addField(new ColorPicker(buffer, offset + 30, CHU_CONTROL_TA_COLOR_1, ColorPicker.Format.RGBX));
-        addField(new ColorPicker(buffer, offset + 34, CHU_CONTROL_TA_COLOR_2, ColorPicker.Format.RGBX));
-        addField(new ColorPicker(buffer, offset + 38, CHU_CONTROL_TA_COLOR_3, ColorPicker.Format.RGBX));
+        addField(new ColorPicker(buffer, offset + 30, CHU_CONTROL_TA_COLOR_1, ColorChooser.ColorFormat.RGBA));
+        addField(new ColorPicker(buffer, offset + 34, CHU_CONTROL_TA_COLOR_2, ColorChooser.ColorFormat.RGBA));
+        addField(new ColorPicker(buffer, offset + 38, CHU_CONTROL_TA_COLOR_3, ColorChooser.ColorFormat.RGBA));
         addField(new DecNumber(buffer, offset + 42, 4, CHU_CONTROL_TA_SCROLLBAR_ID));
         offset += 46;
         break;
@@ -231,8 +232,8 @@ final public class Control extends AbstractStruct { // implements AddRemovable
         } else {
           addField(new ResourceRef(buffer, offset + 18, CHU_CONTROL_LBL_FONT, "BAM"));
         }
-        addField(new ColorPicker(buffer, offset + 26, CHU_CONTROL_LBL_COLOR_1, ColorPicker.Format.RGBX));
-        addField(new ColorPicker(buffer, offset + 30, CHU_CONTROL_LBL_COLOR_2, ColorPicker.Format.RGBX));
+        addField(new ColorPicker(buffer, offset + 26, CHU_CONTROL_LBL_COLOR_1, ColorChooser.ColorFormat.RGBA));
+        addField(new ColorPicker(buffer, offset + 30, CHU_CONTROL_LBL_COLOR_2, ColorChooser.ColorFormat.RGBA));
         addField(new Flag(buffer, offset + 34, 2, CHU_CONTROL_LBL_FLAGS, LABEL_ARRAY));
         offset += 36;
         break;
