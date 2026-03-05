@@ -30,10 +30,12 @@ import java.awt.print.Printable;
 import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -90,6 +92,8 @@ import org.infinity.icon.Icons;
 import org.infinity.resource.AbstractStruct;
 import org.infinity.resource.AddRemovable;
 import org.infinity.resource.Closeable;
+import org.infinity.resource.Effect;
+import org.infinity.resource.Effect2;
 import org.infinity.resource.HasChildStructs;
 import org.infinity.resource.HasViewerTabs;
 import org.infinity.resource.Profile;
@@ -102,6 +106,7 @@ import org.infinity.resource.dlg.DlgResource;
 import org.infinity.resource.dlg.State;
 import org.infinity.resource.dlg.Transition;
 import org.infinity.resource.dlg.TreeItemEntry;
+import org.infinity.resource.key.BufferedResourceEntry;
 import org.infinity.search.AttributeSearcher;
 import org.infinity.search.DialogItemRefSearcher;
 import org.infinity.search.DialogStateReferenceSearcher;
@@ -137,6 +142,7 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
   public static final String CMD_TOFLAGS = "ToFlags";
   public static final String CMD_TORESLIST = "ToResList";
   public static final String CMD_RESET = "ResetType";
+  public static final String CMD_EXPORT_EFF = "ExportEFF";
   public static final String CMD_GOTO_OFFSET = "GotoOffset";
   public static final String CMD_APPLY_TO_ALL = "ApplyToAllRemovables";
   public static final String CMD_APPLY_TO_NON_EMPTY = "ApplyToNonEmptyRemovables";
@@ -175,6 +181,8 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
   private final JMenuItem miToHexInt = createMenuItem(CMD_TOHEXINT, "Edit as hexadecimal number", Icons.ICON_REFRESH_16.getIcon(), this);
   private final JMenuItem miToFlags = createMenuItem(CMD_TOFLAGS, "Edit as bit field", Icons.ICON_REFRESH_16.getIcon(), this);
   private final JMenuItem miReset = createMenuItem(CMD_RESET, "Reset field type", Icons.ICON_REFRESH_16.getIcon(), this);
+  private final JPopupMenu.Separator sepExport = new JPopupMenu.Separator();
+  private final JMenuItem miExportEFF = createMenuItem(CMD_EXPORT_EFF, "Export EFF structure...", Icons.ICON_EXPORT_16.getIcon(), this);
   private final JMenuItem miApplyToAllRemovables = createMenuItem(CMD_APPLY_TO_ALL, "Apply value to all substructures", Icons.ICON_COPY_16.getIcon(), this);
   private final JMenuItem miApplyToNonEmptyRemovables = createMenuItem(CMD_APPLY_TO_NON_EMPTY, "Apply value to non-empty/zero substructures", Icons.ICON_COPY_16.getIcon(), this);
   private final JMenuItem miApplyToEmptyRemovables = createMenuItem(CMD_APPLY_TO_EMPTY, "Apply value to empty/zero substructures", Icons.ICON_COPY_16.getIcon(), this);
@@ -311,6 +319,8 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
     popupmenu.add(miToResref);
     popupmenu.add(miToString);
     popupmenu.add(miReset);
+    popupmenu.add(sepExport);
+    popupmenu.add(miExportEFF);
     popupmenu.addSeparator();
     popupmenu.add(miApplyToAllRemovables);
     popupmenu.add(miApplyToNonEmptyRemovables);
@@ -319,6 +329,7 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
     popupmenu.add(miAddToAdvSearch);
     popupmenu.add(miGotoOffset);
     if (struct instanceof DlgResource) {
+      popupmenu.addSeparator();
       popupmenu.add(miShowInTree);
       popupmenu.add(miShowViewer);
       popupmenu.add(miShowNewViewer);
@@ -340,6 +351,8 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
     miToResref.setEnabled(false);
     miToString.setEnabled(false);
     miReset.setEnabled(false);
+    sepExport.setVisible(false);
+    miExportEFF.setVisible(false);
     miApplyToAllRemovables.setEnabled(false);
     miApplyToNonEmptyRemovables.setEnabled(false);
     miApplyToEmptyRemovables.setEnabled(false);
@@ -643,6 +656,11 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
       convertAttribute(min, miToString);
     } else if (CMD_RESET.equals(cmd)) {
       convertAttribute(min, miReset);
+    } else if (CMD_EXPORT_EFF.equals(cmd)) {
+      final Object item = table.getValueAt(min, 1);
+      if (item instanceof AbstractStruct) {
+        exportEffect((AbstractStruct)item);
+      }
     } else if (CMD_GOTO_OFFSET.equals(cmd)) {
       final StructEntry se = (StructEntry) table.getValueAt(min, 1);
       Class<? extends StructEntry> cls = null;
@@ -766,6 +784,8 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
       miToResref.setEnabled(false);
       miToString.setEnabled(false);
       miReset.setEnabled(false);
+      sepExport.setVisible(false);
+      miExportEFF.setVisible(false);
       miApplyToAllRemovables.setEnabled(false);
       miApplyToNonEmptyRemovables.setEnabled(false);
       miApplyToEmptyRemovables.setEnabled(false);
@@ -833,6 +853,9 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
           || selected instanceof TextBitmap));
       miReset.setEnabled(isDataType && getCachedStructEntry(((Datatype) selected).getOffset()) != null
           && !(selected instanceof AbstractCode));
+      final boolean isEffect = (selected instanceof Effect || selected instanceof Effect2);
+      sepExport.setVisible(isEffect);
+      miExportEFF.setVisible(isEffect);
       miApplyToAllRemovables.setEnabled(!(selected instanceof AbstractStruct) && struct instanceof AddRemovable &&
           struct.getParent() != null);
       miApplyToNonEmptyRemovables.setEnabled(!(selected instanceof AbstractStruct) && struct instanceof AddRemovable &&
@@ -1641,6 +1664,53 @@ public final class StructViewer extends JPanel implements ListSelectionListener,
     }
 
     return name;
+  }
+
+  /** Attempts to export the specified Effect or Effect2 structure to an EFF file. */
+  private void exportEffect(AbstractStruct struct) {
+    if (!(struct instanceof Effect || struct instanceof Effect2)) {
+      return;
+    }
+
+    Effect2 eff2 = null;
+    if (struct instanceof Effect) {
+      try {
+        final Effect eff1 = (Effect)struct;
+        eff2 = (Effect2)eff1.clone(true);
+      } catch (Exception e) {
+        Logger.error(e);
+        final StringBuilder msg = new StringBuilder();
+        msg.append(struct.getName()).append(": ");
+        if (e.getMessage() != null && !e.getMessage().isEmpty()) {
+          msg.append(e.getMessage());
+        } else {
+          msg.append("Could not convert to EFF V2 structure");
+        }
+        JOptionPane.showMessageDialog(this, msg.toString(), "Error", JOptionPane.ERROR_MESSAGE);
+        return;
+      }
+    } else if (struct instanceof Effect2) {
+      eff2 = (Effect2)struct;
+    }
+
+    try {
+      Objects.requireNonNull(eff2);
+    } catch (NullPointerException e) {
+      Logger.error(e);
+      JOptionPane.showMessageDialog(this, "Could not export effect structure.", "Error", JOptionPane.ERROR_MESSAGE);
+    }
+
+    // preparing resource data
+    final ByteBuffer buf = StreamUtils.getByteBuffer(eff2.getSize() + 8);
+    buf.put("EFF V2.0".getBytes(StandardCharsets.US_ASCII));
+    buf.put(eff2.getDataBuffer());
+
+    // preparing filename
+    final String fileName = eff2.getName().replaceAll(" ", "").toUpperCase(Locale.ROOT) + ".EFF";
+
+    // exporting
+    BufferedResourceEntry entry = new BufferedResourceEntry(buf, fileName);
+    ResourceFactory.exportResource(entry, this);
   }
 
   // -------------------------- INNER CLASSES --------------------------
