@@ -375,6 +375,26 @@ public final class NearInfinity extends JFrame implements ActionListener, Viewab
     }
   }
 
+  /** Returns whether the option "Override UI Scaling" is available for the current NI session. */
+  public static boolean isUiScalingSupported() {
+    return Platform.JAVA_VERSION >= 9;
+  }
+
+  /**
+   * Returns the UI scaling factor (in percent) if overridden by the app. Returns 0 if system-wide UI scale factor
+   * is used.
+   *
+   * @implNote This method must not, directly or indirectly, cause any Java Swing library to be loaded.
+   */
+  private static int getUiScalingOption() {
+    int retVal = 0;
+    final Preferences prefs = Preferences.userNodeForPackage(NearInfinity.class);
+    if (prefs.getBoolean(APP_UI_SCALE_ENABLED, false)) {
+      retVal = Math.max(50, Math.min(400, prefs.getInt(APP_UI_SCALE_FACTOR, 100)));
+    }
+    return retVal;
+  }
+
   public static void main(String[] args) {
     Profile.Game forcedGame = null;
     Path gameOverride = null;
@@ -1222,27 +1242,7 @@ public final class NearInfinity extends JFrame implements ActionListener, Viewab
     return (bgIntensity < fgIntensity);
   }
 
-  /** Returns whether the option "Override UI Scaling" is available for the current NI session. */
-  public static boolean isUiScalingSupported() {
-    return Platform.JAVA_VERSION >= 9;
-  }
-
-  /**
-   * Returns the UI scaling factor (in percent) if overridden by the app. Returns 0 if system-wide UI scale factor
-   * is used.
-   *
-   * @implNote This method must not, directly or indirectly, cause any Java Swing library to be loaded.
-   */
-  private static int getUiScalingOption() {
-    int retVal = 0;
-    final Preferences prefs = Preferences.userNodeForPackage(NearInfinity.class);
-    if (prefs.getBoolean(APP_UI_SCALE_ENABLED, false)) {
-      retVal = Math.max(50, Math.min(400, prefs.getInt(APP_UI_SCALE_FACTOR, 100)));
-    }
-    return retVal;
-  }
-
-  private static boolean reloadFactory(boolean refreshOnly) {
+  private boolean reloadFactory(boolean refreshOnly) {
     boolean retVal = false;
     clearCache(refreshOnly);
     Path keyFile = refreshOnly ? Profile.getChitinKey() : findKeyfile();
@@ -1256,8 +1256,8 @@ public final class NearInfinity extends JFrame implements ActionListener, Viewab
   }
 
   // Central method for clearing cached data
-  private static void clearCache(boolean refreshOnly) {
-    NearInfinity.getInstance().cancelCacheResourceIcons();
+  private void clearCache(boolean refreshOnly) {
+    cancelCacheResourceIcons();
     if (ResourceFactory.getKeyfile() != null) {
       ResourceFactory.getKeyfile().closeBIFFFiles();
     }
@@ -1288,24 +1288,24 @@ public final class NearInfinity extends JFrame implements ActionListener, Viewab
     DlcManager.close();
   }
 
-  private static void showProgress(String msg, int max) {
-    if (getInstance() != null && getInstance().pmProgress == null) {
-      getInstance().pmProgress = new ProgressMonitor(null, msg, "   ", 0, max);
-      getInstance().pmProgress.setMillisToDecideToPopup(0);
-      getInstance().pmProgress.setMillisToPopup(0);
-      getInstance().progressIndex = 0;
-      getInstance().pmProgress.setProgress(++getInstance().progressIndex);
+  private void showProgress(String msg, int max) {
+    if (pmProgress == null) {
+      pmProgress = new ProgressMonitor(null, msg, "   ", 0, max);
+      pmProgress.setMillisToDecideToPopup(0);
+      pmProgress.setMillisToPopup(0);
+      progressIndex = 0;
+      pmProgress.setProgress(++getInstance().progressIndex);
     }
   }
 
-  private static void hideProgress() {
-    if (getInstance() != null && getInstance().pmProgress != null) {
-      getInstance().pmProgress.close();
-      getInstance().pmProgress = null;
+  private void hideProgress() {
+    if (pmProgress != null) {
+      pmProgress.close();
+      pmProgress = null;
     }
   }
 
-  private static void resizeUIFont(int percent) {
+  private void resizeUIFont(int percent) {
     Enumeration<Object> keys = UIManager.getDefaults().keys();
     while (keys.hasMoreElements()) {
       Object key = keys.nextElement();
