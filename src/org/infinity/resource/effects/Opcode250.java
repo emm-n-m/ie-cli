@@ -29,7 +29,7 @@ public class Opcode250 extends BaseOpcode {
       case IWD:
         return "Bad recitation";
       default:
-        return "Maximum damage each hit";
+        return "Damage luck bonus";
     }
   }
 
