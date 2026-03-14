@@ -13,6 +13,9 @@ import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.GraphicsConfiguration;
 import java.awt.GraphicsEnvironment;
+import java.awt.Insets;
+import java.awt.font.FontRenderContext;
+import java.awt.geom.Rectangle2D;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -405,7 +408,7 @@ public class Misc {
    *
    * @param c         The component to derive height and properties for calculating width.
    * @param prototype The prototype string used to derive width.
-   * @return The {@link Dimension} object with calculated width and height.
+   * @return The {@link Dimension} object with calculated width. Height is used unchanged from the given component.
    */
   public static Dimension getPrototypeSize(JComponent c, String prototype) {
     Dimension d = null;
@@ -415,6 +418,41 @@ public class Misc {
       d.width = c.getFontMetrics(c.getFont()).stringWidth(prototype);
     }
     return d;
+  }
+
+  /**
+   * Returns width and height of the specified text if displayed in the given component.
+   *
+   * @param c             The component where the text should be displayed.
+   * @param text          The text {@code String}. If string is empty then a single space is used for the calculation.
+   * @param includeInsets Whether to include border's insets of the component into the calculation.
+   * @return {@link Dimension} with the calculated width and height of the text. Returns an empty dimension if component
+   *         is {@code null}.
+   */
+  public static Dimension getTextDimension(JComponent c, String text, boolean includeInsets) {
+    Dimension dim = null;
+
+    if (c != null) {
+      if (text == null || text.isEmpty()) {
+        text = " ";
+      }
+      final Font font = c.getFont();
+      final FontRenderContext frc = new FontRenderContext(null, true, true);
+      Rectangle2D bounds = font.getStringBounds(text, frc);
+      dim = new Dimension((int)Math.ceil(bounds.getWidth()), (int)Math.ceil(bounds.getHeight()));
+
+      if (includeInsets) {
+        final Insets insets = c.getInsets();
+        dim.width += insets.left + insets.right;
+        dim.height += insets.top + insets.bottom;
+      }
+    }
+
+    if (dim == null) {
+      dim = new Dimension();
+    }
+
+    return dim;
   }
 
   /**

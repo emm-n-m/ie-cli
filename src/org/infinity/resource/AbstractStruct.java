@@ -494,8 +494,19 @@ public abstract class AbstractStruct extends AbstractTableModel
 
   /** Returns the table row index where the specified AddRemovable structure can be inserted. */
   public int getDatatypeIndex(AddRemovable addedEntry) {
+    return getDatatypeIndex(addedEntry, false);
+  }
+
+  /**
+   * Returns the table row index where the specified AddRemovable structure can be inserted.
+   *
+   * @param addedEntry      The entry to add.
+   * @param ignoreSelection Whether row index calculation should ignore currently selected table row, thus always
+   *                          returning the index that points to the end of the section or parent structure.
+   */
+  public int getDatatypeIndex(AddRemovable addedEntry, boolean ignoreSelection) {
     int index = 0;
-    if (viewer != null && viewer.getSelectedEntry() != null
+    if (!ignoreSelection && viewer != null && viewer.getSelectedEntry() != null
         && viewer.getSelectedEntry().getClass() == addedEntry.getClass()) {
       index = viewer.getSelectedRow();
     } else if (offsetmap.containsKey(addedEntry.getClass())) {

@@ -16,6 +16,7 @@ import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.Insets;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
@@ -44,6 +45,7 @@ import javax.swing.ListCellRenderer;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
@@ -643,6 +645,26 @@ public final class ViewerUtil {
     final Font f = l.getFont();
     l.setFont(f.deriveFont(f.getSize2D() * 0.8f));
     return l;
+  }
+
+  /**
+   * Returns the first {@code Window} ancestor of {@code c}, or {@code defWindow} if {@code c} is not contained inside a
+   * window.
+   *
+   * @param c         Component to get {@code Window} ancestor of.
+   * @param defWindow This parameter is returned if a {@code Window} could not be determined from {@code c}.
+   * @return the first {@code Window} ancestor of {@code c}, or {@code defWindow} if {@code c} is not contained inside a
+   *         window.
+   */
+  public static Window getWindowAncestor(Component c, Window defWindow) {
+    Window retVal = defWindow;
+    if (c != null) {
+      final Window w = SwingUtilities.getWindowAncestor(c);
+      if (w != null) {
+        retVal = w;
+      }
+    }
+    return retVal;
   }
 
   /**

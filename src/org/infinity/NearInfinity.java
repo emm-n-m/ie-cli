@@ -120,6 +120,7 @@ import org.infinity.resource.graphics.ColorConvert;
 import org.infinity.resource.key.FileResourceEntry;
 import org.infinity.resource.key.ResourceEntry;
 import org.infinity.resource.key.ResourceTreeModel;
+import org.infinity.resource.spl.generator.GeneratorDialog;
 import org.infinity.resource.text.PlainTextResource;
 import org.infinity.updater.UpdateCheck;
 import org.infinity.updater.UpdateInfo;
@@ -1283,6 +1284,7 @@ public final class NearInfinity extends JFrame implements ActionListener, Viewab
     Song2daBitmap.resetSonglist();
     SpellProtType.resetTypeTable();
     Summon2daBitmap.resetSummonTable();
+    GeneratorDialog.clearInstance();
     DlcManager.close();
   }
 

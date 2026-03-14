@@ -4,22 +4,31 @@
 
 package org.infinity.resource.spl;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
 
 import javax.swing.BorderFactory;
+import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
 
 import org.infinity.datatype.AbstractBitmap;
 import org.infinity.datatype.Bitmap;
 import org.infinity.datatype.DecNumber;
+import org.infinity.datatype.EffectType;
 import org.infinity.datatype.Flag;
 import org.infinity.datatype.IsNumeric;
 import org.infinity.datatype.PriTypeBitmap;
@@ -32,9 +41,11 @@ import org.infinity.datatype.TextString;
 import org.infinity.datatype.Unknown;
 import org.infinity.datatype.UpdateEvent;
 import org.infinity.datatype.UpdateListener;
+import org.infinity.gui.ButtonPanel;
 import org.infinity.gui.StructViewer;
 import org.infinity.gui.hexview.BasicColorMap;
 import org.infinity.gui.hexview.StructHexViewer;
+import org.infinity.icon.Icons;
 import org.infinity.resource.AbstractAbility;
 import org.infinity.resource.AbstractStruct;
 import org.infinity.resource.AddRemovable;
@@ -44,11 +55,17 @@ import org.infinity.resource.HasViewerTabs;
 import org.infinity.resource.Profile;
 import org.infinity.resource.Resource;
 import org.infinity.resource.StructEntry;
+import org.infinity.resource.effects.BaseOpcode;
 import org.infinity.resource.itm.ItmResource;
 import org.infinity.resource.key.ResourceEntry;
+import org.infinity.resource.spl.generator.EffectConfig;
+import org.infinity.resource.spl.generator.GeneratorAttribute;
+import org.infinity.resource.spl.generator.GeneratorConfig;
+import org.infinity.resource.spl.generator.GeneratorDialog;
 import org.infinity.search.SearchOptions;
 import org.infinity.util.Logger;
 import org.infinity.util.StringTable;
+import org.infinity.util.io.ByteBufferOutputStream;
 import org.infinity.util.io.StreamUtils;
 
 /**
@@ -65,7 +82,7 @@ import org.infinity.util.io.StreamUtils;
  *      https://gibberlings3.github.io/iesdp/file_formats/ie_formats/spl_v1.htm</a>
  */
 public final class SplResource extends AbstractStruct
-    implements Resource, HasChildStructs, HasViewerTabs, UpdateListener {
+    implements Resource, HasChildStructs, HasViewerTabs, UpdateListener, ActionListener {
   // SPL-specific field labels
   public static final String SPL_NAME                             = "Spell name";
   public static final String SPL_NAME_IDENTIFIED                  = ItmResource.ITM_NAME_IDENTIFIED + SUFFIX_UNUSED;
@@ -138,6 +155,7 @@ public final class SplResource extends AbstractStruct
       "Druid/Ranger/Wild mage" };
 
   private StructHexViewer hexViewer;
+  private JButton bGenerateAbilities;
 
   public static String getSearchString(InputStream is) throws IOException {
     is.skip(8);
@@ -208,6 +226,8 @@ public final class SplResource extends AbstractStruct
     }
   }
 
+  // --------------------- Begin Interface UpdateListener ---------------------
+
   @Override
   public boolean valueUpdated(UpdateEvent event) {
     if (event.getSource() instanceof AbstractBitmap<?>
@@ -227,9 +247,40 @@ public final class SplResource extends AbstractStruct
     return false;
   }
 
+  // --------------------- End Interface UpdateListener ---------------------
+
+  // --------------------- Begin Interface ActionListener ---------------------
+
+  @Override
+  public void actionPerformed(ActionEvent event) {
+    if (event.getSource() == bGenerateAbilities) {
+      try {
+        final GeneratorConfig config = GeneratorDialog.getConfiguration(this);
+        if (config != null) {
+          performAbilityGeneration(config);
+        }
+      } catch (Exception e) {
+        JOptionPane.showMessageDialog(SwingUtilities.getWindowAncestor(getViewer()), e.getMessage(), "Error",
+            JOptionPane.ERROR_MESSAGE);
+      }
+    }
+  }
+
+  // --------------------- End Interface ActionListener ---------------------
+
   @Override
   protected void viewerInitialized(StructViewer viewer) {
     viewer.addTabChangeListener(hexViewer);
+
+    final ButtonPanel buttonPanel = viewer.getButtonPanel();
+    int idx = buttonPanel.getControlPosition(buttonPanel.getControlByType(ButtonPanel.Control.PRINT));
+    if (idx < 0) {
+      idx = 5;
+    }
+    bGenerateAbilities = new JButton("Generate abilities...", Icons.ICON_HISTORY_16.getIcon());
+    bGenerateAbilities.setToolTipText("Autogenerate level-scaled spell abilities");
+    bGenerateAbilities.addActionListener(this);
+    buttonPanel.addControl(idx, bGenerateAbilities, ButtonPanel.Control.CUSTOM_1);
   }
 
   @Override
@@ -384,6 +435,313 @@ public final class SplResource extends AbstractStruct
     }
     if (hexViewer != null) {
       hexViewer.dataModified();
+    }
+  }
+
+  /**
+   * Returns the count of spell abilities that will be created or updated according to the given configuration.
+   *
+   * @throws Exception if the abilities count could not be determined.
+   */
+  public int getAbilityGenerationCount(GeneratorConfig config) throws Exception {
+    if (config == null) {
+      throw new Exception("Configuration not available.");
+    }
+
+    // sanity check: at least one ability must exist
+    final int numAbils = ((IsNumeric)getAttribute(SPL_NUM_ABILITIES)).getValue();
+    if (numAbils < 1) {
+      throw new Exception("At least one spell ability must exist.");
+    }
+
+    final int spellLevel = ((IsNumeric)getAttribute(SPL_LEVEL)).getValue();
+    // First effective creature level
+    final int startLevel = config.isSkipUnneeded() ? Math.max(2, spellLevel * 2) : 2;
+    final int maxLevel = config.getMaxLevel();
+    final int levelsPerAbil = config.getLevelsPerAbility();
+
+    int abilitiesCount = 0;
+    int level = (levelsPerAbil >= startLevel) ? 0 : levelsPerAbil;
+    for (; level <= maxLevel; level += levelsPerAbil) {
+      if (abilitiesCount == 0 && level + levelsPerAbil < startLevel) {
+        continue;
+      }
+
+      abilitiesCount++;
+    }
+
+    return abilitiesCount;
+  }
+
+  /** Autogenerates spell ability structures based on the given configuration. */
+  private void performAbilityGeneration(GeneratorConfig config) throws Exception {
+    if (config == null) {
+      throw new NullPointerException("config is null.");
+    }
+
+    // sanity check: at least one ability must exist
+    final List<StructEntry> list = getFields(Ability.class);
+    if (list.isEmpty()) {
+      throw new Exception("At least one spell ability must exist.");
+    }
+
+    final int spellLevel = ((IsNumeric)getAttribute(SPL_LEVEL)).getValue();
+    // First effective creature level
+    final int startLevel = config.isSkipUnneeded() ? Math.max(2, spellLevel * 2) : 2;
+    final int maxLevel = config.getMaxLevel();
+    final int levelsPerAbil = config.getLevelsPerAbility();
+
+    // keeps track of level count
+    int level;
+    // effective ability index (includes skipped ability structures)
+    int effectiveAbilityIndex;
+    if (levelsPerAbil >= startLevel) {
+      level = 0;
+      effectiveAbilityIndex = -1;
+    } else {
+      level = levelsPerAbil;
+      effectiveAbilityIndex = 0;
+    }
+
+    // keeps track of number of generated ability entries
+    int abilitiesCount = 0;
+    final ArrayList<Ability> abilityList = new ArrayList<>(maxLevel);
+
+    for (; level <= maxLevel; level += levelsPerAbil) {
+      effectiveAbilityIndex++;
+
+      if (abilitiesCount == 0 && level + levelsPerAbil < startLevel) {
+        continue;
+      }
+
+      // adding ability
+      if (abilitiesCount < list.size()) {
+        // Ability exists: just copy from source list
+        abilityList.add((Ability)list.get(abilitiesCount));
+      } else {
+        // Ability does not exist: create as clone from previous ability and add to abilityList
+        final Ability prevAbil = abilityList.get(abilitiesCount - 1);
+        try {
+          final Ability newAbil = (Ability)prevAbil.clone();
+          abilityList.add(newAbil);
+        } catch (CloneNotSupportedException e) {
+          throw new Exception("Could not create spell ability #" + abilitiesCount);
+        }
+      }
+
+      // adjust ability and effect attributes according to config
+      final Ability curAbil = abilityList.get(abilitiesCount);
+      final int effectiveLevel = (abilitiesCount == 0) ? 1 : level;
+
+      // updating ability attributes
+      // adjusting level
+      ((DecNumber)curAbil.getAttribute(Ability.SPL_ABIL_MIN_LEVEL)).setValue(effectiveLevel);
+
+      GeneratorAttribute attribute;
+
+      // adjusting range
+      if (config.isRangeEnabled()) {
+        attribute = new GeneratorAttribute(config.getRangeBase(), config.getRangeIncrement());
+        ((DecNumber)curAbil.getAttribute(Ability.ABILITY_RANGE)).setValue(attribute.getScaledValue(effectiveAbilityIndex));
+      }
+
+      // adjusting casting speed
+      if (config.isCastingSpeedEnabled()) {
+        attribute = new GeneratorAttribute(config.getCastingSpeedBase(), config.getCastingSpeedIncrement());
+        final int value = Math.max(0, attribute.getScaledValue(effectiveAbilityIndex));
+        ((DecNumber)curAbil.getAttribute(Ability.SPL_ABIL_CASTING_SPEED)).setValue(value);
+      }
+
+      // updating effect attributes
+      final List<StructEntry> effectsList = curAbil.getFields(Effect.class);
+      for (int i = 0, num = effectsList.size(); i < num; i++) {
+        final Effect effect = (Effect)effectsList.get(i);
+        final int opcode = ((IsNumeric)effect.getAttribute(EffectType.EFFECT_TYPE)).getValue();
+        if (config.isDurationEnabled()) {
+          // adjusting duration
+          final int timing = ((IsNumeric)effect.getAttribute(BaseOpcode.EFFECT_TIMING_MODE)).getValue();
+          final Set<Integer> setPreserve = config.getDurationBlackList();
+          final boolean preserve = (timing == 0 || timing == 10) && (setPreserve != null && setPreserve.contains(opcode));
+          final Set<Integer> setForce= config.getForcedDurationList();
+          final boolean force = (setForce != null && setForce.contains(opcode));
+          Integer duration = null;
+          int durationThreshold = config.getDurationThreshold();
+          switch (timing) {
+            case 0:   // Instant/Limited
+            case 3:   // Delay/Limited
+            case 4:   // Delay/Permanent
+            case 5:   // Delay/While equipped
+            case 6:   // Limited after duration
+            case 7:   // Permanent after duration
+            case 8:   // Equipped after duration
+              if (!preserve) {
+                attribute = new GeneratorAttribute(config.getDurationBase(), config.getDurationIncrement());
+                duration = attribute.getScaledValue(effectiveAbilityIndex);
+              }
+              break;
+            case 10:  // Instant/Limited (in ticks)
+              if (!preserve) {
+                final int globalFactor = 15;
+                attribute = new GeneratorAttribute(config.getDurationBase(), config.getDurationIncrement());
+                duration = attribute.getScaledValue(effectiveAbilityIndex, globalFactor);
+                durationThreshold *= globalFactor;
+              }
+              break;
+            default:
+              if (!force) {
+                duration = 0;
+              }
+              break;
+          }
+
+          if (duration != null) {
+            final int effectDuration = ((IsNumeric)effect.getAttribute(BaseOpcode.EFFECT_DURATION)).getValue();
+            if (effectDuration >= durationThreshold) {
+              ((DecNumber)effect.getAttribute(BaseOpcode.EFFECT_DURATION)).setValue(duration);
+            }
+          }
+        }
+
+        // adjusting dice count
+        if (config.isDiceCountEnabled()) {
+          attribute = new GeneratorAttribute(config.getDiceCountBase(), config.getDiceCountIncrement());
+          ((DecNumber)effect.getAttribute(BaseOpcode.EFFECT_DICE_COUNT_MAX_LEVEL))
+              .setValue(attribute.getScaledValue(effectiveAbilityIndex));
+        }
+
+        // adjusting dice size
+        if (config.isDiceSizeEnabled()) {
+          attribute = new GeneratorAttribute(config.getDiceSizeBase(), config.getDiceSizeIncrement());
+          ((DecNumber)effect.getAttribute(BaseOpcode.EFFECT_DICE_SIZE_MIN_LEVEL))
+              .setValue(attribute.getScaledValue(effectiveAbilityIndex));
+        }
+
+        // adjusting saving throws
+        if (config.isSaveBonusEnabled()) {
+          final int typeMask = (Profile.getEngine() == Profile.Engine.IWD2) ? 0x1c : 0x1f;
+          final int saveType = ((IsNumeric)effect.getAttribute(BaseOpcode.EFFECT_SAVE_TYPE)).getValue() & typeMask;
+          if (saveType != 0) {
+            attribute = new GeneratorAttribute(config.getSaveBonusBase(), config.getSaveBonusIncrement());
+            final String name = (Profile.getEngine() == Profile.Engine.IWD2) ? BaseOpcode.EFFECT_SAVE_PENALTY
+                : BaseOpcode.EFFECT_SAVE_BONUS;
+            ((DecNumber)effect.getAttribute(name)).setValue(attribute.getScaledValue(effectiveAbilityIndex));
+          }
+        }
+
+        // adjusting opcode-specific attributes
+        final Map<Integer, EffectConfig> effectConfigs = config.getEffectConfigs();
+        final EffectConfig effectConfig = effectConfigs.get(opcode);
+        if (effectConfig != null) {
+          EffectConfig.Parameter param = new EffectConfig.Parameter(effectConfig.getParameter1Mode(),
+              effectConfig.getParameter1Items(), effectiveAbilityIndex, 1);
+          Byte[] bytes = param.getBytes();
+          applyBytes(effect, bytes, 0x04);
+
+          param = new EffectConfig.Parameter(effectConfig.getParameter2Mode(),
+              effectConfig.getParameter2Items(), effectiveAbilityIndex, 1);
+          bytes = param.getBytes();
+          applyBytes(effect, bytes, 0x08);
+
+          param = new EffectConfig.Parameter(effectConfig.getSpecialMode(),
+              effectConfig.getSpecialItems(), effectiveAbilityIndex, 1);
+          bytes = param.getBytes();
+          applyBytes(effect, bytes, 0x2c);
+        }
+      }
+
+      abilitiesCount++;
+    }
+
+    // removing excess abilities from original abilities list
+    for (int i = list.size() - 1; i >= abilitiesCount; i--) {
+      final StructEntry se = list.get(i);
+      if (se instanceof AddRemovable) {
+        removeDatatype((AddRemovable)se, true);
+      }
+    }
+
+    // adding new abilities from newly generated abilitis list
+    for (int i = list.size(), num = abilityList.size(); i < num; i++) {
+      final Ability abil = abilityList.get(i);
+
+      // child structures must be re-added manually to sync them with the parent structure
+      final List<AddRemovable> childList = abil.removeAllRemoveables();
+      addDatatype(abil, getDatatypeIndex(abil, true));
+
+      for (final AddRemovable child : childList) {
+        abil.addDatatype(child);
+      }
+    }
+  }
+
+  /**
+   * Applies the given byte data to the affected fields in the specified structure.
+   *
+   * @param struct {@link AbstractStruct} instance of the structure where data should be applied to.
+   * @param bytes  Array of {@link Byte} objects that should be applied. {@code null} values are skipped.
+   * @param offset Start offset of the structure data to update.
+   * @throws Exception if an error occurred
+   */
+  private static void applyBytes(AbstractStruct struct, Byte[] bytes, int offset) throws Exception {
+    if (struct == null || bytes == null) {
+      throw new NullPointerException();
+    }
+    if (offset < 0 || offset > struct.getSize()) {
+      throw new IllegalArgumentException("Offset is out of bounds");
+    }
+
+    // checking if any bytes in the array are defined
+    boolean check = false;
+    for (int i = 0; i < bytes.length; i++) {
+      check |= (bytes[i] != null);
+    }
+    if (!check) {
+      return;
+    }
+
+    final int endOffset = offset + bytes.length;
+    final List<StructEntry> fields = struct.getFields();
+    for (int index = 0, count = fields.size(); index < count; index++) {
+      final StructEntry entry = fields.get(index);
+      final int entryOffset = entry.getOffset() - ((entry.getParent() != null) ? entry.getParent().getOffset() : 0);
+      final int entrySize = entry.getSize();
+      if (entryOffset + entrySize <= offset || entryOffset >= endOffset) {
+        continue;
+      }
+
+      // checking if bytes are defined for this field
+      final int relIdxStart = Math.max(0, entryOffset - offset);
+      final int relIdxEnd = Math.min(bytes.length, entryOffset + entrySize - offset);
+      boolean defined = false;
+      for (int i = relIdxStart; i < relIdxEnd; i++) {
+        defined |= (bytes[i] != null);
+      }
+
+      if (defined) {
+        // collecting original data
+        final ByteBuffer bb = StreamUtils.getByteBuffer(entrySize);
+        try (final ByteBufferOutputStream bbos = new ByteBufferOutputStream(bb)) {
+          entry.write(bbos);
+        } catch (IOException e) {
+          Logger.error(e);
+          throw new Exception("Reading byte data from field at offset " + entryOffset, e);
+        }
+
+        // applying defined bytes
+        for (int i = relIdxStart; i < relIdxEnd; i++) {
+          if (bytes[i] != null) {
+            bb.put(i, bytes[i]);
+          }
+        }
+
+        // recreate original datatype from new data
+        bb.position(0);
+        try {
+          entry.read(bb, 0);
+        } catch (Exception e) {
+          throw new Exception("Updating byte data in field at offset " + entryOffset, e);
+        }
+      }
     }
   }
 
