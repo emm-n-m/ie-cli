@@ -65,7 +65,7 @@ public class GeneratorConfig implements Serializable {
       if (!(object instanceof GeneratorConfig)) {
         throw new InvalidClassException("File contains unknown datatypes.");
       }
-      final GeneratorConfig config = (GeneratorConfig)ois.readObject();
+      final GeneratorConfig config = (GeneratorConfig)object;
       return config;
     } catch (InvalidClassException e) {
       throw new Exception("Incompatible file type.", e);
@@ -88,8 +88,11 @@ public class GeneratorConfig implements Serializable {
     }
 
     final Deflater def = new Deflater(Deflater.BEST_COMPRESSION);
-    try (final ObjectOutputStream oos = new ObjectOutputStream(new DeflaterOutputStream(new FileOutputStream(configFile), def))) {
+    try (final FileOutputStream fos = new FileOutputStream(configFile);
+        final DeflaterOutputStream dos = new DeflaterOutputStream(fos, def);
+        final ObjectOutputStream oos = new ObjectOutputStream(dos)) {
       oos.writeObject(this);
+      dos.finish();
     }
   }
 
