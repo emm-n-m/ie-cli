@@ -117,7 +117,7 @@ public abstract class AbstractStruct extends AbstractTableModel
    * @see #addPropertyChangeListener
    * @see #removePropertyChangeListener
    */
-  private final PropertyChangeSupport changeSupport = new PropertyChangeSupport(this);
+  private PropertyChangeSupport changeSupport = new PropertyChangeSupport(this);
 
   private static void adjustEntryOffsets(AbstractStruct superStruct, AbstractStruct modifiedStruct,
       AddRemovable datatype, int amount) {
@@ -241,18 +241,14 @@ public abstract class AbstractStruct extends AbstractTableModel
   @Override
   public AbstractStruct clone() throws CloneNotSupportedException {
     final AbstractStruct newstruct = (AbstractStruct) super.clone();
+    newstruct.listenerList = new EventListenerList();
+    newstruct.changeSupport = new PropertyChangeSupport(newstruct);
     newstruct.superStruct = null;
     newstruct.fields = new ArrayList<>(fields.size());
     newstruct.viewer = null;
     for (final StructEntry e : fields) {
       newstruct.fields.add(e.clone());
     }
-    // for (Iterator i = newstruct.list.iterator(); i.hasNext();) {
-    // StructEntry sentry = (StructEntry)i.next();
-    // if (sentry.getOffset() <= 0)
-    // break;
-    // sentry.setOffset(sentry.getOffset() - newstruct.getOffset());
-    // }
     newstruct.initAddStructMaps();
     return newstruct;
   }
