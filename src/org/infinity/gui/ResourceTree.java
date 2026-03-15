@@ -684,7 +684,7 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     }
   }
 
-  private final class TreeTransferHandler extends TransferHandler {
+  private static final class TreeTransferHandler extends TransferHandler {
 
     @Override
     protected Transferable createTransferable(JComponent c) {

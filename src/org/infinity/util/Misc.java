@@ -829,7 +829,7 @@ public class Misc {
    * @throws NullPointerException if the key or value is {@code null}
    */
   public static <K, V> Map<K, V> mapOf(K k1, V v1) {
-    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1));
+    return mapOfEntries(new AbstractMap.SimpleEntry<>(k1, v1));
   }
 
   // TODO: remove when upgrading code base to Java 9 or later
@@ -847,8 +847,8 @@ public class Misc {
    * @throws NullPointerException     if any key or value is {@code null}
    */
   public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2) {
-    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
-        new AbstractMap.SimpleEntry<K, V>(k2, v2));
+    return mapOfEntries(new AbstractMap.SimpleEntry<>(k1, v1),
+        new AbstractMap.SimpleEntry<>(k2, v2));
   }
 
   // TODO: remove when upgrading code base to Java 9 or later
@@ -868,9 +868,9 @@ public class Misc {
    * @throws NullPointerException     if any key or value is {@code null}
    */
   public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3) {
-    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
-        new AbstractMap.SimpleEntry<K, V>(k2, v2),
-        new AbstractMap.SimpleEntry<K, V>(k3, v3));
+    return mapOfEntries(new AbstractMap.SimpleEntry<>(k1, v1),
+        new AbstractMap.SimpleEntry<>(k2, v2),
+        new AbstractMap.SimpleEntry<>(k3, v3));
   }
 
   // TODO: remove when upgrading code base to Java 9 or later
@@ -892,10 +892,10 @@ public class Misc {
    * @throws NullPointerException     if any key or value is {@code null}
    */
   public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4) {
-    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
-        new AbstractMap.SimpleEntry<K, V>(k2, v2),
-        new AbstractMap.SimpleEntry<K, V>(k3, v3),
-        new AbstractMap.SimpleEntry<K, V>(k4, v4));
+    return mapOfEntries(new AbstractMap.SimpleEntry<>(k1, v1),
+        new AbstractMap.SimpleEntry<>(k2, v2),
+        new AbstractMap.SimpleEntry<>(k3, v3),
+        new AbstractMap.SimpleEntry<>(k4, v4));
   }
 
   // TODO: remove when upgrading code base to Java 9 or later
@@ -919,11 +919,11 @@ public class Misc {
    * @throws NullPointerException     if any key or value is {@code null}
    */
   public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4, K k5, V v5) {
-    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
-        new AbstractMap.SimpleEntry<K, V>(k2, v2),
-        new AbstractMap.SimpleEntry<K, V>(k3, v3),
-        new AbstractMap.SimpleEntry<K, V>(k4, v4),
-        new AbstractMap.SimpleEntry<K, V>(k5, v5));
+    return mapOfEntries(new AbstractMap.SimpleEntry<>(k1, v1),
+        new AbstractMap.SimpleEntry<>(k2, v2),
+        new AbstractMap.SimpleEntry<>(k3, v3),
+        new AbstractMap.SimpleEntry<>(k4, v4),
+        new AbstractMap.SimpleEntry<>(k5, v5));
   }
 
   // TODO: remove when upgrading code base to Java 9 or later
@@ -949,12 +949,12 @@ public class Misc {
    * @throws NullPointerException     if any key or value is {@code null}
    */
   public static <K, V> Map<K, V> mapOf(K k1, V v1, K k2, V v2, K k3, V v3, K k4, V v4, K k5, V v5, K k6, V v6) {
-    return mapOfEntries(new AbstractMap.SimpleEntry<K, V>(k1, v1),
-        new AbstractMap.SimpleEntry<K, V>(k2, v2),
-        new AbstractMap.SimpleEntry<K, V>(k3, v3),
-        new AbstractMap.SimpleEntry<K, V>(k4, v4),
-        new AbstractMap.SimpleEntry<K, V>(k5, v5),
-        new AbstractMap.SimpleEntry<K, V>(k6, v6));
+    return mapOfEntries(new AbstractMap.SimpleEntry<>(k1, v1),
+        new AbstractMap.SimpleEntry<>(k2, v2),
+        new AbstractMap.SimpleEntry<>(k3, v3),
+        new AbstractMap.SimpleEntry<>(k4, v4),
+        new AbstractMap.SimpleEntry<>(k5, v5),
+        new AbstractMap.SimpleEntry<>(k6, v6));
   }
 
   // TODO: remove when upgrading code base to Java 9 or later

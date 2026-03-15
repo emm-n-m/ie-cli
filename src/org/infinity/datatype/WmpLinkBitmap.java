@@ -54,7 +54,7 @@ public class WmpLinkBitmap extends AbstractBitmap<String> {
       for (int i = 0, count = areas.size(); i < count; i++) {
         final ResourceRef currentArea = (ResourceRef)areas.get(i).getAttribute(AreaEntry.WMP_AREA_CURRENT);
         String label = (currentArea != null) ? currentArea.toString() : "[Unknown]";
-        map.put(Long.valueOf(i), label);
+        map.put((long)i, label);
       }
     }
   }

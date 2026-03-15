@@ -40,7 +40,6 @@ public class GeneratorAttribute implements Serializable {
    *
    * @param base  Base value.
    * @param inc   Increment value.
-   * @param label Label that identifies this attribute (only used for diagnostic output).
    */
   public GeneratorAttribute(int base, double inc) {
     this(base, inc, null, true);
@@ -51,8 +50,6 @@ public class GeneratorAttribute implements Serializable {
    *
    * @param base    Base value.
    * @param inc     Increment value.
-   * @param label   Label that identifies this attribute (only used for diagnostic output).
-   * @param enabled Whether the attribute is enabled (optional property).
    */
   public GeneratorAttribute(int base, double inc, boolean enable) {
     this(base, inc, null, enable);
@@ -180,8 +177,6 @@ public class GeneratorAttribute implements Serializable {
 
   @Override
   public String toString() {
-    final StringBuilder sb = new StringBuilder();
-    sb.append(label).append("=(Base: ").append(baseValue).append(", Increment: ").append(incValue).append(')');
-    return sb.toString();
+    return label + "=(Base: " + baseValue + ", Increment: " + incValue + ')';
   }
 }

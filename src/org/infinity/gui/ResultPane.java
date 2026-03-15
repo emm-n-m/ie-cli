@@ -33,7 +33,7 @@ import org.infinity.util.Misc;
  * A customizable panel for presenting data records in a table layout and associated component, such as title or button
  * controls.
  *
- * @param T {@link JTable} or derived table class.
+ * @param <T> {@link JTable} or derived table class.
  */
 public class ResultPane<T extends JTable> extends JPanel implements ActionListener, ListSelectionListener {
   private final ArrayList<JButton> buttonList = new ArrayList<>();

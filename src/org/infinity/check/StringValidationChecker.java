@@ -747,7 +747,7 @@ public class StringValidationChecker extends AbstractSearcher
       if (StringTable.getCharset().equals(StandardCharsets.UTF_8)) {
         // Fixing UTF-8 charset
         final String curLangCode = Profile.getProperty(Profile.Key.GET_GAME_LANG_FOLDER_NAME);
-        Charset cs = null;
+        Charset cs;
         try {
           cs = Charset.forName(CharsetDetector.getDefaultCharset(curLangCode));
         } catch (UnsupportedCharsetException e) {

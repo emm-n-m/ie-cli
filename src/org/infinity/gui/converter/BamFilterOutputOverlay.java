@@ -831,7 +831,6 @@ public class BamFilterOutputOverlay extends BamFilterBaseOutput implements Actio
       g.drawImage(srcFrameEntry.getFrame(), -left - srcFrameEntry.getCenterX(), -top - srcFrameEntry.getCenterY(), null);
     } finally {
       g.dispose();
-      g = null;
     }
 
     // overlay BAM frames

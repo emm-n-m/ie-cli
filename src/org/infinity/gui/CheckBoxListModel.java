@@ -381,7 +381,7 @@ public class CheckBoxListModel<E> extends AbstractListModel<E> {
         final Boolean b = checks.get(i);
         lastRet = i;
         cursor = i + 1;
-        return new Couple<E, Boolean>(e, b);
+        return new Couple<>(e, b);
       } catch (IndexOutOfBoundsException e) {
         checkForComodification();
         throw new NoSuchElementException();

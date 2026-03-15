@@ -131,7 +131,6 @@ public class BamFilterOutputCombine extends BamFilterBaseOutput {
       }
     } finally {
       g.dispose();
-      g = null;
     }
 
     // generating output BAM

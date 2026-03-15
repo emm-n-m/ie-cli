@@ -406,7 +406,7 @@ public final class StringRef extends Datatype implements Editable, IsNumeric, Is
 
     /** Selects the text region that matches {@code text} in the currently selected stringref. */
     public Object highlightText(String text, boolean ignoreCase) {
-      if (text == null || text.length() == 0) {
+      if (text == null || text.isEmpty()) {
         return null;
       }
 

@@ -58,7 +58,7 @@ public class WmpMapInfo implements Closeable {
     mapIcons = null;
     mapIconsControl = null;
     virtualMapEntry = null;
-    while (areasList.isEmpty()) {
+    while (!areasList.isEmpty()) {
       areasList.remove(areasList.size() - 1).close();
     }
   }

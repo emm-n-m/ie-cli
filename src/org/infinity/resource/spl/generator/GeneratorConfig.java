@@ -14,7 +14,6 @@ import java.io.Serializable;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -65,8 +64,7 @@ public class GeneratorConfig implements Serializable {
       if (!(object instanceof GeneratorConfig)) {
         throw new InvalidClassException("File contains unknown datatypes.");
       }
-      final GeneratorConfig config = (GeneratorConfig)object;
-      return config;
+      return (GeneratorConfig)object;
     } catch (InvalidClassException e) {
       throw new Exception("Incompatible file type.", e);
     }
@@ -362,8 +360,7 @@ public class GeneratorConfig implements Serializable {
   protected void setEffectConfigs(Collection<EffectConfig> effectConfigs) {
     this.effectConfigs.clear();
     if (effectConfigs != null) {
-      for (final Iterator<EffectConfig> iter = effectConfigs.iterator(); iter.hasNext(); ) {
-        final EffectConfig config = iter.next();
+      for (final EffectConfig config : effectConfigs) {
         this.effectConfigs.put(config.getOpcode(), config);
       }
     }

@@ -200,8 +200,7 @@ public class BamFilterColorEdgeDetect extends BamFilterBaseColor implements Acti
     if (srcImage != null) {
       return applyEdgeDetection(srcImage, isTransparentBackground(), getThreshold());
     }
-
-    return srcImage;
+    return null;
   }
 
   /**
@@ -215,7 +214,7 @@ public class BamFilterColorEdgeDetect extends BamFilterBaseColor implements Acti
    */
   private static BufferedImage applyEdgeDetection(BufferedImage image, boolean transparentBackground, int threshold) {
     if (image == null) {
-      return image;
+      return null;
     }
 
     final boolean isPalette = (image.getType() == BufferedImage.TYPE_BYTE_INDEXED);
@@ -280,13 +279,12 @@ public class BamFilterColorEdgeDetect extends BamFilterBaseColor implements Acti
     for (int i = -1; i <= 1; i++) {
       for (int j = -1; j <= 1; j++) {
         final int gray = toGrayscale(image.getRGB(x + j, y + i));
-        gx += KERNEL_X[i + 1][j + 1] * gray;
-        gy += KERNEL_Y[i + 1][j + 1] * gray;
+        gx += (int)(KERNEL_X[i + 1][j + 1] * gray);
+        gy += (int)(KERNEL_Y[i + 1][j + 1] * gray);
       }
     }
 
-    int g = (int) Math.sqrt(gx * gx + gy * gy);
-    return g;
+    return (int) Math.sqrt(gx * gx + gy * gy);
   }
 
   /** Returns the gray intensity in range [0, 255] of the specified color. */

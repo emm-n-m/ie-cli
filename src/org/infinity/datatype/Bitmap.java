@@ -30,7 +30,7 @@ public class Bitmap extends AbstractBitmap<String> {
   }
 
   public Bitmap(ByteBuffer buffer, int offset, int length, String name, String[] table, boolean signed) {
-    this(buffer, offset, length, name, table, true, false);
+    this(buffer, offset, length, name, table, signed, false);
   }
 
   public Bitmap(ByteBuffer buffer, int offset, int length, String name, String[] table, boolean signed,

@@ -275,8 +275,7 @@ public class BamFilterTransformRotate extends BamFilterBaseTransform implements 
         : AffineTransformOp.TYPE_BICUBIC;
 
     final BufferedImage inImage = entry.getFrame();
-    final BufferedImage rotatedImage = rotateImage(inImage, angle, interpolationType);
-    final BufferedImage outImage = rotatedImage; // trimImage(rotatedImage);
+    final BufferedImage outImage = rotateImage(inImage, angle, interpolationType); // trimImage(rotatedImage);
     entry.setFrame(outImage);
 
     final int cx = entry.getCenterX() + (outImage.getWidth() - inImage.getWidth()) / 2;

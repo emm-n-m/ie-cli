@@ -233,7 +233,7 @@ public class BamFilterColorBlur extends BamFilterBaseColor implements ChangeList
    * Represents a function that calculates the weight values for individual kernel matrix positions.
    */
   @FunctionalInterface
-  private static interface KernelOperation {
+  private interface KernelOperation {
     /**
      * Calculates a weight value for a specific kernel position.
      *

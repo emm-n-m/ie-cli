@@ -165,8 +165,6 @@ public class BamFilterColorReplace extends BamFilterBaseColor implements ActionL
       byte[] srcBuffer = ((DataBufferByte) srcImage.getRaster().getDataBuffer()).getData();
       byte[] dstBuffer = ((DataBufferByte) dstImage.getRaster().getDataBuffer()).getData();
       System.arraycopy(srcBuffer, 0, dstBuffer, 0, dstBuffer.length);
-      srcBuffer = null;
-      dstBuffer = null;
     }
 
     return dstImage;

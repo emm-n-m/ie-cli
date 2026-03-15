@@ -270,7 +270,7 @@ public class Weidu {
   /**
    * Returns information about the availability of the WeiDU changelog operation.
    *
-   * @return {@link #WEIDU_ERROR} enum with error state and associative message string.
+   * @return {@link WEIDU_ERROR} enum with error state and associative message string.
    */
   public static WEIDU_ERROR isChangelogAvailable() {
     WEIDU_ERROR retVal = WEIDU_ERROR.NO_ERROR;
@@ -332,9 +332,7 @@ public class Weidu {
         progress.setProgress(0);
         Threading.invokeInEventThread(() -> progress.setProgress(1));
 
-        final Callable<List<ChangeLogEntry>> task = () -> {
-          return getChangeLogEntries(entry);
-        };
+        final Callable<List<ChangeLogEntry>> task = () -> getChangeLogEntries(entry);
 
         final Future<List<ChangeLogEntry>> result = thread.submit(task);
         while (!result.isDone()) {
@@ -450,7 +448,7 @@ public class Weidu {
       resultFrame.setVisible(true);
     } catch (Exception e) {
       Logger.error(e);
-      String msg = "Failed to perform a WeiDU changelog on " + Objects.toString(entry);
+      String msg = "Failed to perform a WeiDU changelog on " + entry;
       final String errorMsg = e.getMessage();
       if (e.getMessage() != null && !e.getMessage().isEmpty()) {
         msg += "\nError message: " + errorMsg;
@@ -459,7 +457,6 @@ public class Weidu {
         }
       }
       JOptionPane.showMessageDialog(NearInfinity.getInstance(), msg, "Error", JOptionPane.ERROR_MESSAGE);
-      return;
     }
   }
 
@@ -926,7 +923,7 @@ public class Weidu {
       }
       this.resourceName = entry.getResourceName();
       final ResourceEntry resEntry = (entry.getFilePath() != null) ? new FileResourceEntry(entry.getFilePath()) : null;
-      this.index = new DataNumber<ResourceEntry>(entry.getIndex(), resEntry);
+      this.index = new DataNumber<>(entry.getIndex(), resEntry);
       this.tp2File = entry.getTp2File();
       this.langId = entry.getLangId();
       this.componentId = entry.getComponentId();

@@ -57,23 +57,23 @@ public class GeneratorFrame extends JPanel implements ActionListener {
    * Used internally by {@code performAbilityGeneration()}.
    */
   private static final Set<Integer> EFFECTS_FORCE_TIMING =
-      Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(new Integer[] { 78, 98, })));
+      Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(78, 98)));
 
   static {
     EFFECTS_PRESERVE_TIMING.put(Profile.Engine.EE,
-        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(new Integer[] { 50, 215, 318, 324, }))));
+        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(50, 215, 318, 324))));
     EFFECTS_PRESERVE_TIMING.put(Profile.Engine.Unknown, EFFECTS_PRESERVE_TIMING.get(Profile.Engine.EE));
     EFFECTS_PRESERVE_TIMING.put(Profile.Engine.BG1, EFFECTS_PRESERVE_TIMING.get(Profile.Engine.EE));
     EFFECTS_PRESERVE_TIMING.put(Profile.Engine.BG2, EFFECTS_PRESERVE_TIMING.get(Profile.Engine.EE));
 
     EFFECTS_PRESERVE_TIMING.put(Profile.Engine.IWD,
-        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(new Integer[] { 50, }))));
+        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(50))));
 
     EFFECTS_PRESERVE_TIMING.put(Profile.Engine.IWD2,
-        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(new Integer[] { 50, }))));
+        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(50))));
 
     EFFECTS_PRESERVE_TIMING.put(Profile.Engine.PST,
-        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(new Integer[] { 50, 187, 188, 189, 190, 191, }))));
+        Collections.unmodifiableSet(new TreeSet<>(Arrays.asList(50, 187, 188, 189, 190, 191))));
   }
 
   private static GeneratorFrame instance;
@@ -251,7 +251,7 @@ public class GeneratorFrame extends JPanel implements ActionListener {
       final JFormattedTextField tf = tracker.get(key);
       if (value instanceof Double) {
         tf.setText(Double.toString(value.doubleValue()));
-      } else if (value instanceof Integer) {
+      } else if (value != null) {
         tf.setText(Integer.toString(value.intValue()));
       }
     }
@@ -944,15 +944,13 @@ public class GeneratorFrame extends JPanel implements ActionListener {
     }
 
     final Set<JComponent> set = linkedControls.computeIfAbsent(checkBox, cb -> new HashSet<>());
-    if (!set.contains(comp)) {
-      set.add(comp);
-    }
+    set.add(comp);
   }
 
   // -------------------------- INNER CLASSES --------------------------
 
   /** Enum with keys that can be associated with any of the dialog input controls. */
-  private static enum InputControl implements InputBounds {
+  private enum InputControl implements InputBounds {
     LEVELS_PER_ABIL(1, Byte.MAX_VALUE, 1),
     MAX_LEVELS(1, Byte.MAX_VALUE, 20),
     RANGE_BASE(0, Short.MAX_VALUE, 40),

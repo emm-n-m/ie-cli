@@ -14,7 +14,7 @@ import org.infinity.resource.effects.BaseOpcode;
 public class Opcode extends Number implements Comparable<Integer> {
   public static final String UNKNOWN_NAME = "Unknown";
 
-  private int opcode;
+  private final int opcode;
 
   /**
    * Constructs a newly allocated {@code OpcodeItem} object that represents the specified opcode value.

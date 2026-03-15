@@ -63,7 +63,7 @@ public class InputTracker<E extends Enum<E>> implements MouseListener, KeyListen
     return retVal;
   }
 
-  /** Returns a {@link Set} view of all {@link Control} enums linked to {@link JFormattedTextField} instances. */
+  /** Returns a {@link Set} view of all enums linked to {@link JFormattedTextField} instances. */
   public Set<E> getControls() {
     return controls.keySet();
   }
@@ -170,7 +170,7 @@ public class InputTracker<E extends Enum<E>> implements MouseListener, KeyListen
     if (e.getSource() instanceof JFormattedTextField) {
       final JFormattedTextField tf = (JFormattedTextField)e.getSource();
       final E key = getKey(tf);
-      if (key == null || !(key instanceof InputBounds)) {
+      if (!(key instanceof InputBounds)) {
         return;
       }
       final InputBounds bounds = (InputBounds)key;

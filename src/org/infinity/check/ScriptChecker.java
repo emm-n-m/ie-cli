@@ -77,10 +77,9 @@ public final class ScriptChecker extends AbstractSearcher
     if (event.getSource() == resultsPane.getButton(BUTTON_OPEN)) {
       final int row = table.getSelectedRow();
       if (row != -1) {
-        final SortableTable tableCapture = table;
         NearInfinity.getInstance().showResourceEntry(getResourceEntryAt(table, row),
             () -> ((BcsResource)NearInfinity.getInstance().getViewable())
-                .highlightText(((Integer)tableCapture.getValueAt(row, 2)), null));
+                .highlightText(((Integer) table.getValueAt(row, 2)), null));
       }
     } else if (event.getSource() == resultsPane.getButton(BUTTON_OPEN_NEW)) {
       performTableAction(null);

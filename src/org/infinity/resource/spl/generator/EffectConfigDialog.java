@@ -58,7 +58,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
   private enum Parameter {
     PARAMETER1, PARAMETER2, SPECIAL;
 
-    /** Returns a unique identifier based on the {@link Parameter} and specified {@link Mode} enum. */
+    /** Returns a unique identifier based on the {@link Parameter} and specified {@link EffectConfig.Mode} enum. */
     public String getIdentifier(EffectConfig.Mode mode) {
       return this.name() + '_' + Misc.orDefault(mode, EffectConfig.Mode.DWORD);
     }
@@ -235,9 +235,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
 
     panel = getParameterPanel(cbSpecialModes, cbSpecialModes.getSelectedIndex());
     if (panel != null) {
-      if (!panel.validateInput()) {
-        return false;
-      }
+      return panel.validateInput();
     }
 
     return true;
@@ -461,7 +459,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
 
   // -------------------------- INNER CLASSES --------------------------
 
-  /** Creates and manages a single parameter panel of any given {@link Mode}. */
+  /** Creates and manages a single parameter panel of any given {@link EffectConfig.Mode}. */
   private static class ParameterPanel extends JPanel implements ActionListener {
     private final HashMap<JCheckBox, Set<JComponent>> linkedControls = new HashMap<>();
     private final InputTracker<InputControl> tracker = new InputTracker<>(InputControl.class);
@@ -478,7 +476,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
       init();
     }
 
-    /** Returns the input {@link Mode} associated with this panel. */
+    /** Returns the input {@link EffectConfig.Mode} associated with this panel. */
     public EffectConfig.Mode getMode() {
       return mode;
     }
@@ -489,7 +487,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @param index Parameter item index.
      * @return The initialized {@link GeneratorAttribute} object.
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public GeneratorAttribute getAttribute(int index) {
@@ -506,7 +504,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @param index Parameter item index.
      * @param attribute {@link GeneratorAttribute} object with parameter values to apply.
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public void setAttribute(int index, GeneratorAttribute attribute) {
@@ -524,7 +522,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @param index Parameter item index.
      * @return {@code true} if the parameter item is enabled
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public boolean isItemEnabled(int index) {
@@ -537,7 +535,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @param index  Parameter item index.
      * @param enable The enabled state to set.
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public void setItemEnabled(int index, boolean enable) {
@@ -550,7 +548,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @param index Parameter item index.
      * @return Base value defined by the specified parameter item. Returns {@code null} if no valid number is defined.
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public Integer getBaseValue(int index) {
@@ -570,7 +568,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @param index    Parameter item index.
      * @param newValue New parameter value.
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public void setBaseValue(int index, int newValue) {
@@ -584,7 +582,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @return Increment per ability value defined by the specified parameter item. Returns {@code null} if no valid
      *         number is defined.
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public Double getIncrementValue(int index) {
@@ -604,7 +602,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
      * @param index    Parameter item index.
      * @param newValue New parameter value.
      * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid parameter items can be
-     *                                     determined by {@link Mode#getNumElements()}.
+     *                                     determined by {@link EffectConfig.Mode#getItemCount()}.
      * @see #getMode()
      */
     public void setIncrementValue(int index, double newValue) {
@@ -791,7 +789,7 @@ public class EffectConfigDialog extends JDialog implements ActionListener, ItemL
   }
 
   /** Enum with keys that can be associated with any of the dialog input controls in a {@link ParameterPanel}. */
-  private static enum InputControl implements InputBounds {
+  private enum InputControl implements InputBounds {
     DWORD_BASE(Integer.MIN_VALUE, Integer.MAX_VALUE, 0),
     DWORD_INC(Integer.MIN_VALUE, Integer.MAX_VALUE, 0),
 

@@ -8,7 +8,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
@@ -158,7 +157,7 @@ public class EffectConfig implements Serializable, Comparable<EffectConfig> {
    * Provides access to the "Parameter 1" item at the specified index.
    *
    * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid "Parameter 1" items can be
-   *                                     determined by {@link Mode#getNumElements()}.
+   *                                     determined by {@link Mode#getItemCount()}.
    * @see #getParameter1Mode()
    */
   public GeneratorAttribute getParameter1(int index) {
@@ -196,7 +195,7 @@ public class EffectConfig implements Serializable, Comparable<EffectConfig> {
    * Provides access to the "Parameter 2" item at the specified index.
    *
    * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid "Parameter 2" items can be
-   *                                     determined by {@link Mode#getNumElements()}.
+   *                                     determined by {@link Mode#getItemCount()}.
    * @see #getParameter2Mode()
    */
   public GeneratorAttribute getParameter2(int index) {
@@ -234,7 +233,7 @@ public class EffectConfig implements Serializable, Comparable<EffectConfig> {
    * Provides access to the "Special" parameter item at the specified index.
    *
    * @throws IndexOutOfBoundsException if specified index is out of bounds. Number of valid "Special" parameter items
-   *                                     can be determined by {@link Mode#getNumElements()}.
+   *                                     can be determined by {@link Mode#getItemCount()}.
    * @see #getSpecialMode()
    */
   public GeneratorAttribute getSpecial(int index) {
@@ -349,13 +348,12 @@ public class EffectConfig implements Serializable, Comparable<EffectConfig> {
     if (mode != null && srcItems != null && dstItems != null) {
       final int count = mode.getItemCount();
       int i = 0;
-      for (Iterator<GeneratorAttribute> iter = srcItems.iterator(); iter.hasNext();) {
+      for (final GeneratorAttribute srcItem : srcItems) {
         if (i >= count) {
           break;
         }
-        final GeneratorAttribute ga = iter.next();
-        if (ga != null) {
-          dstItems.get(i).setAttribute(ga);
+        if (srcItem != null) {
+          dstItems.get(i).setAttribute(srcItem);
         }
         i++;
       }

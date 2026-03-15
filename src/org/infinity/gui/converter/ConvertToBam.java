@@ -65,7 +65,6 @@ import javax.swing.AbstractAction;
 import javax.swing.AbstractButton;
 import javax.swing.AbstractListModel;
 import javax.swing.BorderFactory;
-import javax.swing.ButtonModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DropMode;
 import javax.swing.InputVerifier;
@@ -6345,7 +6344,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
 
     /**
      * Terminates an ongoing delayed action that was set up by
-     * {@link #performDelayedAction(ButtonModel, int, Operation)}.
+     * {@link #performDelayedAction(AbstractButton, int, Operation)}.
      */
     public synchronized void resetDelayedAction() {
       if (actionTimer.isRunning()) {

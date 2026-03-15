@@ -43,7 +43,7 @@ public class ColorPicker extends Datatype implements Editable, IsNumeric {
 
   private int value;
 
-  /** Initializing color picker with the most commonly used color format {@link Format#XRGB}. */
+  /** Initializing color picker with the most commonly used color format {@link ColorChooser.ColorFormat#ARGB}. */
   public ColorPicker(ByteBuffer buffer, int offset, String name) {
     this(buffer, offset, name, ColorChooser.ColorFormat.ARGB);
   }

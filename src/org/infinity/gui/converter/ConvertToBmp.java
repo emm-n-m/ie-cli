@@ -645,7 +645,6 @@ public class ConvertToBmp extends ChildFrame implements ActionListener, FocusLis
       }
     } finally {
       progress.close();
-      progress = null;
     }
 
     // creating summary
@@ -735,7 +734,6 @@ public class ConvertToBmp extends ChildFrame implements ActionListener, FocusLis
         byte[] zero = new byte[16 * 4];
         Arrays.fill(zero, (byte) 0);
         buffer.put(zero); // remaining fields are empty
-        zero = null;
       }
 
       // writing BMP pixel data in ARGB format (upside down)

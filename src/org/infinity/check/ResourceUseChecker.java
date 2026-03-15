@@ -78,7 +78,7 @@ public final class ResourceUseChecker extends AbstractChecker
   private ChildFrame resultFrame;
   private ResultPane<SortableTable> resultPane;
 
-  /** List of the {@link BCSIDSErrorTableLine} objects. */
+  /** List of the {@link UnusedFileTableItem} objects. */
   private SortableTable table;
 
   public ResourceUseChecker(Component parent) {

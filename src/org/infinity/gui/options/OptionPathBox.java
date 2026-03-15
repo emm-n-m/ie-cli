@@ -97,7 +97,7 @@ public class OptionPathBox extends OptionElementBase implements ActionListener {
   public void setPath(String path) {
     prevPathString = pathString;
     if (path != null) {
-      pathString = path.toString();
+      pathString = path;
     } else {
       pathString = "";
     }

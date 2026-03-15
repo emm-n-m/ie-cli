@@ -65,8 +65,7 @@ public class PortraitIconBitmap extends AbstractBitmap<IndexString> {
   public static class IndexString implements Comparable<IndexString> {
     private final int index;
     private final String text;
-
-    private boolean sortByIndex;
+    private final boolean sortByIndex;
 
     public IndexString(String text, int index) {
       this(text, index, false);

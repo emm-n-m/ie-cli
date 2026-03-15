@@ -194,8 +194,6 @@ public class BamFilterColorInvert extends BamFilterBaseColor implements ChangeLi
         byte[] dstPixels = ((DataBufferByte) dstImage.getRaster().getDataBuffer()).getData();
         System.arraycopy(srcPixels, 0, dstPixels, 0, srcPixels.length);
         srcImage = dstImage;
-        srcPixels = null;
-        dstPixels = null;
       }
     }
 

@@ -340,7 +340,6 @@ public class BamPaletteDialog extends JDialog
             break;
           }
         }
-        tmpPalette = null;
 
         if (sharedPalette) {
           // using shared palette as is

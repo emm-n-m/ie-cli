@@ -2012,8 +2012,6 @@ public class SpriteAnimationPanel extends JPanel
     /**
      * Enables display of the selection circle for the specified amount of time before it is disabled. It is called
      * when the mouse cursor hovers over a creature sprite.
-     *
-     * @param millis Delay in milliseconds.
      */
     private void fireCircleTimer() {
       if (circleEndedTaskResult != null) {

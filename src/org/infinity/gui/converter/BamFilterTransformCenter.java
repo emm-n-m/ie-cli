@@ -405,7 +405,7 @@ public class BamFilterTransformCenter extends BamFilterBaseTransform implements 
         }
 
         // setting center position
-        int cx = 0, cy = 0;
+        int cx, cy;
         if (cbAdjustCenter.isSelected()) {
           cx = rect.x;
           cy = rect.y;
