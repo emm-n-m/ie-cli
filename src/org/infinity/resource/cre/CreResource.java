@@ -890,13 +890,34 @@ public final class CreResource extends AbstractStruct
   }
 
   /**
-   * Updates the content of inventory slots. This method should be called after the item section has been modified.
+   * Updates the content of inventory slots. This method should be called after item references in the item section have
+   * been modified.
    */
   public void updateInventorySlots() {
+    updateInventorySlots(0, 0);
+  }
+
+  /**
+   * Updates the content of inventory slots. This method should be called after the item section has been modified in
+   * any way.
+   *
+   * @param index  Item index where entries were added or removed.
+   * @param adjust Specify positive numbers if items were added, and negative numbers if items were removed. Specify 0
+   *                 if no structural change occurred.
+   */
+  public void updateInventorySlots(int index, int adjust) {
     final List<StructEntry> entries = getFields(InventorySlotIndex.class);
     if (entries != null) {
       for (final StructEntry entry : entries) {
         final InventorySlotIndex slot = (InventorySlotIndex)entry;
+        if (slot.getValue() >= index) {
+          if (adjust < 0 && slot.getValue() >= index && slot.getValue() < index - adjust) {
+            // removed items also clear the associated inventory slot reference
+            slot.setValue(-1);
+          } else {
+            slot.setValue(slot.getValue() + adjust);
+          }
+        }
         InventorySlotIndex.getUpdatedItemList(this, slot.getBitmap());
       }
       fireTableDataChanged();
@@ -1024,7 +1045,8 @@ public final class CreResource extends AbstractStruct
     if (datatype instanceof SpellMemorization) {
       updateMemorizedSpells();
     } else if (datatype instanceof Item) {
-      updateInventorySlots();
+      // adjusting inventory slots
+      fireItemListChanged(datatype, false);
     }
     if (hexViewer != null) {
       hexViewer.dataModified();
@@ -1049,7 +1071,8 @@ public final class CreResource extends AbstractStruct
     if (datatype instanceof SpellMemorization) {
       updateMemorizedSpells();
     } else if (datatype instanceof Item) {
-      updateInventorySlots();
+      // adjusting inventory slots
+      fireItemListChanged(datatype, true);
     }
     if (hexViewer != null) {
       hexViewer.dataModified();
@@ -2283,6 +2306,46 @@ public final class CreResource extends AbstractStruct
       JOptionPane.showMessageDialog(getViewer(), "Structure could not be exported:\n" + e.getMessage(), "Error",
           JOptionPane.ERROR_MESSAGE);
     }
+  }
+
+  /**
+   * Adjusts inventory slot fields according to the specified parameters.
+   *
+   * @param item    {@link Item} instance that was was added or removed.
+   * @param removed Whether the item instance was removed.
+   * @return {@code true} if inventory slot section could be updated, {@code false} otherwise.
+   */
+  private boolean fireItemListChanged(AddRemovable item, boolean removed) {
+    if (!(item instanceof Item)) {
+      return false;
+    }
+
+    // adjusting inventory slots
+    int slotIndex = 0;
+    int slotAdjust = 0;
+
+    final int itemOfs = ((IsNumeric)getAttribute(CRE_OFFSET_ITEMS)).getValue();
+    final List<StructEntry> fields = getFields();
+    int startIndex = -1, curIndex = -1;
+    for (int i = 0, count = fields.size(); i < count; i++) {
+      final StructEntry entry = fields.get(i);
+      if (startIndex < 0 && entry.getOffset() >= itemOfs) {
+        startIndex = i;
+      }
+      if (startIndex >= 0 && entry.getOffset() == item.getOffset()) {
+        curIndex = i;
+        break;
+      }
+    }
+
+    if (startIndex >= 0 && curIndex >= startIndex) {
+      slotIndex = curIndex - startIndex;
+      slotAdjust = removed ? -1 : 1;
+    }
+
+    updateInventorySlots(slotIndex, slotAdjust);
+
+    return (startIndex >= 0 && curIndex >= 0);
   }
 
   @Override

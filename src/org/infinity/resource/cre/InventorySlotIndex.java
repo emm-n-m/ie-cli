@@ -92,6 +92,11 @@ public class InventorySlotIndex extends AbstractBitmap<Item> implements ActionLi
 
   // --------------------- Begin Interface ListSelectionListener ---------------------
 
+  @Override
+  public void setValue(long newValue) {
+    super.setValue(newValue);
+  }
+
   /**
    * Returns the currently selected {@link Item} instance.
    *
