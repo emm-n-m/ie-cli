@@ -29,7 +29,7 @@ import java.util.Objects;
 import javax.swing.ProgressMonitor;
 
 import org.infinity.exceptions.AbortException;
-import org.infinity.gui.converter.ConvertToPvrz;
+import org.infinity.gui.converter.pvrz.ConvertToPvrz;
 import org.infinity.resource.Profile;
 import org.infinity.util.BinPack2D;
 import org.infinity.util.DynamicArray;

@@ -42,8 +42,8 @@ import javax.swing.SwingUtilities;
 
 import org.infinity.NearInfinity;
 import org.infinity.datatype.IsNumeric;
-import org.infinity.gui.converter.ConvertToPvrz;
-import org.infinity.gui.converter.ConvertToTis;
+import org.infinity.gui.converter.pvrz.ConvertToPvrz;
+import org.infinity.gui.converter.tis.TileEntry;
 import org.infinity.resource.Profile;
 import org.infinity.resource.ResourceFactory;
 import org.infinity.resource.StructEntry;
@@ -814,7 +814,7 @@ public class TisConvert {
       }
 
       // mapping tile regions to textures
-      final List<ConvertToTis.TileEntry> mappedTileList = new ArrayList<>(numTiles);
+      final List<TileEntry> mappedTileList = new ArrayList<>(numTiles);
       final List<BinPack2D> pageList = new ArrayList<>();
       final BinPack2D.HeuristicRules binPackRule = BinPack2D.HeuristicRules.BOTTOM_LEFT_RULE;
       for (final TileMap tileMap : regions) {
@@ -856,13 +856,13 @@ public class TisConvert {
         for (final Point p : locations) {
           final TileMapItem tmi = tileMap.getTile(p);
           if (tmi.isAllFlag()) {
-            final ConvertToTis.TileEntry tileEntry =
-                new ConvertToTis.TileEntry(tmi.getIndex(), tmi.getPage(), tmi.getX(), tmi.getY());
+            final TileEntry tileEntry =
+                new TileEntry(tmi.getIndex(), tmi.getPage(), tmi.getX(), tmi.getY());
             mappedTileList.add(tileEntry);
           }
         }
       }
-      mappedTileList.sort(ConvertToTis.TileEntry.CompareByIndex);
+      mappedTileList.sort(TileEntry.COMPARE_BY_INDEX);
 
       // generating pvrz files
       final String fmtPvrzProgress = "Writing PVRZ (%d / %d)";
@@ -1364,10 +1364,10 @@ public class TisConvert {
    * Creates a new TIS file based on the given parameters.
    *
    * @param config   {@link Config} instance with global conversion parameters.
-   * @param tileList List of {@link ConvertToTis.TileEntry} structures with tile information.
+   * @param tileList List of {@link TileEntry} structures with tile information.
    * @throws Exception if the tis file could not be created.
    */
-  private static void createPvrzTis(Config config, List<ConvertToTis.TileEntry> tileList) throws Exception {
+  private static void createPvrzTis(Config config, List<TileEntry> tileList) throws Exception {
     Objects.requireNonNull(config);
     Objects.requireNonNull(tileList);
     if (tileList.isEmpty()) {
@@ -1384,11 +1384,11 @@ public class TisConvert {
       DynamicArray.putInt(header, 0x14, 0x40);
       bos.write(header);
 
-      final ConvertToTis.TileEntry defEntry = new ConvertToTis.TileEntry(-1, -1, 0, 0);
-      final Map<Integer, ConvertToTis.TileEntry> tileMap =
+      final TileEntry defEntry = new TileEntry(-1, -1, 0, 0);
+      final Map<Integer, TileEntry> tileMap =
           tileList.stream().collect(Collectors.toMap(te -> te.tileIndex, Function.identity()));
       for (int idx = 0, numTiles = config.getDecoder().getTileCount(); idx < numTiles; idx++) {
-        final ConvertToTis.TileEntry tileEntry = tileMap.getOrDefault(idx, defEntry);
+        final TileEntry tileEntry = tileMap.getOrDefault(idx, defEntry);
         bos.write(DynamicArray.convertInt(tileEntry.page));
         bos.write(DynamicArray.convertInt(tileEntry.x));
         bos.write(DynamicArray.convertInt(tileEntry.y));
@@ -2511,7 +2511,7 @@ public class TisConvert {
     public static final int FLAG_ALL    = 8;
 
     private final BitSet flags = new BitSet(FLAG_ALL + 1);
-    private final ConvertToTis.TileEntry tileEntry;
+    private final TileEntry tileEntry;
 
     /**
      * Creates a {@code TileInfo} structure with an empty tile index.
@@ -2521,7 +2521,7 @@ public class TisConvert {
     }
 
     public TileMapItem(int tileIndex, int... flags) {
-      this.tileEntry = new ConvertToTis.TileEntry(tileIndex, -1, 0, 0);
+      this.tileEntry = new TileEntry(tileIndex, -1, 0, 0);
       for (final int flag : flags) {
         setFlag(flag, true);
       }
@@ -2529,7 +2529,7 @@ public class TisConvert {
 
     public TileMapItem(TileMapItem item) {
       Objects.requireNonNull(item);
-      this.tileEntry = new ConvertToTis.TileEntry(item.tileEntry);
+      this.tileEntry = new TileEntry(item.tileEntry);
       for (int i = 0, size = item.flags.size(); i < size; i++) {
         if (item.flags.get(i)) {
           this.flags.set(i);

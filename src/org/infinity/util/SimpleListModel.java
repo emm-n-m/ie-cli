@@ -4,14 +4,22 @@
 
 package org.infinity.util;
 
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Vector;
 
 import javax.swing.AbstractListModel;
 
 /**
  * A speed optimized alternative of the {@code DefaultListModel}.
  */
-public class SimpleListModel<E> extends AbstractListModel<E> {
+public class SimpleListModel<E> extends AbstractListModel<E> implements Collection<E> {
   private final Vector<E> delegate = new Vector<>();
 
   /** Constructs an empty ListModel object with a default capacity of 10 elements. */
@@ -104,13 +112,20 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
   }
 
   /** Returns the number of components in this list. */
+  @Override
   public int size() {
     return delegate.size();
   }
 
   /** Tests if this list has no components. */
+  @Override
   public boolean isEmpty() {
     return delegate.isEmpty();
+  }
+
+  @Override
+  public Iterator<E> iterator() {
+    return delegate.iterator();
   }
 
   /** Returns an enumeration of the components of this list. */
@@ -119,11 +134,13 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
   }
 
   /** Returns {@code true} if this list contains the specified element. */
-  public boolean contains(E item) {
+  @Override
+  public boolean contains(Object item) {
     return delegate.contains(item);
   }
 
   /** Returns true if this list contains all of the elements in the specified Collection. */
+  @Override
   public boolean containsAll(Collection<?> c) {
     return new HashSet<>(delegate).containsAll(c);
   }
@@ -223,6 +240,11 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
     }
   }
 
+  @Override
+  public <T> T[] toArray(T[] a) {
+    return delegate.toArray(a);
+  }
+
   /** Returns an array containing all of the elements in this list in the correct order. */
   public Object[] toArray() {
     return delegate.toArray();
@@ -242,6 +264,7 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
   }
 
   /** Appends the specified element to the end of this list. */
+  @Override
   public boolean add(E item) {
     int index = delegate.size();
     boolean retVal = delegate.add(item);
@@ -273,14 +296,15 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
    * Appends all of the elements in the specified Collection to the end of this list, in the order that they are
    * returned by the specified Collection's Iterator.
    */
-  public boolean addAll(Collection<E> coll) {
+  @Override
+  public boolean addAll(Collection<? extends E> coll) {
     return addAll(delegate.size(), coll);
   }
 
   /**
    * Inserts all of the elements in the specified Collection into this list at the specified position.
    */
-  public boolean addAll(int index, Collection<E> coll) {
+  public boolean addAll(int index, Collection<? extends E> coll) {
     int index0 = index;
     int index1 = index0 + coll.size() - 1;
     delegate.addAll(index, coll);
@@ -298,7 +322,8 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
   }
 
   /** Removes the first occurrence of the specified element in this list. */
-  public boolean remove(E item) {
+  @Override
+  public boolean remove(Object item) {
     int index = delegate.indexOf(item);
     if (index >= 0) {
       delegate.remove(index);
@@ -308,6 +333,7 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
   }
 
   /** Removes from this list all of its elements that are contained in the specified Collection. */
+  @Override
   public boolean removeAll(Collection<?> c) {
     boolean modified = false;
     for (int idx = delegate.size() - 1; idx >= 0; idx--) {
@@ -321,6 +347,7 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
   }
 
   /** Retains only the elements in this list that are contained in the specified Collection. */
+  @Override
   public boolean retainAll(Collection<?> c) {
     boolean modified = false;
     for (int idx = delegate.size() - 1; idx >= 0; idx--) {
@@ -334,6 +361,7 @@ public class SimpleListModel<E> extends AbstractListModel<E> {
   }
 
   /** Removes all of the elements from this list. */
+  @Override
   public void clear() {
     int index1 = delegate.size();
     delegate.clear();

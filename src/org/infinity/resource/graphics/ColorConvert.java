@@ -35,6 +35,7 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import javax.swing.ImageIcon;
+import javax.swing.filechooser.FileNameExtensionFilter;
 
 import org.infinity.resource.key.FileResourceEntry;
 import org.infinity.resource.key.ResourceEntry;
@@ -48,6 +49,19 @@ import org.infinity.util.tuples.Triple;
  * Contains a set of color and graphics-related static methods.
  */
 public class ColorConvert {
+  /**
+   * List of popular graphics format filters that can be used in "Open File" dialogs.
+   * <p>
+   * Provides support for BMP, PNG and JPG. The first filter entry is a combination of all graphics formats.
+   * </p>
+   */
+  public static final List<FileNameExtensionFilter> GRAPHICS_FILTERS_DEFAULT = Arrays.asList(
+      new FileNameExtensionFilter("Graphics files (*.bmp, *.png, *,jpg, *.jpeg)", "bmp", "png", "jpg", "jpeg"),
+      new FileNameExtensionFilter("BMP files (*.bmp)", "bmp"),
+      new FileNameExtensionFilter("PNG files (*.png)", "png"),
+      new FileNameExtensionFilter("JPEG files (*.jpg, *.jpeg)", "jpg", "jpeg")
+  );
+
   /**
    * A fast but somewhat inaccurate algorithm for calculating a distance between two ARGB values. It uses predefined
    * weight values for each color component to calculate the distance.

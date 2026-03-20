@@ -19,7 +19,6 @@ import javax.swing.JDialog;
 import javax.swing.KeyStroke;
 import javax.swing.WindowConstants;
 
-import org.infinity.NearInfinity;
 import org.infinity.datatype.IsNumeric;
 import org.infinity.gui.ViewerUtil;
 import org.infinity.resource.spl.SplResource;
@@ -61,8 +60,8 @@ public class GeneratorDialog extends JDialog {
   }
 
   private GeneratorDialog(SplResource struct) {
-    super(ViewerUtil.getWindowAncestor(Objects.requireNonNull(struct).getViewer(), NearInfinity.getInstance()),
-        "Spell Abilities Generator", Dialog.ModalityType.DOCUMENT_MODAL);
+    super(ViewerUtil.getWindowAncestor(Objects.requireNonNull(struct).getViewer()), "Spell Abilities Generator",
+        Dialog.ModalityType.DOCUMENT_MODAL);
     frame = GeneratorFrame.getInstance();
     frame.setDialog(this);
     frame.setStructure(struct);

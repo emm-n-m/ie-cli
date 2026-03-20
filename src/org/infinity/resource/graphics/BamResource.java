@@ -61,7 +61,7 @@ import org.infinity.gui.ChildFrame;
 import org.infinity.gui.RenderCanvas;
 import org.infinity.gui.ViewerUtil;
 import org.infinity.gui.WindowBlocker;
-import org.infinity.gui.converter.ConvertToBam;
+import org.infinity.gui.converter.bam.ConvertToBam;
 import org.infinity.gui.hexview.GenericHexViewer;
 import org.infinity.icon.Icons;
 import org.infinity.resource.Closeable;

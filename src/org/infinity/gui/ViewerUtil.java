@@ -648,6 +648,18 @@ public final class ViewerUtil {
   }
 
   /**
+   * Returns the first {@code Window} ancestor of {@code c}, or {@code NearInfinity.getInstance()} if {@code c} is not
+   * contained inside a window.
+   *
+   * @param c Component to get {@code Window} ancestor of.
+   * @return the first {@code Window} ancestor of {@code c}, or {@code NearInfinity.getInstance()} if {@code c} is not
+   *         contained inside a window.
+   */
+  public static Window getWindowAncestor(Component c) {
+    return getWindowAncestor(c, NearInfinity.getInstance());
+  }
+
+  /**
    * Returns the first {@code Window} ancestor of {@code c}, or {@code defWindow} if {@code c} is not contained inside a
    * window.
    *

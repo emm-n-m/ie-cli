@@ -46,6 +46,34 @@ public final class WindowBlocker {
     }
   }
 
+  /**
+   * Returns the first {@code RootPaneContainer} ancestor of the specified {@code Component}. Failing that it returns
+   * the {@code defContainer} value.
+   *
+   * @param comp         {@link Component} to get {@link RootPaneContainer} ancestor of.
+   * @param defContainer Default {@link RootPaneContainer} to return if {@code comp} doesn't yield a non-{@code null}
+   *                       result.
+   * @return the first {@link RootPaneContainer} ancestor of {@code comp}, or {@code defContainer} if {@comp} is not
+   *         contained inside a {@code RootPaneContainer}.
+   */
+  public static RootPaneContainer getRootPaneAncestor(Component comp, RootPaneContainer defContainer) {
+    RootPaneContainer retVal = null;
+
+    while (comp != null) {
+      if (comp instanceof RootPaneContainer) {
+        retVal = (RootPaneContainer)comp;
+        break;
+      }
+      comp = comp.getParent();
+    }
+
+    if (retVal == null) {
+      retVal = defContainer;
+    }
+
+    return retVal;
+  }
+
   public WindowBlocker(RootPaneContainer window) {
     if (window == null) {
       return;
