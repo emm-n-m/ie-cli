@@ -65,7 +65,7 @@ public final class ProRef extends ResourceBitmap {
       }
       final IdsMap proMap = IdsMapCache.get("PROJECTL.IDS");
 
-      int maxSize = proMap.size();
+      int maxSize = (proMap != null) ? proMap.size() : 0;
       if (mslMap != null) {
         maxSize = Math.max(maxSize, mslMap.size());
       }
@@ -92,7 +92,7 @@ public final class ProRef extends ResourceBitmap {
           }
           PRO_MISSILE_LIST.add(entry);
         }
-      } else {
+      } else if (proMap != null) {
         for (final Long key : proMap.getKeys()) {
           final long k = key;
           final IdsMapEntry proEntry = proMap.get(k);

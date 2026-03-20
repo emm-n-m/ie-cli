@@ -209,7 +209,9 @@ public class WmpMapInfo implements Closeable {
     resName = ((IsReference)mapEntry.getAttribute(MapEntry.WMP_MAP_ICONS)).getResourceName();
     iconsResource = ResourceFactory.getResourceEntry(resName);
     mapIcons = BamDecoder.loadBam(iconsResource);
-    mapIconsControl = mapIcons.createControl();
+    if (mapIcons != null) {
+      mapIconsControl = mapIcons.createControl();
+    }
 
     width = ((IsNumeric)mapEntry.getAttribute(MapEntry.WMP_MAP_WIDTH)).getValue();
     height = ((IsNumeric)mapEntry.getAttribute(MapEntry.WMP_MAP_HEIGHT)).getValue();

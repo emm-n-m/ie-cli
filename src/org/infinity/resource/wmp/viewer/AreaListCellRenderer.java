@@ -39,13 +39,15 @@ final class AreaListCellRenderer extends DefaultListCellRenderer implements List
     ctrl = (bam != null) ? bam.createControl() : null;
 
     int maxWidth = 0;
-    for (int i = 0, count = ctrl.cycleCount(); i < count; i++) {
-      if (ctrl.cycleFrameCount(i) > 0) {
-        final int frameIndex = ctrl.cycleGetFrameIndexAbsolute(i, 0);
-        if (frameIndex >= 0) {
-          final FrameEntry fe = bam.getFrameInfo(frameIndex);
-          if (fe != null) {
-            maxWidth = Math.max(maxWidth, fe.getWidth());
+    if (ctrl != null) {
+      for (int i = 0, count = ctrl.cycleCount(); i < count; i++) {
+        if (ctrl.cycleFrameCount(i) > 0) {
+          final int frameIndex = ctrl.cycleGetFrameIndexAbsolute(i, 0);
+          if (frameIndex >= 0) {
+            final FrameEntry fe = bam.getFrameInfo(frameIndex);
+            if (fe != null) {
+              maxWidth = Math.max(maxWidth, fe.getWidth());
+            }
           }
         }
       }

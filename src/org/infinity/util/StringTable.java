@@ -1086,10 +1086,11 @@ public class StringTable {
     if (retVal == null) {
       Path tlkPath = Profile
           .getProperty((type == Type.FEMALE) ? Profile.Key.GET_GAME_DIALOGF_FILE : Profile.Key.GET_GAME_DIALOG_FILE);
-      if (tlkPath == null) {
-        throw new StringTableUnavailableException();
+      if (tlkPath != null) {
+        retVal = new StringTable(type, tlkPath);
+      } else {
+        retVal = new StringTable(type);
       }
-      retVal = new StringTable(type, tlkPath);
       TLK_TABLE.put(type, retVal);
     }
 
@@ -1111,6 +1112,14 @@ public class StringTable {
   private short langId;
   private boolean initialized;
   private boolean modified;
+
+  /** Initializes an empty placeholder string table. */
+  private StringTable(Type tlkType) {
+    this.tlkType = tlkType;
+    this.tlkPath = null;
+    this.numEntries = 0;
+    initialized = true;
+  }
 
   private StringTable(Type tlkType, Path tlkPath) {
     if (tlkPath == null) {
@@ -1252,10 +1261,12 @@ public class StringTable {
   }
 
   private boolean _isTableModified() {
-    try {
-      return !lastModified.equals(Files.getLastModifiedTime(_getPath()));
-    } catch (IOException e) {
-      Logger.warn(e);
+    if (_getPath() != null) {
+      try {
+        return !lastModified.equals(Files.getLastModifiedTime(_getPath()));
+      } catch (IOException e) {
+        Logger.warn(e);
+      }
     }
     return false;
   }

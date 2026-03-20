@@ -22,6 +22,7 @@ import java.util.Objects;
 import java.util.TreeMap;
 
 import javax.swing.ImageIcon;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 import org.infinity.icon.Icons;
@@ -529,7 +530,9 @@ public class Keyfile {
         String sig = StreamUtils.readString(buffer, 0, 4);
         String ver = StreamUtils.readString(buffer, 4, 4);
         if (!sig.equals(KEY_SIGNATURE) || !ver.equals(KEY_VERSION)) {
-          throw new IOException("Unsupported key file: " + file);
+          JOptionPane.showMessageDialog(null, "Invalid KEY file found:\n" + file + "\n\nContinuing with empty KEY file.",
+              "Error", JOptionPane.ERROR_MESSAGE);
+          buffer = StreamUtils.getByteBuffer(createEmptyKeyFile());
         }
 
         int numBif = buffer.getInt(0x08);
@@ -546,8 +549,8 @@ public class Keyfile {
         }
 
         // checking for BG1 Demo variant of KEY file format
-        final boolean isDemo = (buffer.getInt(ofsBif) - ofsBif) == (numBif * 0x8)
-            && (buffer.getInt(ofsBif + 4) - ofsBif) != (numBif * 0xc);
+        final boolean isDemo = (numBif > 0) && ((buffer.getInt(ofsBif) - ofsBif) == (numBif * 0x8))
+            && ((buffer.getInt(ofsBif + 4) - ofsBif) != (numBif * 0xc));
         final int biffEntrySize = isDemo ? 0x8 : 0xc;
 
         // processing BIFF entries
@@ -584,6 +587,16 @@ public class Keyfile {
       retVal = resourceEntries.put(key, entry);
     }
     return retVal;
+  }
+
+  /** Returns a byte array that has been initialized as an empty KEY file (0 BIFF entries, 0 resource entries). */
+  private static byte[] createEmptyKeyFile() {
+    final byte[] buffer = new byte[0x18];
+    final String sig = "KEY V1  ";
+    System.arraycopy(sig.getBytes(), 0, buffer, 0, sig.length());
+    buffer[0x10] = 0x18;
+    buffer[0x14] = 0x18;
+    return buffer;
   }
 
   // Removes the specified BIFF entry and associated resource entries from cache and resource tree

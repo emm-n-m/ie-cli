@@ -13,7 +13,6 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.TreeMap;
 
 import org.infinity.datatype.Bitmap;
@@ -633,7 +632,11 @@ public class BaseOpcode {
     if (portraitIconNames == null) {
       if (Profile.getGame() != Profile.Game.PSTEE && Profile.getGame() != Profile.Game.PST) {
         try {
-          Table2da table = Objects.requireNonNull(Table2daCache.get("STATDESC.2DA"));
+          Table2da table = Table2daCache.get("STATDESC.2DA");
+          if (table == null) {
+            return new String[] {};
+          }
+
           // first pass: determine highest icon index
           int maxIndex = -1;
           for (int row = 0, rowCount = table.getRowCount(); row < rowCount; row++) {

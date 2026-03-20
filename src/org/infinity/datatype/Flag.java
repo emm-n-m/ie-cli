@@ -238,7 +238,7 @@ public class Flag extends Datatype implements Editable, IsNumeric, ActionListene
    * @return Label of flag or {@code null}, if no such flag.
    */
   public String getString(int i) {
-    return i < 0 || i > table.length ? null : table[i];
+    return (table != null) && (i >= 0) && (i < table.length) ? table[i] : null;
   }
 
   public boolean isFlagSet(int bit) {
