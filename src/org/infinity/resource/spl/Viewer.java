@@ -79,12 +79,14 @@ public final class Viewer extends JPanel {
           for (int curType : types) {
             int value = curType * 1000 + code;
             IdsMap ids = IdsMapCache.get("SPELL.IDS");
-            IdsMapEntry idsEntry = ids.get(value);
-            if (idsEntry != null) {
-              if (formatted) {
-                return String.format("%s (%d)", idsEntry.getSymbol(), (int) idsEntry.getID());
-              } else {
-                return idsEntry.getSymbol();
+            if (ids != null) {
+              IdsMapEntry idsEntry = ids.get(value);
+              if (idsEntry != null) {
+                if (formatted) {
+                  return String.format("%s (%d)", idsEntry.getSymbol(), (int) idsEntry.getID());
+                } else {
+                  return idsEntry.getSymbol();
+                }
               }
             }
           }
