@@ -291,6 +291,63 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     }
   }
 
+  /** Returns whether a save folder or file inside a save folder is selected. */
+  public boolean isSaveEntrySelected() {
+    final ResourceEntry entry;
+    if (tree.getLastSelectedPathComponent() instanceof ResourceEntry) {
+      entry = (ResourceEntry) tree.getLastSelectedPathComponent();
+    } else {
+      entry = null;
+    }
+
+    if (entry instanceof FileResourceEntry && Profile.isSaveGame(entry.getActualPath())) {
+      return true;
+    }
+
+    final StringBuilder path = new StringBuilder();
+    if (tree.getLastSelectedPathComponent() instanceof ResourceTreeFolder) {
+      ResourceTreeFolder folder = (ResourceTreeFolder) tree.getLastSelectedPathComponent();
+      while (folder != null && !folder.folderName().isEmpty()) {
+        path.insert(0, folder.folderName() + "/");
+        folder = folder.getParentFolder();
+      }
+    }
+
+    return (path.length() > 0) && Profile.isSaveGame(FileManager.resolve(path.toString()));
+  }
+
+  /**
+   * Performs zip operation on a save folder with a user-defined zip archive name.
+   *
+   * @param resourceTree Resource tree with the selected save folder or file node.
+   * @return {@code true} if the zip operation completed successfully, {@code false} if the operation was cancelled by
+   *         the user.
+   * @throws Exception if an error occurred.
+   */
+  public boolean createZipInteractive() throws Exception {
+    Path saveFolder = null;
+    Object o = tree.getLastSelectedPathComponent();
+    if (o instanceof FileResourceEntry) {
+      saveFolder = ((FileResourceEntry)o).getActualPath().getParent();
+    } else if (o instanceof ResourceTreeFolder) {
+      ResourceTreeFolder f = (ResourceTreeFolder)o;
+      if (f.getChildCount() > 0) {
+        for (int i = 0; i < f.getChildCount(); i++) {
+          if (f.getChild(i) instanceof FileResourceEntry) {
+            saveFolder = ((FileResourceEntry)f.getChild(i)).getActualPath().getParent();
+            break;
+          }
+        }
+      }
+    }
+
+    if (saveFolder != null) {
+      return createZipFile(saveFolder);
+    } else {
+      throw new Exception("Empty or invalid save folder.");
+    }
+  }
+
   /** Attempts to rename the specified file resource entry. */
   public static void renameResource(FileResourceEntry entry) {
     String filename = (String) JOptionPane.showInputDialog(NearInfinity.getInstance(), "Enter new filename",
@@ -442,7 +499,15 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     }
   }
 
-  public static void createZipFile(Path path) {
+  /**
+   * Performs the zip operation on the specified directory path.
+   *
+   * @param path Directory {@link Path} to zip.
+   * @return {@code true} if the zip operation completed successfully, {@code false} if the operation was cancelled by
+   *         the user.
+   * @throws Exception if an error occurred.
+   */
+  public static boolean createZipFile(Path path) throws Exception {
     if (path != null && FileEx.create(path).isDirectory()) {
       JFileChooser fc = new JFileChooser(Profile.getGameRoot().toFile());
       fc.setDialogTitle("Save as");
@@ -451,21 +516,17 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
       if (fc.showSaveDialog(NearInfinity.getInstance()) == JFileChooser.APPROVE_OPTION) {
         WindowBlocker wb = new WindowBlocker(NearInfinity.getInstance());
         try {
-          wb.setBlocked(true);
           StreamUtils.createZip(path, fc.getSelectedFile().toPath(), true);
-          wb.setBlocked(false);
-          JOptionPane.showMessageDialog(NearInfinity.getInstance(), "Zip file created.", "Information",
-              JOptionPane.INFORMATION_MESSAGE);
+          return true;
         } catch (IOException e) {
-          Logger.error(e);
-          wb.setBlocked(false);
-          JOptionPane.showMessageDialog(NearInfinity.getInstance(), "Error while creating zip file.", "Error",
-              JOptionPane.ERROR_MESSAGE);
+          throw new Exception("Error while creating zip file.", e);
         } finally {
           wb.setBlocked(false);
         }
       }
     }
+
+    return false;
   }
 
   private static void processAllNodes(JTree tree, TreePath parent, boolean expand) {
@@ -790,26 +851,14 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
       } else if (event.getSource() == miChangelog && node != null) {
         performChangelog(node);
       } else if (event.getSource() == miZip) {
-        Path saveFolder = null;
-        Object o = tree.getLastSelectedPathComponent();
-        if (o instanceof FileResourceEntry) {
-          saveFolder = ((FileResourceEntry) o).getActualPath().getParent();
-        } else if (o instanceof ResourceTreeFolder) {
-          ResourceTreeFolder f = (ResourceTreeFolder) o;
-          if (f.getChildCount() > 0) {
-            for (int i = 0; i < f.getChildCount(); i++) {
-              if (f.getChild(i) instanceof FileResourceEntry) {
-                saveFolder = ((FileResourceEntry) f.getChild(i)).getActualPath().getParent();
-                break;
-              }
-            }
+        try {
+          if (createZipInteractive()) {
+            JOptionPane.showMessageDialog(NearInfinity.getInstance(), "Zip file created.", "Information",
+                JOptionPane.INFORMATION_MESSAGE);
           }
-        }
-        if (saveFolder != null) {
-          createZipFile(saveFolder);
-        } else {
-          JOptionPane.showMessageDialog(NearInfinity.getInstance(), "Empty or invalid save folder.", "Error",
-              JOptionPane.ERROR_MESSAGE);
+        } catch (Exception e) {
+          Logger.error(e);
+          JOptionPane.showMessageDialog(NearInfinity.getInstance(), e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
         }
       }
     }
@@ -818,7 +867,7 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
     public void popupMenuWillBecomeVisible(PopupMenuEvent event) {
       final ResourceEntry entry = getResourceEntry();
 
-      final boolean biffEnable = entry.hasOverride();
+      final boolean biffEnable = (entry != null) && entry.hasOverride();
       miOpenBiffedNew.setEnabled(biffEnable);
 
       Class<? extends Resource> cls = ResourceFactory.getResourceType(entry);
@@ -831,17 +880,7 @@ public final class ResourceTree extends JPanel implements TreeSelectionListener,
       final Weidu.WEIDU_ERROR weiduError = Weidu.isChangelogAvailable();
       miChangelog.setToolTipText(weiduError.getMessage());
 
-      miZip.setEnabled(entry instanceof FileResourceEntry && Profile.isSaveGame(entry.getActualPath()));
-
-      final StringBuilder path = new StringBuilder();
-      if (tree.getLastSelectedPathComponent() instanceof ResourceTreeFolder) {
-        ResourceTreeFolder folder = (ResourceTreeFolder) tree.getLastSelectedPathComponent();
-        while (folder != null && !folder.folderName().isEmpty()) {
-          path.insert(0, folder.folderName() + "/");
-          folder = folder.getParentFolder();
-        }
-      }
-      miZip.setEnabled((path.length() > 0) && Profile.isSaveGame(FileManager.resolve(path.toString())));
+      miZip.setEnabled(isSaveEntrySelected());
     }
 
     @Override

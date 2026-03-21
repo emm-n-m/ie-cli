@@ -89,6 +89,7 @@ public class FileMenu extends JMenu implements BrowserSubMenu, ActionListener {
   private final JMenuItem fileDelete;
   private final JMenuItem fileRestore;
   private final JMenuItem fileChangelog;
+  private final JMenuItem fileZip;
 
   public FileMenu(BrowserMenuBar parent) {
     super("File");
@@ -113,6 +114,10 @@ public class FileMenu extends JMenu implements BrowserSubMenu, ActionListener {
     fileExport = BrowserMenuBar.makeMenuItem("Export...", KeyEvent.VK_E, Icons.ICON_EXPORT_16.getIcon(), -1, this);
     fileExport.setEnabled(false);
     add(fileExport);
+    fileZip = BrowserMenuBar.makeMenuItem("Create zip archive...", KeyEvent.VK_Z, Icons.ICON_BUNDLE_16.getIcon(), -1, this);
+    fileZip.setToolTipText("Create a zip archive out of the selected saved game.");
+    fileZip.setEnabled(false);
+    add(fileZip);
     fileAddCopy = BrowserMenuBar.makeMenuItem("Add Copy Of...", KeyEvent.VK_A, Icons.ICON_ADD_16.getIcon(), -1, this);
     fileAddCopy.setEnabled(false);
     add(fileAddCopy);
@@ -166,6 +171,8 @@ public class FileMenu extends JMenu implements BrowserSubMenu, ActionListener {
     final Weidu.WEIDU_ERROR weiduError = Weidu.isChangelogAvailable();
     fileChangelog.setEnabled(entry != null);
     fileChangelog.setToolTipText(weiduError.getMessage());
+
+    fileZip.setEnabled(NearInfinity.getInstance().getResourceTree().isSaveEntrySelected());
   }
 
   @Override
@@ -221,6 +228,16 @@ public class FileMenu extends JMenu implements BrowserSubMenu, ActionListener {
       ResourceTree.restoreResource(NearInfinity.getInstance().getResourceTree().getSelected());
     } else if (event.getSource() == fileChangelog) {
       ResourceTree.performChangelog(NearInfinity.getInstance().getResourceTree().getSelected());
+    } else if (event.getSource() == fileZip) {
+      try {
+        if (NearInfinity.getInstance().getResourceTree().createZipInteractive()) {
+          JOptionPane.showMessageDialog(NearInfinity.getInstance(), "Zip file created.", "Information",
+              JOptionPane.INFORMATION_MESSAGE);
+        }
+      } catch (Exception e) {
+        Logger.error(e);
+        JOptionPane.showMessageDialog(NearInfinity.getInstance(), e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+      }
     } else {
       for (final FileMenu.ResInfo res : RESOURCE) {
         if (event.getActionCommand().equals(res.label)) {
