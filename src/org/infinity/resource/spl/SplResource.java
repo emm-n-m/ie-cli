@@ -664,32 +664,12 @@ public final class SplResource extends AbstractStruct
     for (int i = list.size(), num = abilityList.size(); i < num; i++) {
       final Ability abil = abilityList.get(i);
 
-      // adjusting Ability field parents
-      adjustFieldParents(abil, false);
-
       // child structures must be re-added manually to sync them with the parent structure
       final List<AddRemovable> childList = abil.removeAllRemoveables();
       addDatatype(abil, getDatatypeIndex(abil, true));
 
       for (final AddRemovable child : childList) {
         abil.addDatatype(child);
-        if (child instanceof AbstractStruct) {
-          adjustFieldParents((AbstractStruct)child, false);
-        }
-      }
-    }
-  }
-
-  /** Adjusts parent of the child attributes of {@code struct}. Optionally performs the operation recursively. */
-  private static void adjustFieldParents(AbstractStruct struct, boolean recursive) {
-    if (struct == null) {
-      return;
-    }
-
-    for (final StructEntry entry : struct.getFields()) {
-      entry.setParent(struct);
-      if (recursive && entry instanceof AbstractStruct) {
-        adjustFieldParents((AbstractStruct)entry, recursive);
       }
     }
   }

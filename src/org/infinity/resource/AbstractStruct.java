@@ -246,8 +246,13 @@ public abstract class AbstractStruct extends AbstractTableModel
     newstruct.superStruct = null;
     newstruct.fields = new ArrayList<>(fields.size());
     newstruct.viewer = null;
+    int curOfs = 0;
     for (final StructEntry e : fields) {
-      newstruct.fields.add(e.clone());
+      final StructEntry newEntry = e.clone();
+      newEntry.setParent(newstruct);
+      newEntry.setOffset(curOfs);
+      newstruct.fields.add(newEntry);
+      curOfs += newEntry.getSize();
     }
     newstruct.initAddStructMaps();
     return newstruct;
