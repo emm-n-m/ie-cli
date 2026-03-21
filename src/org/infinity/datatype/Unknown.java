@@ -22,6 +22,7 @@ import javax.swing.JPanel;
 import org.infinity.gui.InfinityScrollPane;
 import org.infinity.gui.InfinityTextArea;
 import org.infinity.gui.StructViewer;
+import org.infinity.gui.ViewerUtil;
 import org.infinity.icon.Icons;
 import org.infinity.resource.AbstractStruct;
 import org.infinity.util.Misc;
@@ -57,7 +58,6 @@ public class Unknown extends Datatype implements Editable, IsBinary {
   @Override
   public JComponent edit(ActionListener container) {
     if (buffer.limit() > 0) {
-      JButton bUpdate;
       if (textArea == null) {
         textArea = new InfinityTextArea(15, 5, true);
         textArea.setWrapStyleWord(true);
@@ -69,28 +69,34 @@ public class Unknown extends Datatype implements Editable, IsBinary {
       textArea.setText(s.substring(0, s.length() - 2));
       textArea.discardAllEdits();
       textArea.setCaretPosition(0);
-      InfinityScrollPane scroll = new InfinityScrollPane(textArea, true);
+      final InfinityScrollPane scroll = new InfinityScrollPane(textArea, true);
       scroll.setLineNumbersEnabled(false);
 
-      bUpdate = new JButton("Update value", Icons.ICON_REFRESH_16.getIcon());
+      final JButton bUpdate = new JButton("Update value", Icons.ICON_REFRESH_16.getIcon());
       bUpdate.addActionListener(container);
       bUpdate.setActionCommand(StructViewer.UPDATE_VALUE);
 
-      GridBagLayout gbl = new GridBagLayout();
-      GridBagConstraints gbc = new GridBagConstraints();
-      JPanel panel = new JPanel(gbl);
+      final JButton bClear = new JButton("Clear value", Icons.ICON_DELETE_16.getIcon());
+      bClear.setToolTipText("Set all values to 0.");
+      bClear.addActionListener(e -> {
+        textArea.setText(getClearedContent());
+        textArea.discardAllEdits();
+        textArea.setCaretPosition(0);
+      });
 
-      gbc.weightx = 1.0;
-      gbc.weighty = 1.0;
-      gbc.fill = GridBagConstraints.BOTH;
-      gbl.setConstraints(scroll, gbc);
-      panel.add(scroll);
+      final GridBagConstraints gbc = new GridBagConstraints();
+      final JPanel panel = new JPanel(new GridBagLayout());
 
-      gbc.weightx = 0.0;
-      gbc.fill = GridBagConstraints.NONE;
-      gbc.insets.left = 6;
-      gbl.setConstraints(bUpdate, gbc);
-      panel.add(bUpdate);
+      ViewerUtil.setGBC(gbc, 0, 0, 1, 2, 1.0, 1.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.BOTH,
+          new Insets(0, 0, 0, 0), 0, 0);
+      panel.add(scroll, gbc);
+
+      ViewerUtil.setGBC(gbc, 1, 0, 1, 1, 0.0, 1.0, GridBagConstraints.LAST_LINE_START, GridBagConstraints.HORIZONTAL,
+          new Insets(0, 6, 0, 0), 0, 0);
+      panel.add(bUpdate, gbc);
+      ViewerUtil.setGBC(gbc, 1, 1, 1, 1, 0.0, 1.0, GridBagConstraints.FIRST_LINE_START, GridBagConstraints.HORIZONTAL,
+          new Insets(8, 6, 0, 0), 0, 0);
+      panel.add(bClear, gbc);
 
       panel.setMinimumSize(Misc.getScaledDimension(DIM_BROAD));
       panel.setPreferredSize(Misc.getScaledDimension(DIM_BROAD));
@@ -240,5 +246,13 @@ public class Unknown extends Datatype implements Editable, IsBinary {
     } catch (NumberFormatException ex) {
       return null;
     }
+  }
+
+  /** Returns a {@code String} where all byte values are set to 0. */
+  protected String getClearedContent() {
+    String content = toString();
+    content = content.substring(0, content.length() - 2);
+    content = content.replaceAll("\\w", "0");
+    return content;
   }
 }
