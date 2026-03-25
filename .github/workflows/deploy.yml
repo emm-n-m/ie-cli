@@ -22,10 +22,10 @@ jobs:
     outputs:
       ni_version: ${{ steps.ni-build.outputs.NI_VERSION }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up JDK 1.8
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: '8'
           distribution: 'temurin'
@@ -39,14 +39,14 @@ jobs:
 
       # Required internally to build the installer packages
       - name: Upload JAR artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: NearInfinity-${{ steps.ni-build.outputs.NI_VERSION }}
           path: NearInfinity.jar
 
       - name: Upload JAR asset to release
         if: github.event_name == 'release'
-        uses: svenstaro/upload-release-action@2.9.0
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: NearInfinity.zip
@@ -68,25 +68,25 @@ jobs:
     steps:
       # Initializations
       - name: Git checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up JDK (windows)
         if: startsWith(matrix.os, 'windows-')
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
 
       - name: Set up JDK (macos)
         if: startsWith(matrix.os, 'macos-')
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ matrix.java }}
           distribution: 'oracle'
 
       - name: Set up JRE (linux)
         if: startsWith(matrix.os, 'ubuntu-')
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -106,13 +106,13 @@ jobs:
 
       # Preparations
       - name: Download JAR artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: NearInfinity-${{ needs.deploy-jar.outputs.ni_version }}
           path: jar
 
       - name: Set up installer data
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: NearInfinityBrowser/NearInfinity-assets
           path: assets
@@ -155,35 +155,35 @@ jobs:
       # Uploading artifacts (workflow_dispatch)
       - name: Upload portable artifact (windows)
         if: startsWith(matrix.os, 'windows-') && github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: portable-windows
           path: NearInfinity-*.zip
 
       - name: Upload exe artifact (windows)
         if: startsWith(matrix.os, 'windows-') && github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-windows
           path: NearInfinity-*.exe
 
       - name: Upload pkg artifact (macos-x86_64)
         if: (matrix.os == 'macos-15-intel') && github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-macos-x86_64
           path: NearInfinity-*.pkg
 
       - name: Upload pkg artifact (macos-arm64)
         if: (matrix.os == 'macos-latest') && github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-macos-arm64
           path: NearInfinity-*.pkg
 
       - name: Upload appimage artifact (linux)
         if: startsWith(matrix.os, 'ubuntu-') && github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: installer-linux
           path: NearInfinity-*.AppImage
@@ -191,7 +191,7 @@ jobs:
       # Uploading assets (release)
       - name: Upload portable asset to release (windows)
         if: startsWith(matrix.os, 'windows-') && github.event_name == 'release'
-        uses: svenstaro/upload-release-action@2.9.0
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
@@ -201,7 +201,7 @@ jobs:
 
       - name: Upload exe asset to release (windows)
         if: startsWith(matrix.os, 'windows-') && github.event_name == 'release'
-        uses: svenstaro/upload-release-action@2.9.0
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
@@ -211,7 +211,7 @@ jobs:
 
       - name: Upload pkg asset to release (macos-x86_64)
         if: (matrix.os == 'macos-15-intel') && github.event_name == 'release'
-        uses: svenstaro/upload-release-action@2.9.0
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
@@ -221,7 +221,7 @@ jobs:
 
       - name: Upload pkg asset to release (macos-arm64)
         if: (matrix.os == 'macos-latest') && github.event_name == 'release'
-        uses: svenstaro/upload-release-action@2.9.0
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
@@ -231,7 +231,7 @@ jobs:
 
       - name: Upload appimage asset to release (linux)
         if: startsWith(matrix.os, 'ubuntu-') && github.event_name == 'release'
-        uses: svenstaro/upload-release-action@2.9.0
+        uses: svenstaro/upload-release-action@v2
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file_glob: true
@@ -246,9 +246,9 @@ jobs:
     runs-on: ubuntu-latest
     name: Clean up artifacts
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Remove JAR artifact
-        uses: geekyeggo/delete-artifact@v5
+        uses: geekyeggo/delete-artifact@v6
         with:
           name: NearInfinity-*
