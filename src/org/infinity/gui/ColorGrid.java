@@ -14,6 +14,7 @@ import java.awt.Rectangle;
 import java.awt.TexturePaint;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
@@ -88,18 +89,69 @@ public class ColorGrid extends JPanel implements MouseListener, MouseMotionListe
   private Point pDragDropStart; // starting mouse position relative to color grid component
   private int dragDropStart; // initial color index
   private int dragDropCur; // current color index
+  private int lastSelectedIndex; // stores last selected or unselected color index
 
+  /** Returns the max. number of colors that can be defined by the color grid. */
+  public static int getMaxColorCount() {
+    return MAX_COLOR_COUNT;
+  }
+
+  /** Returns the default number of colors in the grid that are defined by the parameterless constructor. */
+  public static int getDefaultColorCount() {
+    return DEFAULT_COLOR_COUNT;
+  }
+
+  /** Returns the default {@link Dimension} of a single color box. */
+  public static Dimension getDefaultColorEntryDimension() {
+    return (Dimension)DEFAULT_COLOR_SIZE.clone();
+  }
+
+  /** Returns the default gap size between color entries. */
+  public static int getDefaultColorEntryGap() {
+    return DEFAULT_GAP;
+  }
+
+  /** Returns the default number of color entries per row. */
+  public static int getDefaultColorEntriesPerRow() {
+    return DEFAULT_COLORS_PER_ROW;
+  }
+
+  /**
+   * Initializes an empty color grid with 16 color entries that are initially set to black.
+   */
   public ColorGrid() {
-    this(DEFAULT_COLOR_COUNT, null);
+    this(DEFAULT_COLOR_COUNT, null, null);
   }
 
+  /**
+   * Initializes an empty color grid with the specified number of color entries that are initially set to black.
+   *
+   * @param colorCount Number of colors in the grid.
+   */
   public ColorGrid(int colorCount) {
-    this(colorCount, null);
+    this(colorCount, null, null);
   }
 
+  /**
+   * Initializes a color grid with the specified number of color entries.
+   *
+   * @param colorCount Number of colors in the grid.
+   * @param colors     Color definitions. Undefined colors are set to black.
+   */
   public ColorGrid(int colorCount, Collection<Color> colors) {
+    this(colorCount, colors, null);
+  }
+
+  /**
+   * Initializes a color grid with the specified number of color entries.
+   *
+   * @param colorCount Number of colors in the grid.
+   * @param colors     Color definitions. Undefined colors are set to black.
+   * @param colorSize  Dimension of a color box. (Default: 16x16 pixels)
+   */
+  public ColorGrid(int colorCount, Collection<Color> colors, Dimension colorSize) {
     super(true);
-    init(colorCount, colors);
+    init(colorCount, colors, colorSize);
   }
 
   /**
@@ -362,7 +414,7 @@ public class ColorGrid extends JPanel implements MouseListener, MouseMotionListe
    */
   public void setColor(int index, Color color) {
     if (index >= 0 && index < getColorCount() && color != null) {
-      listColors.set(index, new Color(color.getRGB(), true));
+      listColors.set(index, color);
       repaint();
     }
   }
@@ -381,7 +433,7 @@ public class ColorGrid extends JPanel implements MouseListener, MouseMotionListe
       }
       for (int i = 0; i < cnt; i++) {
         if (colors[i] != null) {
-          listColors.set(index, new Color(colors[i].getRGB(), true));
+          listColors.set(index + i, colors[i]);
         }
       }
       repaint();
@@ -613,13 +665,17 @@ public class ColorGrid extends JPanel implements MouseListener, MouseMotionListe
   }
 
   // First-time initializations
-  private void init(int count, Collection<Color> colors) {
+  private void init(int count, Collection<Color> colors, Dimension colorDim) {
+    if (colorDim == null) {
+      colorDim = DEFAULT_COLOR_SIZE;
+    }
+
     // setting default properties
     frame = DEFAULT_FRAME;
     frameColor = DEFAULT_FRAME_COLOR;
     colorsPerRow = DEFAULT_COLORS_PER_ROW;
     selectionMode = DEFAULT_SELECTION_MODE;
-    colorSize = (Dimension) DEFAULT_COLOR_SIZE.clone();
+    colorSize = (Dimension)colorDim.clone();
     gapX = gapY = DEFAULT_GAP;
     currentMouseOverIndex = -1;
     isDragDropEnabled = DEFAULT_DRAG_DROP_ENABLED;
@@ -823,6 +879,40 @@ public class ColorGrid extends JPanel implements MouseListener, MouseMotionListe
     }
   }
 
+  // Performs color selection (supports single selection mode, multi-selection mode, and shift-selection)
+  private void onColorSelect(int index, boolean shiftPressed) {
+    if (getSelectionMode() == SELECTION_SINGLE) {
+      // single selection mode
+      if (!isSelectedIndex(index)) {
+        setSelectedIndex(index);
+        fireActionListener();
+      }
+    } else {
+      // multiple selection mode
+      int min = Math.min(lastSelectedIndex, index);
+      int max = Math.max(lastSelectedIndex, index);
+      if (shiftPressed && min != max) {
+        for (int i = min; i <= max; i++) {
+          if (i != lastSelectedIndex) {
+            if (isSelectedIndex(i)) {
+              removeSelectedIndex(i);
+            } else {
+              addSelectedIndex(i);
+            }
+          }
+        }
+      } else {
+        if (isSelectedIndex(index)) {
+          removeSelectedIndex(index);
+        } else {
+          addSelectedIndex(index);
+        }
+      }
+      fireActionListener();
+    }
+    lastSelectedIndex = index;
+  }
+
   // --------------------- Begin Interface MouseListener ---------------------
 
   @Override
@@ -834,22 +924,9 @@ public class ColorGrid extends JPanel implements MouseListener, MouseMotionListe
     // selecting color entry
     if (event.getSource() == this && event.getButton() == MouseEvent.BUTTON1) {
       if (!isReadOnly()) {
-        int index = getColorIndexAt(event.getPoint());
-        if (getSelectionMode() == SELECTION_SINGLE) {
-          // single selection mode
-          if (!isSelectedIndex(index)) {
-            setSelectedIndex(index);
-            fireActionListener();
-          }
-        } else {
-          // multiple selection mode
-          if (isSelectedIndex(index)) {
-            removeSelectedIndex(index);
-          } else {
-            addSelectedIndex(index);
-          }
-          fireActionListener();
-        }
+        final int index = getColorIndexAt(event.getPoint());
+        final boolean shiftPressed = (event.getModifiersEx() & InputEvent.SHIFT_DOWN_MASK) != 0;
+        onColorSelect(index, shiftPressed);
         setColorDragEnabled(true, event.getPoint());
       }
     }

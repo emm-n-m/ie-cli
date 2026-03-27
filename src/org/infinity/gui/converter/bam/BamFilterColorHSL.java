@@ -27,7 +27,10 @@ import javax.swing.event.ChangeListener;
 import org.infinity.gui.ButtonPopupWindow;
 import org.infinity.gui.ViewerUtil;
 import org.infinity.icon.Icons;
+import org.infinity.resource.graphics.ColorConvert;
 import org.infinity.resource.graphics.PseudoBamDecoder.PseudoBamFrameEntry;
+import org.infinity.util.Misc;
+import org.infinity.util.tuples.Triple;
 
 /**
  * ColorFilter: adjust hue, saturation and lightness.
@@ -312,155 +315,18 @@ public class BamFilterColorHSL extends BamFilterBaseColor implements ChangeListe
       for (int i = 0; i < buffer.length; i++) {
         if ((cm == null || !pExcludeColors.isSelectedIndex(i)) && (buffer[i] & 0xff000000) != 0) {
           // convert RGB -> HSL
-          float fa = isPremultiplied ? (float) ((buffer[i] >>> 24) & 0xff) : 255.0f;
-          float fr = ((buffer[i] >>> 16) & 0xff) / fa;
-          float fg = ((buffer[i] >>> 8) & 0xff) / fa;
-          float fb = (buffer[i] & 0xff) / fa;
-          float cmin = fr;
-          if (fg < cmin) {
-            cmin = fg;
-          }
-          if (fb < cmin) {
-            cmin = fb;
-          }
-          float cmax = fr;
-          if (fg > cmax) {
-            cmax = fg;
-          }
-          if (fb > cmax) {
-            cmax = fb;
-          }
-          float cdelta = cmax - cmin;
-          float cdelta2 = cdelta / 2.0f;
-          float h, s, l;
-
-          l = (cmax + cmin) / 2.0f;
-
-          if (cdelta == 0.0f) {
-            h = 0.0f;
-            s = 0.0f;
-          } else {
-            if (l < 0.5f) {
-              s = cdelta / (cmax + cmin);
-            } else {
-              s = cdelta / (2.0f - cmax - cmin);
-            }
-
-            float dr = (((cmax - fr) / 6.0f) + cdelta2) / cdelta;
-            float dg = (((cmax - fg) / 6.0f) + cdelta2) / cdelta;
-            float db = (((cmax - fb) / 6.0f) + cdelta2) / cdelta;
-
-            if (fr == cmax) {
-              h = db - dg;
-            } else if (fg == cmax) {
-              h = (1.0f / 3.0f) + dr - db;
-            } else {
-              h = (2.0f / 3.0f) + dg - dr;
-            }
-
-            if (h < 0.0f) {
-              h += 1.0f;
-            } else if (h > 1.0f) {
-              h -= 1.0f;
-            }
-          }
+          final Triple<Double, Double, Double> hsl = ColorConvert.convertRGBtoHSL(buffer[i], isPremultiplied);
 
           // applying adjustments
-          h += hue;
-          s += saturation;
-          l += lightness;
-          if (h < 0.0f) {
-            h += 1.0f;
-          } else if (h > 1.0f) {
-            h -= 1.0f;
+          double h = (hsl.getValue0() + hue) % 1.0;
+          if (h < 0.0) {
+            h += 1.0;
           }
-          if (s < 0.0f) {
-            s = 0.0f;
-          } else if (s > 1.0f) {
-            s = 1.0f;
-          }
-          if (l < 0.0f) {
-            l = 0.0f;
-          } else if (l > 1.0f) {
-            l = 1.0f;
-          }
+          double s = Misc.clamp(hsl.getValue1() + saturation, 0.0, 1.0);
+          double l = Misc.clamp(hsl.getValue2() + lightness, 0.0, 1.0);
 
           // converting HSL -> RGB
-          if (s == 0.0f) {
-            // achromatic
-            int v = (int) (l * 255.0f);
-            buffer[i] = (buffer[i] & 0xff000000) | (v << 16) | (v << 8) | v;
-          } else {
-            float f2 = (l < 0.5f) ? l * (1.0f + s) : (l + s) - (s * l);
-            float f1 = 2.0f * l - f2;
-            float res;
-
-            // red
-            float t = h + (1.0f / 3.0f);
-            if (t < 0.0f) {
-              t += 1.0f;
-            } else if (t > 1.0f) {
-              t -= 1.0f;
-            }
-            if ((6.0f * t) < 1.0f) {
-              res = f1 + (f2 - f1) * 6.0f * t;
-            } else if ((2.0f * t) < 1.0f) {
-              res = f2;
-            } else if ((3.0f * t) < 2.0f) {
-              res = f1 + (f2 - f1) * ((2.0f / 3.0f) - t) * 6.0f;
-            } else {
-              res = f1;
-            }
-            int r = (int) (res * fa);
-
-            // green
-            t = h;
-            if ((6.0f * t) < 1.0f) {
-              res = f1 + (f2 - f1) * 6.0f * t;
-            } else if ((2.0f * t) < 1.0f) {
-              res = f2;
-            } else if ((3.0f * t) < 2.0f) {
-              res = f1 + (f2 - f1) * ((2.0f / 3.0f) - t) * 6.0f;
-            } else {
-              res = f1;
-            }
-            int g = (int) (res * fa);
-
-            // blue
-            t = h - (1.0f / 3.0f);
-            if (t < 0.0f) {
-              t += 1.0f;
-            } else if (t > 1.0f) {
-              t -= 1.0f;
-            }
-            if ((6.0f * t) < 1.0f) {
-              res = f1 + (f2 - f1) * 6.0f * t;
-            } else if ((2.0f * t) < 1.0f) {
-              res = f2;
-            } else if ((3.0f * t) < 2.0f) {
-              res = f1 + (f2 - f1) * ((2.0f / 3.0f) - t) * 6.0f;
-            } else {
-              res = f1;
-            }
-            int b = (int) (res * fa);
-
-            if (r < 0) {
-              r = 0;
-            } else if (r > 255) {
-              r = 255;
-            }
-            if (g < 0) {
-              g = 0;
-            } else if (g > 255) {
-              g = 255;
-            }
-            if (b < 0) {
-              b = 0;
-            } else if (b > 255) {
-              b = 255;
-            }
-            buffer[i] = (buffer[i] & 0xff000000) | (r << 16) | (g << 8) | b;
-          }
+          buffer[i] = ColorConvert.convertHSLtoRGB(h, s, l, buffer[i] >>> 24, isPremultiplied);
         }
       }
 

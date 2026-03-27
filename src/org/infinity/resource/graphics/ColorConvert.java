@@ -41,6 +41,7 @@ import org.infinity.resource.key.FileResourceEntry;
 import org.infinity.resource.key.ResourceEntry;
 import org.infinity.util.DynamicArray;
 import org.infinity.util.Logger;
+import org.infinity.util.Misc;
 import org.infinity.util.io.FileEx;
 import org.infinity.util.io.StreamUtils;
 import org.infinity.util.tuples.Triple;
@@ -521,6 +522,133 @@ public class ColorConvert {
         }
       }
     }
+  }
+
+  /**
+   * Converts a single RGB value into the HSL colorspace.
+   *
+   * @param argb          The ARGB value to convert
+   * @param premultiplied Specifies whether alpha is premultiplied.
+   * @return the converted color value in HSL colorspace. Order: H (hue), S (saturation), L (lightness), all in range
+   *         [0.0, 1.0].
+   */
+  public static Triple<Double, Double, Double> convertRGBtoHSL(int argb, boolean premultiplied) {
+    int alpha = premultiplied ? (argb >>> 24) : 0xff;
+    int red = (argb >> 16) & 0xff;
+    int green = (argb >> 8) & 0xff;
+    int blue = argb & 0xff;
+    if (premultiplied && alpha != 0xff) {
+      red = red * alpha / 0xff;
+      green = green * alpha / 0xff;
+      blue = blue * alpha / 0xff;
+    }
+
+    final double a = alpha;
+    final double r = (a != 0.0) ? red / a : 0.0;
+    final double g = (a != 0.0) ? green / a : 0.0;
+    final double b = (a != 0.0) ? blue / a : 0.0;
+    final double max = Math.max(Math.max(r, g), b);
+    final double min = Math.min(Math.min(r, g), b);
+    final double delta = max - min;
+
+    // lightness
+    double l = (max + min) / 2.0;
+
+    double h, s;
+    if (delta == 0.0f) {
+      h = 0.0;
+      s = 0.0;
+    } else {
+      // saturation
+      s = delta / (1.0 - Math.abs(2.0 * l - 1.0));
+
+      // hue
+      if (max == r) {
+        h = ((g - b) / delta) % 6.0;
+      } else if (max == g) {
+        h = ((b - r) / delta) + 2.0;
+      } else {
+        h = ((r - g) / delta) + 4.0;
+      }
+
+      h *= 60.0;
+      if (h < 0.0) {
+        h += 360.0;
+      }
+      h /= 360.0;
+    }
+
+    return Triple.with(h, s, l);
+  }
+
+  /**
+   * Converts a color entry in HSL colorspace into an ARGB value. Alpha is passed to the methods.
+   *
+   * @param h             Hue in [0, 1] range.
+   * @param s             Saturation in [0, 1] range.
+   * @param l             Lightness in [0, 1] range.
+   * @param alpha         Alpha in [0, 255] range.
+   * @param premultiplied Specifies whether alpha is premultiplied.
+   * @return ARGB value (alpha: bits 24-31, red: bits 16-23, green: bits 8-15, blue: bits 0-7).
+   */
+  public static int convertHSLtoRGB(double h, double s, double l, int alpha, boolean premultiplied) {
+    h *= 360.0;
+    h %= 360.0;
+    if (h < 0.0) {
+      h += 360.0;
+    }
+    s = Misc.clamp(s, 0.0, 1.0);
+    l = Misc.clamp(l, 0.0, 1.0);
+    alpha = Misc.clamp(alpha, 0, 255);
+
+    final double c = (1.0 - Math.abs(2.0 * l - 1.0)) * s; // chroma
+    final double x = c * (1.0 - Math.abs((h / 60.0) % 2.0 - 1.0));
+    final double m = l - c / 2.0;
+
+    double rPrime = 0.0, gPrime = 0.0, bPrime = 0.0;
+
+    if (h < 60.0) {
+      rPrime = c;
+      gPrime = x;
+      bPrime = 0.0;
+    } else if (h < 120.0) {
+      rPrime = x;
+      gPrime = c;
+      bPrime = 0.0;
+    } else if (h < 180.0) {
+      rPrime = 0.0;
+      gPrime = c;
+      bPrime = x;
+    } else if (h < 240.0) {
+      rPrime = 0.0;
+      gPrime = x;
+      bPrime = c;
+    } else if (h < 300.0) {
+      rPrime = x;
+      gPrime = 0.0;
+      bPrime = c;
+    } else {
+      rPrime = c;
+      gPrime = 0.0;
+      bPrime = x;
+    }
+
+    int r = (int)Math.round((rPrime + m) * 255.0);
+    int g = (int)Math.round((gPrime + m) * 255.0);
+    int b = (int)Math.round((bPrime + m) * 255.0);
+
+    r = Misc.clamp(r, 0, 255);
+    g = Misc.clamp(g, 0, 255);
+    b = Misc.clamp(b, 0, 255);
+
+    if (premultiplied) {
+      final double fa = alpha / 255.0;
+      r = (int)(r * fa);
+      g = (int)(g * fa);
+      b = (int)(b * fa);
+    }
+
+    return (alpha << 24) | (r << 16) | (g << 8) | b;
   }
 
   /**

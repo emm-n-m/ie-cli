@@ -321,45 +321,6 @@ public class BamFilterColorLab extends BamFilterBaseColor implements ChangeListe
           double a = lab.getValue1();
           double b = lab.getValue2();
 
-          // float fa = isPremultiplied ? (float)((buffer[i] >>> 24) & 0xff) : 255.0f;
-          // float fr = (float)((buffer[i] >>> 16) & 0xff) / fa;
-          // float fg = (float)((buffer[i] >>> 8) & 0xff) / fa;
-          // float fb = (float)(buffer[i] & 0xff) / fa;
-          // float cmin = fr; if (fg < cmin) cmin = fg; if (fb < cmin) cmin = fb;
-          // float cmax = fr; if (fg > cmax) cmax = fg; if (fb > cmax) cmax = fb;
-          // float cdelta = cmax - cmin;
-          // float cdelta2 = cdelta / 2.0f;
-          // float h, s, l;
-          //
-          // l = (cmax + cmin) / 2.0f;
-          //
-          // if (cdelta == 0.0f) {
-          // h = 0.0f;
-          // s = 0.0f;
-          // } else {
-          // if (l < 0.5f) {
-          // s = cdelta / (cmax + cmin);
-          // } else {
-          // s = cdelta / (2.0f - cmax - cmin);
-          // }
-          //
-          // float dr = (((cmax - fr) / 6.0f) + cdelta2) / cdelta;
-          // float dg = (((cmax - fg) / 6.0f) + cdelta2) / cdelta;
-          // float db = (((cmax - fb) / 6.0f) + cdelta2) / cdelta;
-          //
-          // if (fr == cmax) {
-          // h = db - dg;
-          // } else if (fg == cmax) {
-          // h = (1.0f / 3.0f) + dr - db;
-          // } else {
-          // h = (2.0f / 3.0f) + dg - dr;
-          // }
-          //
-          // if (h < 0.0f) h += 1.0f; else if (h > 1.0f) h -= 1.0f;
-          // }
-
-          // applying adjustments
-
           l = Math.max(LAB_L_MIN, Math.min(LAB_L_MAX, l + labL));
           a = Math.max(LAB_A_MIN, Math.min(LAB_A_MAX, a + labA));
           b = Math.max(LAB_B_MIN, Math.min(LAB_B_MAX, b + labB));
@@ -367,62 +328,6 @@ public class BamFilterColorLab extends BamFilterBaseColor implements ChangeListe
           // converting Lab -> RGB
           rgb = ColorConvert.convertLabToRGB(l, a, b);
           buffer[i] = (buffer[i] & 0xff000000) | rgb;
-
-          // if (s == 0.0f) {
-          // // achromatic
-          // int v = (int)(l * 255.0f);
-          // buffer[i] = (buffer[i] & 0xff000000) | (v << 16) | (v << 8) | v;
-          // } else {
-          // float f2 = (l < 0.5f) ? l * (1.0f + s) : (l + s) - (s * l);
-          // float f1 = 2.0f * l - f2;
-          // float res;
-          //
-          // // red
-          // float t = h + (1.0f / 3.0f);
-          // if (t < 0.0f) t += 1.0f; else if (t > 1.0f) t -= 1.0f;
-          // if ((6.0f * t) < 1.0f) {
-          // res = f1 + (f2 - f1) * 6.0f * t;
-          // } else if ((2.0f * t) < 1.0f) {
-          // res = f2;
-          // } else if ((3.0f * t) < 2.0f) {
-          // res = f1 + (f2 - f1) * ((2.0f / 3.0f) - t) * 6.0f;
-          // } else {
-          // res = f1;
-          // }
-          // int r = (int)(res * fa);
-          //
-          // // green
-          // t = h;
-          // if ((6.0f * t) < 1.0f) {
-          // res = f1 + (f2 - f1) * 6.0f * t;
-          // } else if ((2.0f * t) < 1.0f) {
-          // res = f2;
-          // } else if ((3.0f * t) < 2.0f) {
-          // res = f1 + (f2 - f1) * ((2.0f / 3.0f) - t) * 6.0f;
-          // } else {
-          // res = f1;
-          // }
-          // int g = (int)(res * fa);
-          //
-          // // blue
-          // t = h - (1.0f / 3.0f);
-          // if (t < 0.0f) t += 1.0f; else if (t > 1.0f) t -= 1.0f;
-          // if ((6.0f * t) < 1.0f) {
-          // res = f1 + (f2 - f1) * 6.0f * t;
-          // } else if ((2.0f * t) < 1.0f) {
-          // res = f2;
-          // } else if ((3.0f * t) < 2.0f) {
-          // res = f1 + (f2 - f1) * ((2.0f / 3.0f) - t) * 6.0f;
-          // } else {
-          // res = f1;
-          // }
-          // int b = (int)(res * fa);
-          //
-          // if (r < 0) r = 0; else if (r > 255) r = 255;
-          // if (g < 0) g = 0; else if (g > 255) g = 255;
-          // if (b < 0) b = 0; else if (b > 255) b = 255;
-          // buffer[i] = (buffer[i] & 0xff000000) | (r << 16) | (g << 8) | b;
-          // }
         }
       }
 

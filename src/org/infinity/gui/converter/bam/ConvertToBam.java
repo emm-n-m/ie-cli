@@ -4161,7 +4161,7 @@ public class ConvertToBam extends ChildFrame implements ActionListener, Property
   }
 
   /** Defines whether the internal BAM structure has changed in any way. */
-  void outputSetModified(boolean isModified) {
+  protected void outputSetModified(boolean isModified) {
     isPreviewModified = isModified;
   }
 
