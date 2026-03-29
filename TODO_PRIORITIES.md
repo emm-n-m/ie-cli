@@ -17,16 +17,21 @@ Within each priority:
 
 ## P0: Bootstrap
 
+Completed:
+
 - Create Cargo workspace.
-- Create initial crates: `ie-core`, `ie-formats`, `ie-cli`.
+- Create initial crates: `ie-core`, `ie-io`, `ie-formats`, `ie-cli`.
 - Define shared error types.
 - Define `ResRef`, `StrRef`, `ResourceType`, and source metadata structs.
 - Add CLI skeleton with subcommands and basic argument parsing.
 - Add repository docs:
   - `README.md`
   - `ARCHITECTURE.md`
-  - `NEAR_INFINITY_AGENT.md`
-  - contributing or development notes if needed
+  - `TODO_PRIORITIES.md`
+
+Follow-up:
+
+- Add contributing or development notes if needed.
 
 Exit criteria:
 
@@ -36,15 +41,34 @@ Exit criteria:
 
 ## P1: Installation And Resource Access
 
+Completed:
+
 - Implement game path validation.
 - Locate `chitin.key`.
 - Locate language folder and `dialog.tlk`.
 - Parse `KEY`.
-- Read resources from `BIF`.
+- Read resources from `BIFF`, `BIF`, and `BIFC`.
 - Resolve override precedence over container resources.
 - Add a `locate` command.
-- Add a `dump-raw` command.
-- Add fixture tests for resource lookup.
+- Add a working `dump-raw` command with explicit output path.
+- Add archive-loading tests for:
+  - `BIFF`
+  - `BIF`
+  - `BIFC`
+  - override precedence
+  - locator-not-found and truncated archive cases
+
+In progress:
+
+- `locate` and `dump-raw` work against a real BG2EE installation for:
+  - override-backed resources
+  - KEY-backed BIFF mappings
+  - BIFF-backed raw extraction
+
+Remaining:
+
+- Parse `chitin.key` into a richer typed model instead of the current minimal index.
+- Add broader fixture coverage for KEY lookup across more than one resource family.
 
 Exit criteria:
 
@@ -54,9 +78,15 @@ Exit criteria:
 
 ## P1: TLK Support
 
+Completed:
+
 - Parse `dialog.tlk`.
 - Implement `StrRef` resolution.
 - Add a `tlk` command.
+- Validate TLK lookup against a real BG2EE installation.
+
+Remaining:
+
 - Add tests for:
   - valid string lookup
   - invalid/out-of-range string refs
@@ -138,6 +168,12 @@ Exit criteria:
 
 ## P2: Cross-Game Coverage
 
+Current status:
+
+- `BG2EE` has been used as the first real validation target.
+
+Remaining:
+
 - Test against at least:
   - BGEE
   - BG2EE or EET
@@ -186,16 +222,14 @@ Exit criteria:
 
 ## Suggested First Issues
 
-If the repo needs a starter backlog, begin with these:
+First unfinished issues from the original starter backlog:
 
-1. Initialize Cargo workspace and CLI scaffold.
-2. Implement `ResRef`, `StrRef`, and common error types.
-3. Parse `chitin.key` and print summary stats.
-4. Implement resource lookup with override precedence.
-5. Parse `dialog.tlk` and add `tlk` command.
-6. Implement `ITM` decoding and JSON export.
-7. Implement `SPL` decoding and JSON export.
-8. Implement `CRE` decoding and JSON export.
+1. Add tests for KEY lookup, TLK lookup, and override precedence across more real resources.
+2. Parse `chitin.key` into a richer typed model instead of the current minimal index.
+3. Implement `ITM` decoding and JSON export.
+4. Implement `SPL` decoding and JSON export.
+5. Implement `CRE` decoding and JSON export.
+6. Implement `STO` decoding and JSON export.
 
 ## Stop Conditions
 
