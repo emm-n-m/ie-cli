@@ -3,6 +3,8 @@ jar/NearInfinity.jar
 *.class
 /bin
 /build
+/target
 /.idea
 /.settings
 .vscode/launch.json
+docs/TESTING.md
