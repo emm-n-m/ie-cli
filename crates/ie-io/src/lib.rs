@@ -1,3 +1,7 @@
+mod biff;
+mod bytes;
+
+use crate::bytes::{read_u16_le, read_u32_le};
 use ie_core::{ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind};
 use std::collections::HashMap;
 use std::fs;
@@ -125,9 +129,16 @@ impl ResourceReader {
                     bytes,
                 })
             }
-            SourceKind::Bif => Err(IoError::NotImplemented(
-                "BIF resource reading is not implemented yet".to_string(),
-            )),
+            SourceKind::Bif => {
+                let locator = located.locator.ok_or_else(|| {
+                    IoError::InvalidBiff("missing BIFF locator for archived resource".to_string())
+                })?;
+                let bytes = biff::read_resource(&located.metadata.source_path, locator)?;
+                Ok(ResourceBytes {
+                    metadata: located.metadata,
+                    bytes,
+                })
+            }
         }
     }
 }
@@ -409,20 +420,6 @@ fn read_resref(bytes: &[u8]) -> String {
         .to_ascii_uppercase()
 }
 
-fn read_u16_le(bytes: &[u8], offset: usize) -> Result<u16, IoError> {
-    let slice = bytes
-        .get(offset..offset + 2)
-        .ok_or_else(|| IoError::UnexpectedEof("u16".to_string()))?;
-    Ok(u16::from_le_bytes([slice[0], slice[1]]))
-}
-
-fn read_u32_le(bytes: &[u8], offset: usize) -> Result<u32, IoError> {
-    let slice = bytes
-        .get(offset..offset + 4)
-        .ok_or_else(|| IoError::UnexpectedEof("u32".to_string()))?;
-    Ok(u32::from_le_bytes([slice[0], slice[1], slice[2], slice[3]]))
-}
-
 fn extension_from_type(type_code: u16) -> Option<String> {
     let extension = match type_code {
         0x001 => "BMP",
@@ -494,10 +491,10 @@ pub enum IoError {
     InvalidKey(String),
     #[error("invalid TLK file: {0}")]
     InvalidTlk(String),
+    #[error("invalid BIFF archive: {0}")]
+    InvalidBiff(String),
     #[error("unexpected end of file while reading {0}")]
     UnexpectedEof(String),
-    #[error("{0}")]
-    NotImplemented(String),
     #[error("{0}")]
     FileIo(std::io::Error),
 }

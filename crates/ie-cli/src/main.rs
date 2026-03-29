@@ -2,6 +2,7 @@ use clap::{Args, Parser, Subcommand, ValueEnum};
 use ie_core::ResourceName;
 use ie_formats::decode_to_json;
 use ie_io::{GameInstallation, ResourceLocator, ResourceReader, TlkResolver};
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Parser)]
@@ -15,7 +16,7 @@ struct Cli {
 #[derive(Debug, Subcommand)]
 enum Command {
     Locate(ResourceArgs),
-    DumpRaw(ResourceArgs),
+    DumpRaw(DumpRawArgs),
     Dump(DumpArgs),
     Tlk(TlkArgs),
 }
@@ -26,6 +27,14 @@ struct ResourceArgs {
     game: PathBuf,
     #[arg(long)]
     resource: String,
+}
+
+#[derive(Debug, Args)]
+struct DumpRawArgs {
+    #[command(flatten)]
+    resource: ResourceArgs,
+    #[arg(long)]
+    output: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -70,11 +79,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             );
         }
         Command::DumpRaw(args) => {
-            let installation = GameInstallation::discover(args.game)?;
-            let resource = ResourceName::parse(args.resource)?;
+            let installation = GameInstallation::discover(args.resource.game)?;
+            let resource = ResourceName::parse(args.resource.resource)?;
             let locator = ResourceLocator::new(installation)?;
             let reader = ResourceReader;
-            let _bytes = reader.read(&locator, &resource)?;
+            let bytes = reader.read(&locator, &resource)?;
+
+            if let Some(parent) = args.output.parent() {
+                if !parent.as_os_str().is_empty() {
+                    fs::create_dir_all(parent)?;
+                }
+            }
+
+            fs::write(&args.output, &bytes.bytes)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "resource_name": bytes.metadata.resource_name,
+                    "resource_type": bytes.metadata.resource_type.as_str(),
+                    "source_kind": format!("{:?}", bytes.metadata.source_kind),
+                    "source_path": bytes.metadata.source_path,
+                    "output_path": args.output,
+                    "bytes_written": bytes.bytes.len(),
+                }))?
+            );
         }
         Command::Dump(args) => {
             let installation = GameInstallation::discover(args.resource.game)?;
