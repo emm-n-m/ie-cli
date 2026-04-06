@@ -1,21 +1,26 @@
-use ie_core::{ResourceBytes, ResourceType};
-use serde::Serialize;
+mod itm;
+mod spl;
+
+use ie_core::{ResourceBytes, ResourceType, StrRefResolver};
+use serde_json::Value;
 use thiserror::Error;
 
-#[derive(Debug, Clone, Serialize)]
-pub struct JsonResource {
-    pub resource_type: String,
-    pub resource_name: String,
-    pub note: String,
-}
-
-pub fn decode_to_json(resource: &ResourceBytes) -> Result<JsonResource, FormatError> {
+pub fn decode_to_json(
+    resource: &ResourceBytes,
+    resolver: Option<&dyn StrRefResolver>,
+) -> Result<Value, FormatError> {
     let resource_type = resource.metadata.resource_type;
 
     match resource_type {
-        ResourceType::Itm
-        | ResourceType::Spl
-        | ResourceType::Cre
+        ResourceType::Itm => {
+            let item = itm::parse_itm(&resource.bytes, &resource.metadata.resource_name, resolver)?;
+            serde_json::to_value(&item).map_err(|err| FormatError::Serialization(err.to_string()))
+        }
+        ResourceType::Spl => {
+            let spell = spl::parse_spl(&resource.bytes, &resource.metadata.resource_name, resolver)?;
+            serde_json::to_value(&spell).map_err(|err| FormatError::Serialization(err.to_string()))
+        }
+        ResourceType::Cre
         | ResourceType::Sto
         | ResourceType::Dlg
         | ResourceType::Bcs => Err(FormatError::NotImplemented(resource_type)),
@@ -29,4 +34,14 @@ pub enum FormatError {
     NotImplemented(ResourceType),
     #[error("unsupported resource type")]
     UnsupportedResourceType,
+    #[error("resource parsing failure: {0}")]
+    Parse(String),
+    #[error("JSON serialization failure: {0}")]
+    Serialization(String),
+}
+
+impl From<serde_json::Error> for FormatError {
+    fn from(err: serde_json::Error) -> Self {
+        FormatError::Serialization(err.to_string())
+    }
 }

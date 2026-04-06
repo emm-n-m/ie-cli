@@ -107,13 +107,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Command::Dump(args) => {
             let installation = GameInstallation::discover(args.resource.game)?;
             let resource = ResourceName::parse(args.resource.resource)?;
-            let locator = ResourceLocator::new(installation)?;
+            let locator = ResourceLocator::new(installation.clone())?;
             let reader = ResourceReader;
             let bytes = reader.read(&locator, &resource)?;
+            let resolver = TlkResolver::new(&installation)?;
 
             match args.format {
                 OutputFormat::Json => {
-                    let value = decode_to_json(&bytes)?;
+                    let value = decode_to_json(&bytes, Some(&resolver))?;
                     println!("{}", serde_json::to_string_pretty(&value)?);
                 }
             }

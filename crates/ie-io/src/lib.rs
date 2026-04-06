@@ -2,7 +2,7 @@ mod biff;
 mod bytes;
 
 use crate::bytes::{read_u16_le, read_u32_le};
-use ie_core::{ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind};
+use ie_core::{ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind, StrRef, StrRefResolver};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -214,6 +214,12 @@ impl TlkResolver {
             strref: strref as u32,
             text,
         })
+    }
+}
+
+impl StrRefResolver for TlkResolver {
+    fn resolve_strref(&self, strref: StrRef) -> Option<String> {
+        self.resolve(strref.0).ok().map(|entry| entry.text)
     }
 }
 

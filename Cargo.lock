@@ -149,6 +149,7 @@ version = "0.1.0"
 dependencies = [
  "ie-core",
  "serde",
+ "serde_json",
  "thiserror",
 ]
 

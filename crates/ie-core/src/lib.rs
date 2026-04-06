@@ -152,6 +152,10 @@ pub struct ResolvedStrRef {
     pub text: Option<String>,
 }
 
+pub trait StrRefResolver {
+    fn resolve_strref(&self, strref: StrRef) -> Option<String>;
+}
+
 #[derive(Debug, Error)]
 pub enum CoreError {
     #[error("invalid resource reference: {0}")]
