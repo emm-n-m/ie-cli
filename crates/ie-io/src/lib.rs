@@ -48,15 +48,15 @@ impl GameInstallation {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceLocator {
     pub installation: GameInstallation,
-    key_index: KeyIndex,
+    key_file: KeyFile,
 }
 
 impl ResourceLocator {
     pub fn new(installation: GameInstallation) -> Result<Self, IoError> {
-        let key_index = KeyIndex::parse(&installation)?;
+        let key_file = KeyFile::parse(&installation)?;
         Ok(Self {
             installation,
-            key_index,
+            key_file,
         })
     }
 
@@ -80,13 +80,12 @@ impl ResourceLocator {
 
         let key = file_name.to_ascii_uppercase();
         let entry = self
-            .key_index
-            .resources
-            .get(&key)
+            .key_file
+            .resource(resource)
             .ok_or_else(|| IoError::ResourceNotFound(file_name.clone()))?;
 
         let biff = self
-            .key_index
+            .key_file
             .biffs
             .get(entry.biff_index as usize)
             .ok_or_else(|| {
@@ -102,11 +101,15 @@ impl ResourceLocator {
             metadata: ResourceMetadata {
                 source_path,
                 source_kind: SourceKind::Bif,
-                resource_type: ResourceType::from_extension(&entry.extension),
+                resource_type: entry.resource_type,
                 resource_name: key,
             },
             locator: Some(entry.locator),
         })
+    }
+
+    pub fn key_file(&self) -> &KeyFile {
+        &self.key_file
     }
 }
 
@@ -224,13 +227,15 @@ impl StrRefResolver for TlkResolver {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct KeyIndex {
-    biffs: Vec<BiffEntry>,
-    resources: HashMap<String, KeyResourceEntry>,
+pub struct KeyFile {
+    pub header: KeyHeader,
+    pub biffs: Vec<KeyBiffEntry>,
+    pub resources: Vec<KeyResourceEntry>,
+    resource_lookup: HashMap<String, usize>,
 }
 
-impl KeyIndex {
-    fn parse(installation: &GameInstallation) -> Result<Self, IoError> {
+impl KeyFile {
+    pub fn parse(installation: &GameInstallation) -> Result<Self, IoError> {
         let bytes = fs::read(&installation.chitin_key).map_err(IoError::FileIo)?;
 
         if bytes.len() < 24 {
@@ -245,6 +250,14 @@ impl KeyIndex {
         let resource_count = read_u32_le(&bytes, 12)? as usize;
         let bif_offset = read_u32_le(&bytes, 16)? as usize;
         let resource_offset = read_u32_le(&bytes, 20)? as usize;
+        let header = KeyHeader {
+            signature: "KEY ".to_string(),
+            version: "V1  ".to_string(),
+            bif_count: bif_count as u32,
+            resource_count: resource_count as u32,
+            bif_offset: bif_offset as u32,
+            resource_offset: resource_offset as u32,
+        };
 
         let mut biffs = Vec::with_capacity(bif_count);
         for index in 0..bif_count {
@@ -253,7 +266,7 @@ impl KeyIndex {
                 return Err(IoError::InvalidKey("truncated BIFF table".to_string()));
             }
 
-            let _file_size = read_u32_le(&bytes, entry_offset)?;
+            let file_size = read_u32_le(&bytes, entry_offset)?;
             let string_offset = read_u32_le(&bytes, entry_offset + 4)? as usize;
             let string_length = read_u16_le(&bytes, entry_offset + 8)? as usize;
 
@@ -272,13 +285,18 @@ impl KeyIndex {
             relative_path = relative_path.replace('\\', "/").replace(':', "/");
 
             let actual_path = resolve_biff_path(installation, &relative_path);
-            biffs.push(BiffEntry {
+            biffs.push(KeyBiffEntry {
+                index: index as u32,
+                file_size,
+                string_offset: string_offset as u32,
+                string_length: string_length as u16,
                 relative_path,
                 actual_path,
             });
         }
 
-        let mut resources = HashMap::with_capacity(resource_count);
+        let mut resources = Vec::with_capacity(resource_count);
+        let mut resource_lookup = HashMap::with_capacity(resource_count);
         for index in 0..resource_count {
             let entry_offset = resource_offset + (index * 14);
             if entry_offset + 14 > bytes.len() {
@@ -291,30 +309,70 @@ impl KeyIndex {
             let extension =
                 extension_from_type(type_code).unwrap_or_else(|| format!("0x{type_code:04X}"));
             let resource_name = format!("{resref}.{extension}");
+            let resource_type = ResourceType::from_extension(&extension);
 
             let entry = KeyResourceEntry {
+                index: index as u32,
+                resource_name: resource_name.to_ascii_uppercase(),
+                resref,
+                extension,
+                type_code,
                 locator,
                 biff_index: locator >> 20,
-                extension,
+                resource_index: locator & 0x000F_FFFF,
+                resource_type,
             };
-            resources.insert(resource_name.to_ascii_uppercase(), entry);
+            resource_lookup.insert(entry.resource_name.clone(), resources.len());
+            resources.push(entry);
         }
 
-        Ok(Self { biffs, resources })
+        Ok(Self {
+            header,
+            biffs,
+            resources,
+            resource_lookup,
+        })
+    }
+
+    pub fn resource(&self, resource: &ResourceName) -> Option<&KeyResourceEntry> {
+        let key = resource.file_name().to_ascii_uppercase();
+        self.resource_lookup
+            .get(&key)
+            .and_then(|index| self.resources.get(*index))
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct BiffEntry {
-    relative_path: String,
-    actual_path: Option<PathBuf>,
+pub struct KeyHeader {
+    pub signature: String,
+    pub version: String,
+    pub bif_count: u32,
+    pub resource_count: u32,
+    pub bif_offset: u32,
+    pub resource_offset: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-struct KeyResourceEntry {
-    locator: u32,
-    biff_index: u32,
-    extension: String,
+pub struct KeyBiffEntry {
+    pub index: u32,
+    pub file_size: u32,
+    pub string_offset: u32,
+    pub string_length: u16,
+    pub relative_path: String,
+    pub actual_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyResourceEntry {
+    pub index: u32,
+    pub resource_name: String,
+    pub resref: String,
+    pub extension: String,
+    pub type_code: u16,
+    pub locator: u32,
+    pub biff_index: u32,
+    pub resource_index: u32,
+    pub resource_type: ResourceType,
 }
 
 fn discover_dialog_tlk(

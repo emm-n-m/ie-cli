@@ -39,8 +39,8 @@ The Rust workspace is organized into:
 - `crates/ie-formats`
 - `crates/ie-cli`
 
-The legacy Near Infinity Java source is still present in this repository under `src/` and related build files. It is
-kept as a behavioral reference while the CLI rewrite is developed.
+Near Infinity remains a behavioral reference for format validation, but the legacy Java snapshot is no longer vendored
+in this repository. See [Near Infinity Reference](./docs/NEAR_INFINITY_REFERENCE.md) for the expected workflow.
 
 ## Build
 
