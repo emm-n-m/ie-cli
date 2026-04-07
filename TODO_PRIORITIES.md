@@ -57,18 +57,12 @@ Completed:
   - `BIFC`
   - override precedence
   - locator-not-found and truncated archive cases
-
-In progress:
-
-- `locate` and `dump-raw` work against a real BG2EE installation for:
+- Parse `chitin.key` into a richer typed model instead of the current minimal index.
+- Add broader fixture coverage for KEY lookup across more than one resource family.
+- Validate `locate` and `dump-raw` against a real BG2EE installation for:
   - override-backed resources
   - KEY-backed BIFF mappings
   - BIFF-backed raw extraction
-
-Remaining:
-
-- Parse `chitin.key` into a richer typed model instead of the current minimal index.
-- Add broader fixture coverage for KEY lookup across more than one resource family.
 
 Exit criteria:
 
@@ -84,9 +78,6 @@ Completed:
 - Implement `StrRef` resolution.
 - Add a `tlk` command.
 - Validate TLK lookup against a real BG2EE installation.
-
-Remaining:
-
 - Add tests for:
   - valid string lookup
   - invalid/out-of-range string refs
@@ -99,11 +90,22 @@ Exit criteria:
 
 ## P1: First Decoders
 
+Completed:
+
 - Implement `ITM` parser.
 - Implement `SPL` parser.
 - Add stable JSON export for both.
+- Add CLI `dump` support for decoded resources.
+- Add parser unit tests for both formats.
+- Validate selected `SPL` outputs against Near Infinity using real BG2EE resources.
+- Add real-install `dump` regression coverage for validated `SPL` resources when `IE_GAME_PATH` is set.
+
+Remaining:
+
 - Add fixture tests using real resources.
-- Compare selected outputs against Near Infinity.
+- Add JSON golden or snapshot coverage for exported output.
+- Expand semantic validation of decoded `ITM` and `SPL` fields against more real resources.
+- Broaden Near Infinity comparison coverage for `ITM` and additional `SPL` resources.
 
 Suggested verification resources:
 
@@ -111,6 +113,8 @@ Suggested verification resources:
 - one complex magical item
 - one divine spell
 - one arcane spell
+- one spell with global effects
+- one priest-only spell with class exclusion flags
 
 Exit criteria:
 
@@ -222,14 +226,13 @@ Exit criteria:
 
 ## Suggested First Issues
 
-First unfinished issues from the original starter backlog:
+Current high-value follow-up issues:
 
-1. Add tests for KEY lookup, TLK lookup, and override precedence across more real resources.
-2. Parse `chitin.key` into a richer typed model instead of the current minimal index.
-3. Implement `ITM` decoding and JSON export.
-4. Implement `SPL` decoding and JSON export.
-5. Implement `CRE` decoding and JSON export.
-6. Implement `STO` decoding and JSON export.
+1. Add real-resource fixture coverage and Near Infinity comparisons for `ITM` and `SPL`.
+2. Add JSON golden or snapshot tests for decoded `ITM` and `SPL` output.
+3. Implement `CRE` decoding and JSON export.
+4. Implement `STO` decoding and JSON export.
+5. Broaden real-install validation beyond `BG2EE`.
 
 ## Stop Conditions
 
