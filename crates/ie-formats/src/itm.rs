@@ -1,4 +1,4 @@
-use ie_core::{ResolvedStrRef, ResRef, ResourceType, StrRef, StrRefResolver};
+use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -147,7 +147,8 @@ pub fn parse_itm(
         return Err(ItemParseError::UnexpectedEof(format!(
             "ITM resource must contain at least {} bytes",
             ITM_HEADER_SIZE
-        )).into());
+        ))
+        .into());
     }
 
     if &bytes[0..4] != b"ITM " {
@@ -251,7 +252,12 @@ pub fn parse_itm(
     };
 
     let abilities = parse_abilities(bytes, abilities_offset, ability_count, resolver)?;
-    let global_effects = parse_effects(bytes, effects_offset, first_effect_index, global_effect_count)?;
+    let global_effects = parse_effects(
+        bytes,
+        effects_offset,
+        first_effect_index,
+        global_effect_count,
+    )?;
 
     Ok(ItemJson {
         resource_type: ResourceType::Itm.as_str().to_string(),
@@ -276,9 +282,11 @@ fn parse_effects(
     let start = offset as usize;
     let first = first_index as usize;
     let range_end = first + count as usize;
-    let byte_end = start.checked_add(range_end * ITEM_EFFECT_SIZE).ok_or_else(|| {
-        ItemParseError::InvalidField("effect offset and count overflow".to_string())
-    })?;
+    let byte_end = start
+        .checked_add(range_end * ITEM_EFFECT_SIZE)
+        .ok_or_else(|| {
+            ItemParseError::InvalidField("effect offset and count overflow".to_string())
+        })?;
 
     if byte_end > bytes.len() {
         return Err(ItemParseError::UnexpectedEof(format!(
@@ -347,7 +355,6 @@ fn parse_effect(bytes: &[u8], offset: usize) -> Result<ItemEffectJson, ItemParse
         dice,
     })
 }
-
 
 fn parse_abilities(
     bytes: &[u8],
@@ -423,7 +430,16 @@ fn parse_ability(
     let is_bullet = parse_u16(bytes, offset + 0x36)?;
 
     let damage_dice = if dice_size > 0 && dice_count > 0 {
-        Some(format!("{}d{}{}", dice_count, dice_size, if damage_bonus >= 0 { format!("+{}", damage_bonus) } else { damage_bonus.to_string() }))
+        Some(format!(
+            "{}d{}{}",
+            dice_count,
+            dice_size,
+            if damage_bonus >= 0 {
+                format!("+{}", damage_bonus)
+            } else {
+                damage_bonus.to_string()
+            }
+        ))
     } else {
         None
     };
@@ -491,17 +507,25 @@ fn parse_ability(
     })
 }
 
-fn parse_resref_option(bytes: &[u8], offset: usize, length: usize) -> Result<Option<ResRef>, ItemParseError> {
+fn parse_resref_option(
+    bytes: &[u8],
+    offset: usize,
+    length: usize,
+) -> Result<Option<ResRef>, ItemParseError> {
     let raw = bytes
         .get(offset..offset + length)
         .ok_or_else(|| ItemParseError::UnexpectedEof(format!("missing resref at {}", offset)))?;
 
     let end = raw.iter().position(|&b| b == 0).unwrap_or(raw.len());
-    let string = String::from_utf8_lossy(&raw[..end]).trim().to_ascii_uppercase();
+    let string = String::from_utf8_lossy(&raw[..end])
+        .trim()
+        .to_ascii_uppercase();
     if string.is_empty() {
         Ok(None)
     } else {
-        Ok(Some(ResRef::new(string).map_err(|err| ItemParseError::InvalidField(err.to_string()))?))
+        Ok(Some(ResRef::new(string).map_err(|err| {
+            ItemParseError::InvalidField(err.to_string())
+        })?))
     }
 }
 
@@ -516,13 +540,20 @@ fn parse_strref(
     } else {
         resolver.and_then(|resolver| resolver.resolve_strref(StrRef(raw)))
     };
-    Ok(ResolvedStrRef { strref: StrRef(raw), text })
+    Ok(ResolvedStrRef {
+        strref: StrRef(raw),
+        text,
+    })
 }
 
-fn parse_ascii_string(bytes: &[u8], offset: usize, length: usize) -> Result<String, ItemParseError> {
-    let raw = bytes
-        .get(offset..offset + length)
-        .ok_or_else(|| ItemParseError::UnexpectedEof(format!("missing ascii string at {}", offset)))?;
+fn parse_ascii_string(
+    bytes: &[u8],
+    offset: usize,
+    length: usize,
+) -> Result<String, ItemParseError> {
+    let raw = bytes.get(offset..offset + length).ok_or_else(|| {
+        ItemParseError::UnexpectedEof(format!("missing ascii string at {}", offset))
+    })?;
     Ok(String::from_utf8_lossy(raw).to_string())
 }
 
@@ -534,23 +565,23 @@ fn parse_u8(bytes: &[u8], offset: usize) -> Result<u8, ItemParseError> {
 }
 
 fn parse_u16(bytes: &[u8], offset: usize) -> Result<u16, ItemParseError> {
-    let raw = bytes
-        .get(offset..offset + 2)
-        .ok_or_else(|| ItemParseError::UnexpectedEof(format!("unable to read u16 at {}", offset)))?;
+    let raw = bytes.get(offset..offset + 2).ok_or_else(|| {
+        ItemParseError::UnexpectedEof(format!("unable to read u16 at {}", offset))
+    })?;
     Ok(u16::from_le_bytes([raw[0], raw[1]]))
 }
 
 fn parse_u32(bytes: &[u8], offset: usize) -> Result<u32, ItemParseError> {
-    let raw = bytes
-        .get(offset..offset + 4)
-        .ok_or_else(|| ItemParseError::UnexpectedEof(format!("unable to read u32 at {}", offset)))?;
+    let raw = bytes.get(offset..offset + 4).ok_or_else(|| {
+        ItemParseError::UnexpectedEof(format!("unable to read u32 at {}", offset))
+    })?;
     Ok(u32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]))
 }
 
 fn parse_i16(bytes: &[u8], offset: usize) -> Result<i16, ItemParseError> {
-    let raw = bytes
-        .get(offset..offset + 2)
-        .ok_or_else(|| ItemParseError::UnexpectedEof(format!("unable to read i16 at {}", offset)))?;
+    let raw = bytes.get(offset..offset + 2).ok_or_else(|| {
+        ItemParseError::UnexpectedEof(format!("unable to read i16 at {}", offset))
+    })?;
     Ok(i16::from_le_bytes([raw[0], raw[1]]))
 }
 

@@ -1,5 +1,7 @@
+mod cre;
 mod itm;
 mod spl;
+mod sto;
 
 use ie_core::{ResourceBytes, ResourceType, StrRefResolver};
 use serde_json::Value;
@@ -17,13 +19,22 @@ pub fn decode_to_json(
             serde_json::to_value(&item).map_err(|err| FormatError::Serialization(err.to_string()))
         }
         ResourceType::Spl => {
-            let spell = spl::parse_spl(&resource.bytes, &resource.metadata.resource_name, resolver)?;
+            let spell =
+                spl::parse_spl(&resource.bytes, &resource.metadata.resource_name, resolver)?;
             serde_json::to_value(&spell).map_err(|err| FormatError::Serialization(err.to_string()))
         }
-        ResourceType::Cre
-        | ResourceType::Sto
-        | ResourceType::Dlg
-        | ResourceType::Bcs => Err(FormatError::NotImplemented(resource_type)),
+        ResourceType::Cre => {
+            let creature =
+                cre::parse_cre(&resource.bytes, &resource.metadata.resource_name, resolver)?;
+            serde_json::to_value(&creature)
+                .map_err(|err| FormatError::Serialization(err.to_string()))
+        }
+        ResourceType::Sto => {
+            let store =
+                sto::parse_sto(&resource.bytes, &resource.metadata.resource_name, resolver)?;
+            serde_json::to_value(&store).map_err(|err| FormatError::Serialization(err.to_string()))
+        }
+        ResourceType::Dlg | ResourceType::Bcs => Err(FormatError::NotImplemented(resource_type)),
         ResourceType::Unknown => Err(FormatError::UnsupportedResourceType),
     }
 }
