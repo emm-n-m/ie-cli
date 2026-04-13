@@ -4,6 +4,8 @@
 
 This document gives coding agents a strict working guide for building a CLI-first, Rust-based Infinity Engine resource inspector inspired by Near Infinity.
 
+For current project status, active milestones, and the driving use case, see [ROADMAP.md](./ROADMAP.md). This guide is stable; the roadmap changes each session.
+
 The first goal is not a full Near Infinity replacement. The first goal is a reliable parser and exporter that can turn installed game resources into stable, machine-readable output for:
 
 - human inspection
