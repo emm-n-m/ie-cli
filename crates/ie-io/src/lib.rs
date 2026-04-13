@@ -51,6 +51,39 @@ pub struct ResourceLocator {
     key_file: KeyFile,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ResourceSource {
+    Auto,
+    Override,
+    Bif,
+}
+
+impl ResourceSource {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Override => "override",
+            Self::Bif => "bif",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListedResource {
+    pub resource_name: String,
+    pub resref: String,
+    pub extension: String,
+    pub source_kind: SourceKind,
+    pub source_path: PathBuf,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ResourceListOptions {
+    pub resource_type: Option<String>,
+    pub name_glob: Option<String>,
+    pub source: Option<ResourceSource>,
+}
+
 impl ResourceLocator {
     pub fn new(installation: GameInstallation) -> Result<Self, IoError> {
         let key_file = KeyFile::parse(&installation)?;
@@ -61,12 +94,65 @@ impl ResourceLocator {
     }
 
     pub fn locate(&self, resource: &ResourceName) -> Result<LocatedResource, IoError> {
+        self.locate_with_source(resource, ResourceSource::Auto)
+    }
+
+    pub fn locate_with_source(
+        &self,
+        resource: &ResourceName,
+        source: ResourceSource,
+    ) -> Result<LocatedResource, IoError> {
+        if matches!(source, ResourceSource::Auto | ResourceSource::Override)
+            && let Some(located) = self.locate_override(resource)
+        {
+            return Ok(located);
+        }
+
+        if matches!(source, ResourceSource::Auto | ResourceSource::Bif) {
+            return self.locate_bif(resource);
+        }
+
+        Err(IoError::ResourceNotFoundInSource {
+            resource: resource.file_name(),
+            source_name: source.label().to_string(),
+        })
+    }
+
+    pub fn list(&self, options: ResourceListOptions) -> Result<Vec<ListedResource>, IoError> {
+        let source = options.source.unwrap_or(ResourceSource::Auto);
+        let mut entries = HashMap::new();
+
+        if matches!(source, ResourceSource::Auto | ResourceSource::Override) {
+            for entry in self.override_entries()? {
+                entries.entry(entry.resource_name.clone()).or_insert(entry);
+            }
+        }
+
+        if matches!(source, ResourceSource::Auto | ResourceSource::Bif) {
+            for entry in self.bif_entries()? {
+                if matches!(source, ResourceSource::Auto) {
+                    entries.entry(entry.resource_name.clone()).or_insert(entry);
+                } else {
+                    entries.insert(entry.resource_name.clone(), entry);
+                }
+            }
+        }
+
+        let mut entries = entries
+            .into_values()
+            .filter(|entry| resource_matches_filters(entry, &options))
+            .collect::<Vec<_>>();
+        entries.sort_by(|left, right| left.resource_name.cmp(&right.resource_name));
+        Ok(entries)
+    }
+
+    fn locate_override(&self, resource: &ResourceName) -> Option<LocatedResource> {
         let file_name = resource.file_name();
 
         for override_dir in &self.installation.override_dirs {
             let path = override_dir.join(&file_name);
             if path.is_file() {
-                return Ok(LocatedResource {
+                return Some(LocatedResource {
                     metadata: ResourceMetadata {
                         source_path: path,
                         source_kind: SourceKind::Override,
@@ -77,7 +163,11 @@ impl ResourceLocator {
                 });
             }
         }
+        None
+    }
 
+    fn locate_bif(&self, resource: &ResourceName) -> Result<LocatedResource, IoError> {
+        let file_name = resource.file_name();
         let key = file_name.to_ascii_uppercase();
         let entry = self
             .key_file
@@ -108,6 +198,64 @@ impl ResourceLocator {
         })
     }
 
+    fn override_entries(&self) -> Result<Vec<ListedResource>, IoError> {
+        let mut entries = Vec::new();
+
+        for override_dir in &self.installation.override_dirs {
+            let mut dir_entries = fs::read_dir(override_dir)
+                .map_err(IoError::FileIo)?
+                .filter_map(|entry| entry.ok())
+                .filter(|entry| entry.path().is_file())
+                .collect::<Vec<_>>();
+            dir_entries.sort_by_key(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase());
+
+            for entry in dir_entries {
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                let Ok(resource) = ResourceName::parse(&file_name) else {
+                    continue;
+                };
+
+                entries.push(ListedResource {
+                    resource_name: resource.file_name(),
+                    resref: resource.resref().as_str().to_string(),
+                    extension: resource.extension().to_string(),
+                    source_kind: SourceKind::Override,
+                    source_path: entry.path(),
+                });
+            }
+        }
+
+        Ok(entries)
+    }
+
+    fn bif_entries(&self) -> Result<Vec<ListedResource>, IoError> {
+        let mut entries = Vec::with_capacity(self.key_file.resources.len());
+
+        for entry in &self.key_file.resources {
+            let biff = self
+                .key_file
+                .biffs
+                .get(entry.biff_index as usize)
+                .ok_or_else(|| {
+                    IoError::InvalidKey(format!("invalid BIFF index {}", entry.biff_index))
+                })?;
+            let source_path = biff
+                .actual_path
+                .clone()
+                .unwrap_or_else(|| self.installation.root.join(&biff.relative_path));
+
+            entries.push(ListedResource {
+                resource_name: entry.resource_name.clone(),
+                resref: entry.resref.clone(),
+                extension: entry.extension.clone(),
+                source_kind: SourceKind::Bif,
+                source_path,
+            });
+        }
+
+        Ok(entries)
+    }
+
     pub fn key_file(&self) -> &KeyFile {
         &self.key_file
     }
@@ -122,7 +270,16 @@ impl ResourceReader {
         locator: &ResourceLocator,
         resource: &ResourceName,
     ) -> Result<ResourceBytes, IoError> {
-        let located = locator.locate(resource)?;
+        self.read_with_source(locator, resource, ResourceSource::Auto)
+    }
+
+    pub fn read_with_source(
+        &self,
+        locator: &ResourceLocator,
+        resource: &ResourceName,
+        source: ResourceSource,
+    ) -> Result<ResourceBytes, IoError> {
+        let located = locator.locate_with_source(resource, source)?;
 
         match located.metadata.source_kind {
             SourceKind::Override | SourceKind::LooseFile => {
@@ -144,6 +301,68 @@ impl ResourceReader {
             }
         }
     }
+}
+
+fn resource_matches_filters(entry: &ListedResource, options: &ResourceListOptions) -> bool {
+    if let Some(resource_type) = options.resource_type.as_deref()
+        && !entry.extension.eq_ignore_ascii_case(resource_type)
+    {
+        return false;
+    }
+
+    if let Some(pattern) = options.name_glob.as_deref() {
+        let candidate = if pattern.contains('.') {
+            entry.resource_name.as_str()
+        } else {
+            entry.resref.as_str()
+        };
+
+        if !matches_glob(candidate, pattern) {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn matches_glob(candidate: &str, pattern: &str) -> bool {
+    let candidate = candidate.as_bytes();
+    let pattern = pattern.as_bytes();
+    let (mut candidate_index, mut pattern_index) = (0usize, 0usize);
+    let (mut star_index, mut candidate_after_star) = (None, 0usize);
+
+    while candidate_index < candidate.len() {
+        if pattern_index < pattern.len()
+            && (pattern[pattern_index] == b'?'
+                || pattern[pattern_index].eq_ignore_ascii_case(&candidate[candidate_index]))
+        {
+            candidate_index += 1;
+            pattern_index += 1;
+            continue;
+        }
+
+        if pattern_index < pattern.len() && pattern[pattern_index] == b'*' {
+            star_index = Some(pattern_index);
+            pattern_index += 1;
+            candidate_after_star = candidate_index;
+            continue;
+        }
+
+        if let Some(index) = star_index {
+            pattern_index = index + 1;
+            candidate_after_star += 1;
+            candidate_index = candidate_after_star;
+            continue;
+        }
+
+        return false;
+    }
+
+    while pattern_index < pattern.len() && pattern[pattern_index] == b'*' {
+        pattern_index += 1;
+    }
+
+    pattern_index == pattern.len()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -547,6 +766,11 @@ pub enum IoError {
     MissingChitinKey(PathBuf),
     #[error("resource not found: {0}")]
     ResourceNotFound(String),
+    #[error("resource not found in {source_name}: {resource}")]
+    ResourceNotFoundInSource {
+        resource: String,
+        source_name: String,
+    },
     #[error("dialog.tlk not found for installation: {0}")]
     DialogTlkNotFound(PathBuf),
     #[error("strref {requested} is out of range for TLK with {entry_count} entries")]

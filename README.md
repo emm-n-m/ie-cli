@@ -28,6 +28,8 @@ The Rust rewrite is in progress. The current workspace already supports:
   - `BIF`
   - `BIFC`
 - `dump-raw` export for located resources
+- source-selectable lookup for `locate`, `dump`, and `dump-raw` via `--source`
+- resource enumeration with `list`
 - typed JSON export for:
   - `ITM`
   - `SPL`
@@ -92,9 +94,13 @@ cargo run -p iecli -- --help
 
 ```bash
 iecli locate --game /path/to/game --resource ACIDBL.ITM
+iecli locate --game /path/to/game --resource KIRINH.CRE --source bif
 iecli dump-raw --game /path/to/game --resource ACIDBL.ITM --output ./ACIDBL.ITM
+iecli dump-raw --game /path/to/game --resource KIRINH.CRE --source bif --output ./KIRINH-stock.CRE
 iecli dump --game /path/to/game --resource ACIDBL.ITM --format json
 iecli dump --game /path/to/game --resource SPWI112.SPL --format json
+iecli list --game /path/to/game --type CRE --name "kirin*"
+iecli list --game /path/to/game --type ITM --source override --format json
 iecli tlk --game /path/to/game --strref 1
 ```
 
