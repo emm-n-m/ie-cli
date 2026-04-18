@@ -33,12 +33,13 @@ The Rust rewrite is in progress. The current workspace already supports:
 - typed JSON export for:
   - `ITM`
   - `SPL`
+  - `CRE`
+  - `STO`
+  - `DLG`
 
 Not implemented yet:
 
-- typed `CRE` decoding and JSON export
-- typed `STO` decoding and JSON export
-- `DLG` and `BCS` decoding
+- `BCS` decoding
 - real-resource fixture coverage for decoded formats
 - broad Near Infinity comparison coverage for `ITM` and `SPL`
 - JSON golden/snapshot coverage for decoded formats

@@ -1,4 +1,5 @@
 mod cre;
+mod dlg;
 mod itm;
 mod spl;
 mod sto;
@@ -34,7 +35,12 @@ pub fn decode_to_json(
                 sto::parse_sto(&resource.bytes, &resource.metadata.resource_name, resolver)?;
             serde_json::to_value(&store).map_err(|err| FormatError::Serialization(err.to_string()))
         }
-        ResourceType::Dlg | ResourceType::Bcs => Err(FormatError::NotImplemented(resource_type)),
+        ResourceType::Dlg => {
+            let dialog =
+                dlg::parse_dlg(&resource.bytes, &resource.metadata.resource_name, resolver)?;
+            serde_json::to_value(&dialog).map_err(|err| FormatError::Serialization(err.to_string()))
+        }
+        ResourceType::Bcs => Err(FormatError::NotImplemented(resource_type)),
         ResourceType::Unknown => Err(FormatError::UnsupportedResourceType),
     }
 }
