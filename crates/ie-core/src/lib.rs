@@ -156,6 +156,18 @@ pub trait StrRefResolver {
     fn resolve_strref(&self, strref: StrRef) -> Option<String>;
 }
 
+pub trait IdsResolver {
+    fn resolve_trigger(&self, opcode: i32) -> Option<String>;
+    fn resolve_action(&self, opcode: i32) -> Option<String>;
+    fn resolve_ids(&self, file: &str, value: i32) -> Option<String>;
+}
+
+#[derive(Clone, Copy, Default)]
+pub struct ResolverBundle<'a> {
+    pub strref: Option<&'a dyn StrRefResolver>,
+    pub ids: Option<&'a dyn IdsResolver>,
+}
+
 #[derive(Debug, Error)]
 pub enum CoreError {
     #[error("invalid resource reference: {0}")]

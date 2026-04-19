@@ -177,7 +177,7 @@ For each SPL resource, verify these fields against Near Infinity:
 | Dump SPL JSON                      | `SPWI112.SPL`    | Valid JSON, has `header`, `extended_headers` |
 | Dump ITM with effects              | `STAF09.ITM`     | `effects` array present and non-empty   |
 | Dump SPL priest spell              | `SPPR211.SPL`    | `spell_type` is priest/divine           |
-| Dump unsupported format            | `AERIE.DLG`      | Graceful error, not a panic             |
+| Dump DLG JSON                      | `AERIE.DLG`      | Valid JSON, has `states` and script tables |
 | JSON is deterministic              | `ACIDBL.ITM`     | Two runs produce byte-identical output  |
 
 ### 4.4 Command: `tlk`

@@ -36,10 +36,10 @@ The Rust rewrite is in progress. The current workspace already supports:
   - `CRE`
   - `STO`
   - `DLG`
+  - `BCS`
 
 Not implemented yet:
 
-- `BCS` decoding
 - real-resource fixture coverage for decoded formats
 - broad Near Infinity comparison coverage for `ITM` and `SPL`
 - JSON golden/snapshot coverage for decoded formats
@@ -100,6 +100,7 @@ iecli dump-raw --game /path/to/game --resource ACIDBL.ITM --output ./ACIDBL.ITM
 iecli dump-raw --game /path/to/game --resource KIRINH.CRE --source bif --output ./KIRINH-stock.CRE
 iecli dump --game /path/to/game --resource ACIDBL.ITM --format json
 iecli dump --game /path/to/game --resource SPWI112.SPL --format json
+iecli dump --game /path/to/game --resource BALDUR.BCS --format json
 iecli list --game /path/to/game --type CRE --name "kirin*"
 iecli list --game /path/to/game --type ITM --source override --format json
 iecli tlk --game /path/to/game --strref 1

@@ -123,10 +123,15 @@ Exit criteria:
 
 ## P1: Practical Formats
 
+Completed:
+
 - Implement `CRE` parser.
 - Implement `STO` parser.
 - Add stable JSON export.
-- Add fixture and snapshot tests.
+
+Remaining:
+
+- Add fixture and snapshot tests for `CRE` and `STO`.
 - Verify several real resources against Near Infinity.
 
 Suggested verification resources:
@@ -143,11 +148,17 @@ Exit criteria:
 
 ## P2: Dialogue
 
+Completed:
+
 - Design exported `DLG` representation.
 - Parse states, transitions, and replies.
 - Resolve associated strings.
 - Preserve references and indices clearly.
-- Add tests on real dialogue files.
+
+Remaining:
+
+- Add more real-install and Near Infinity validation for representative dialogue files.
+- Expand regression coverage for edge cases such as external-dialog references.
 
 Important constraint:
 
@@ -192,7 +203,7 @@ Exit criteria:
 ## P3: Script And Diff Support
 
 - Add `DLG` follow-up improvements if the first model is too raw.
-- Add `BCS` parsing once representation is agreed.
+- Add `BCS` follow-up improvements once more real-world validation identifies gaps.
 - Add `diff` command for decoded resources.
 - Add machine-readable cross-reference output.
 
@@ -230,8 +241,8 @@ Current high-value follow-up issues:
 
 1. Add real-resource fixture coverage and Near Infinity comparisons for `ITM` and `SPL`.
 2. Add JSON golden or snapshot tests for decoded `ITM` and `SPL` output.
-3. Implement `CRE` decoding and JSON export.
-4. Implement `STO` decoding and JSON export.
+3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
+4. Broaden real-install validation for `DLG` and `BCS`.
 5. Broaden real-install validation beyond `BG2EE`.
 
 ## Stop Conditions

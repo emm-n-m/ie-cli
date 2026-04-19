@@ -1,7 +1,10 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
-use ie_core::ResourceName;
+use ie_core::{ResolverBundle, ResourceName};
 use ie_formats::decode_to_json;
-use ie_io::{GameInstallation, ListedResource, ResourceListOptions, ResourceLocator, ResourceReader, ResourceSource, TlkResolver};
+use ie_io::{
+    FileBackedIdsResolver, GameInstallation, ListedResource, ResourceListOptions,
+    ResourceLocator, ResourceReader, ResourceSource, TlkResolver,
+};
 use std::fs;
 use std::path::PathBuf;
 
@@ -175,11 +178,22 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let locator = ResourceLocator::new(installation.clone())?;
             let reader = ResourceReader;
             let bytes = reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
-            let resolver = TlkResolver::new(&installation)?;
+            let tlk_resolver = installation
+                .dialog_tlk
+                .as_ref()
+                .map(|_| TlkResolver::new(&installation))
+                .transpose()?;
+            let ids_resolver = FileBackedIdsResolver::new(locator.clone());
 
             match args.format {
                 OutputFormat::Json => {
-                    let value = decode_to_json(&bytes, Some(&resolver))?;
+                    let value = decode_to_json(
+                        &bytes,
+                        ResolverBundle {
+                            strref: tlk_resolver.as_ref().map(|resolver| resolver as _),
+                            ids: Some(&ids_resolver),
+                        },
+                    )?;
                     println!("{}", serde_json::to_string_pretty(&value)?);
                 }
             }

@@ -105,6 +105,43 @@ fn dump_silence_matches_validated_bg2ee_priest_spell_fields_when_ie_game_path_is
     );
 }
 
+#[test]
+fn dump_baldur_bcs_exposes_named_blocks_when_ie_game_path_is_set() {
+    let Some(game_path) = std::env::var_os("IE_GAME_PATH") else {
+        return;
+    };
+
+    let stdout = dump_json(&game_path, "BALDUR.BCS");
+
+    assert_eq!(stdout["resource_name"], "BALDUR.BCS");
+    let blocks = stdout["blocks"].as_array().expect("blocks should be an array");
+    assert!(!blocks.is_empty(), "BALDUR.BCS should contain at least one block");
+
+    let has_named_trigger = blocks.iter().any(|block| {
+        block["triggers"]
+            .as_array()
+            .is_some_and(|triggers| triggers.iter().any(|trigger| trigger["name"].is_string()))
+    });
+    let has_named_action = blocks.iter().any(|block| {
+        block["responses"].as_array().is_some_and(|responses| {
+            responses.iter().any(|response| {
+                response["actions"].as_array().is_some_and(|actions| {
+                    actions.iter().any(|action| action["name"].is_string())
+                })
+            })
+        })
+    });
+
+    assert!(
+        has_named_trigger,
+        "expected at least one decoded trigger name in BALDUR.BCS"
+    );
+    assert!(
+        has_named_action,
+        "expected at least one decoded action name in BALDUR.BCS"
+    );
+}
+
 fn dump_json(game_path: &OsString, resource_name: &str) -> Value {
     let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
         .arg("dump")

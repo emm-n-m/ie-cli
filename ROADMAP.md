@@ -25,7 +25,7 @@ Near Infinity remains the right tool for last-mile manual sanity checks and for 
 
 ## Status Snapshot
 
-Current as of 2026-04-13.
+Current as of 2026-04-19.
 
 ### Done
 
@@ -36,8 +36,10 @@ Current as of 2026-04-13.
 - Override precedence, with `--source <auto|override|bif>` opt-out (`locate`, `dump`, `dump-raw`).
 - Resource enumeration: `list --type <T> --name <glob> --source <S> --format <text|json>`.
 - `TLK` string resolution.
-- Typed decoders + JSON export for: `ITM`, `SPL`, `CRE`, `STO`.
+- Typed decoders + JSON export for: `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`.
+- Lazy IDS loading and opcode/name resolution for BCS decoding.
 - Real-install smoke coverage for `ITM` and `SPL`; selected Near Infinity comparisons for `SPL`.
+- Env-gated CLI smoke coverage for `BCS`.
 
 ### Validated in real-world use
 
@@ -45,7 +47,7 @@ Current as of 2026-04-13.
 
 ### Not started
 
-- `DLG`, `BCS`, `ARE`, `WED`, `TIS`, `BAM`, `MOS`, `2DA`, `IDS`.
+- `ARE`, `WED`, `TIS`, `BAM`, `MOS`, `2DA`.
 - Write support at any tier (see below).
 - JSON golden/snapshot tests for any decoded format.
 - Cross-game validation beyond BG2EE (BGEE, PSTEE, IWDEE).
@@ -67,36 +69,32 @@ Shipping this MVP touches every format that matters: `CRE` (new + template), `DL
 
 Priorities below are ordered against this use case.
 
+### Recently Completed
+
+#### DLG Read + JSON Export
+
+Implemented. `iecli dump --resource FOO.DLG` now exports structured dialogue graphs with states, transitions, script tables, and inline `strref` resolution.
+
+Remaining follow-up:
+
+- verify more real PSTEE dialogues against Near Infinity
+- expand regression coverage for external-dialog references and edge cases
+
+#### BCS Read + JSON Export
+
+Implemented. `iecli dump --resource FOO.BCS` now exports condition/response blocks with decoded trigger/action names, weighted responses, object specifiers, and line/column-aware parse errors.
+
+Remaining follow-up:
+
+- broaden real-install validation beyond the current smoke coverage
+- compare representative scripts against Near Infinity and encode findings in assertions
+- decide whether later script-adjacent tooling should add pretty-printing or cross-reference output
+
 ## Next Milestones
 
-### M6: DLG Read + JSON Export
+### M6: ARE Read
 
-**Why first:** unblocks the driving use case and is the most agent-differentiating feature — dialogue as a structured graph is exactly what Near Infinity handles least ergonomically and what an LLM can reason about most naturally.
-
-**Scope:**
-
-- Parse DLG header, states, transitions, state triggers, transition triggers, actions.
-- Preserve graph structure — do not flatten to prose.
-- Resolve `strref` inline (both id and text).
-- Preserve references (journal entries, external DLGs, script actions) as resrefs + resolved text where applicable.
-- Stable JSON export via `iecli dump --resource FOO.DLG`.
-
-**Acceptance criteria:**
-
-- Parses 3+ real DLG files from PSTEE without hand-editing (suggest: `DMORTE.DLG`, `DGRACE.DLG`, one NPC DLG from the Festhall).
-- JSON round-trips to itself (same input → same output).
-- Output is verified against Near Infinity for at least one real DLG.
-- Transitions preserve source-state index and target-state reference exactly.
-- At least one test covers an external DLG reference.
-
-**Non-goals for this milestone:**
-
-- Writing DLG.
-- BCS decoding inside state/transition triggers — keep the raw compiled bytes as an opaque blob with an offset/length; decoding comes later with M8.
-
-### M7: ARE Read
-
-**Why second:** needed to answer "what's already in AR0202" before the agent can meaningfully place new actors.
+**Why first:** needed to answer "what's already in AR0202" before the agent can meaningfully place new actors.
 
 **Scope:**
 
@@ -112,7 +110,7 @@ Priorities below are ordered against this use case.
 
 Non-goals: regions, doors, spawn points, ambients — not needed for MVP, defer until demanded.
 
-### M8: CRE Write — Tier 1 (Scalar Edits)
+### M7: CRE Write — Tier 1 (Scalar Edits)
 
 **Why third:** enables the agent to template a new NPC by copying an existing Festhall CRE and scalar-editing a handful of fields (morale, stats, dialog resref, scripts, name strref).
 
@@ -132,7 +130,7 @@ Non-goals: regions, doors, spawn points, ambients — not needed for MVP, defer 
 - Real installed game can load the patched CRE without error.
 - Covers at least the fields exercised in the Kirinhale debug session (morale, morale_break, scripts, names).
 
-### M9: TLK Append
+### M8: TLK Append
 
 **Why fourth:** every new dialogue line and NPC name requires a new strref, and strrefs only exist in `dialog.tlk`. Without append support, the WeiDU layer has to do it, which is fine for shipping but unhelpful for iterative agent-driven development.
 
@@ -150,9 +148,8 @@ Non-goals: regions, doors, spawn points, ambients — not needed for MVP, defer 
 
 ### Later
 
-- `BCS` read (M10).
 - `CRE` Tier 2 write (variable-section edits) — deferred until a concrete scenario requires it.
-- WeiDU `.tp2` / `.d` emission from JSON diffs — this is Tier 3 write support and the genuinely novel capability. Defer until M6–M9 have been exercised end-to-end.
+- WeiDU `.tp2` / `.d` emission from JSON diffs — this is Tier 3 write support and the genuinely novel capability. Defer until M6–M8 have been exercised end-to-end.
 - JSON golden tests across all decoded formats.
 - Cross-game validation (PSTEE, BGEE, IWDEE).
 

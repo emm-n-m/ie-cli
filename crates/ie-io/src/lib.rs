@@ -1,5 +1,6 @@
 mod biff;
 mod bytes;
+mod ids;
 
 use crate::bytes::{read_u16_le, read_u32_le};
 use ie_core::{ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind, StrRef, StrRefResolver};
@@ -7,6 +8,8 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+pub use ids::{parse_ids, parse_ids_text, FileBackedIdsResolver};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameInstallation {
@@ -779,6 +782,8 @@ pub enum IoError {
     InvalidKey(String),
     #[error("invalid TLK file: {0}")]
     InvalidTlk(String),
+    #[error("invalid IDS file: {0}")]
+    InvalidIds(String),
     #[error("invalid BIFF archive: {0}")]
     InvalidBiff(String),
     #[error("unexpected end of file while reading {0}")]
