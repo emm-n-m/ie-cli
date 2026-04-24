@@ -87,6 +87,7 @@ pub struct ItemAbilityJson {
     pub is_bolt: u16,
     pub is_bullet: u16,
     pub damage_dice: Option<String>,
+    pub effects: Vec<ItemEffectJson>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -250,7 +251,16 @@ pub fn parse_itm(
         weapon_color,
     };
 
-    let abilities = parse_abilities(bytes, abilities_offset, ability_count, resolver)?;
+    let mut abilities = parse_abilities(bytes, abilities_offset, ability_count, resolver)?;
+    for ability in &mut abilities {
+        ability.effects = parse_effects(
+            bytes,
+            effects_offset,
+            ability.first_effect_index,
+            ability.num_effects,
+        )?;
+    }
+
     let global_effects = parse_effects(
         bytes,
         effects_offset,
@@ -496,6 +506,7 @@ fn parse_ability(
         is_bolt,
         is_bullet,
         damage_dice,
+        effects: Vec::new(),
     })
 }
 
@@ -843,5 +854,44 @@ mod tests {
         assert_eq!(item.header.flags.decoded, vec!["Magical"]);
         assert!(item.abilities.is_empty());
         assert!(item.global_effects.is_empty());
+    }
+
+    #[test]
+    fn parse_ability_local_effects() {
+        let ability_offset = ITM_HEADER_SIZE;
+        let effects_offset = ability_offset + ITEM_ABILITY_SIZE;
+        let mut bytes = vec![0u8; effects_offset + ITEM_EFFECT_SIZE * 2];
+        bytes[0..4].copy_from_slice(b"ITM ");
+        bytes[4..8].copy_from_slice(b"V1  ");
+        bytes[0x64..0x68].copy_from_slice(&(ability_offset as u32).to_le_bytes());
+        bytes[0x68..0x6A].copy_from_slice(&1u16.to_le_bytes());
+        bytes[0x6A..0x6E].copy_from_slice(&(effects_offset as u32).to_le_bytes());
+        bytes[0x6E..0x70].copy_from_slice(&0u16.to_le_bytes());
+        bytes[0x70..0x72].copy_from_slice(&0u16.to_le_bytes());
+
+        bytes[ability_offset + 0x1E..ability_offset + 0x20].copy_from_slice(&2u16.to_le_bytes());
+        bytes[ability_offset + 0x20..ability_offset + 0x22].copy_from_slice(&0u16.to_le_bytes());
+
+        let first_effect = effects_offset;
+        bytes[first_effect..first_effect + 2].copy_from_slice(&171u16.to_le_bytes());
+        bytes[first_effect + 2] = 1;
+        bytes[first_effect + 0x14..first_effect + 0x1C].copy_from_slice(b"DLIGHT\0\0");
+
+        let second_effect = effects_offset + ITEM_EFFECT_SIZE;
+        bytes[second_effect..second_effect + 2].copy_from_slice(&123u16.to_le_bytes());
+        bytes[second_effect + 2] = 2;
+        bytes[second_effect + 0x14..second_effect + 0x1C].copy_from_slice(b"DISCIPLE");
+
+        let item = parse_itm(&bytes, "FOO.ITM", Some(&NullResolver)).expect("should parse ITM");
+
+        assert_eq!(item.abilities.len(), 1);
+        assert_eq!(item.global_effects.len(), 0);
+
+        let effects = &item.abilities[0].effects;
+        assert_eq!(effects.len(), 2);
+        assert_eq!(effects[0].opcode.raw, 171);
+        assert_eq!(effects[0].resource.as_ref().unwrap().as_str(), "DLIGHT");
+        assert_eq!(effects[1].opcode.raw, 123);
+        assert_eq!(effects[1].resource.as_ref().unwrap().as_str(), "DISCIPLE");
     }
 }
