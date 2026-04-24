@@ -56,7 +56,10 @@ impl TestInstallation {
             .duration_since(UNIX_EPOCH)
             .expect("clock should be monotonic")
             .as_nanos();
-        root.push(format!("nearinfinity-tlk-{label}-{unique}-{}", std::process::id()));
+        root.push(format!(
+            "nearinfinity-tlk-{label}-{unique}-{}",
+            std::process::id()
+        ));
 
         fs::create_dir_all(&root).expect("temporary installation root should be creatable");
         fs::write(root.join("chitin.key"), build_empty_key())

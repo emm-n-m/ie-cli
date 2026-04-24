@@ -161,8 +161,12 @@ pub fn parse_dlg(
         flags,
     };
 
-    let state_triggers =
-        parse_script_table(bytes, offset_state_triggers, num_state_triggers, "state trigger")?;
+    let state_triggers = parse_script_table(
+        bytes,
+        offset_state_triggers,
+        num_state_triggers,
+        "state trigger",
+    )?;
     let transition_triggers = parse_script_table(
         bytes,
         offset_transition_triggers,
@@ -211,35 +215,41 @@ fn parse_states(
     state_triggers: &[DialogScriptJson],
     transitions: &[DialogTransitionJson],
 ) -> Result<Vec<DialogStateJson>, DialogParseError> {
-    parse_table(bytes, offset, count, DLG_STATE_SIZE, |bytes, position, index| {
-        let response_text = parse_strref(bytes, position, resolver)?;
-        let first_transition_index = parse_u32(bytes, position + 0x04)?;
-        let num_transitions = parse_u32(bytes, position + 0x08)?;
-        let trigger_index_raw = parse_u32(bytes, position + 0x0C)?;
+    parse_table(
+        bytes,
+        offset,
+        count,
+        DLG_STATE_SIZE,
+        |bytes, position, index| {
+            let response_text = parse_strref(bytes, position, resolver)?;
+            let first_transition_index = parse_u32(bytes, position + 0x04)?;
+            let num_transitions = parse_u32(bytes, position + 0x08)?;
+            let trigger_index_raw = parse_u32(bytes, position + 0x0C)?;
 
-        let trigger_index = optional_index(trigger_index_raw);
-        let trigger_text = trigger_index
-            .and_then(|idx| state_triggers.get(idx as usize))
-            .map(|script| script.text.clone());
+            let trigger_index = optional_index(trigger_index_raw);
+            let trigger_text = trigger_index
+                .and_then(|idx| state_triggers.get(idx as usize))
+                .map(|script| script.text.clone());
 
-        let state_transitions = slice_transitions(
-            transitions,
-            first_transition_index,
-            num_transitions,
-            transition_count,
-            index,
-        )?;
+            let state_transitions = slice_transitions(
+                transitions,
+                first_transition_index,
+                num_transitions,
+                transition_count,
+                index,
+            )?;
 
-        Ok(DialogStateJson {
-            index,
-            response_text,
-            first_transition_index,
-            num_transitions,
-            trigger_index,
-            trigger_text,
-            transitions: state_transitions,
-        })
-    })
+            Ok(DialogStateJson {
+                index,
+                response_text,
+                first_transition_index,
+                num_transitions,
+                trigger_index,
+                trigger_text,
+                transitions: state_transitions,
+            })
+        },
+    )
 }
 
 fn slice_transitions(
@@ -446,11 +456,7 @@ where
 }
 
 fn optional_index(value: u32) -> Option<u32> {
-    if value == u32::MAX {
-        None
-    } else {
-        Some(value)
-    }
+    if value == u32::MAX { None } else { Some(value) }
 }
 
 fn parse_resref_option(
@@ -571,10 +577,8 @@ mod tests {
         let offset_states: u32 = DLG_HEADER_WITH_FLAGS as u32;
         let offset_transitions = offset_states + (2 * DLG_STATE_SIZE as u32);
         let offset_state_triggers = offset_transitions + (3 * DLG_TRANSITION_SIZE as u32);
-        let offset_transition_triggers =
-            offset_state_triggers + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
-        let offset_actions =
-            offset_transition_triggers + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
+        let offset_transition_triggers = offset_state_triggers + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
+        let offset_actions = offset_transition_triggers + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
         let offset_strings = offset_actions + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
 
         let state_trigger_offset = offset_strings;

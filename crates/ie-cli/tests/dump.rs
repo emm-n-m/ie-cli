@@ -29,7 +29,10 @@ fn dump_confusion_matches_validated_bg2ee_spell_fields_when_ie_game_path_is_set(
     assert_eq!(stdout["header"]["feature_block_offset"], 274);
 
     assert_eq!(stdout["extended_headers"].as_array().map(Vec::len), Some(4));
-    assert_eq!(stdout["extended_headers"][0]["spell_form"]["decoded"], "Melee");
+    assert_eq!(
+        stdout["extended_headers"][0]["spell_form"]["decoded"],
+        "Melee"
+    );
     assert_eq!(
         stdout["extended_headers"][0]["target_type"]["decoded"],
         "Any point within range"
@@ -38,7 +41,10 @@ fn dump_confusion_matches_validated_bg2ee_spell_fields_when_ie_game_path_is_set(
     assert_eq!(stdout["extended_headers"][0]["level_required"], 1);
     assert_eq!(stdout["extended_headers"][0]["casting_time"], 4);
 
-    assert_eq!(stdout["feature_blocks"][0]["opcode"]["decoded"], "Confusion");
+    assert_eq!(
+        stdout["feature_blocks"][0]["opcode"]["decoded"],
+        "Confusion"
+    );
     assert_eq!(
         stdout["feature_blocks"][1]["opcode"]["decoded"],
         "Display String"
@@ -51,7 +57,10 @@ fn dump_confusion_matches_validated_bg2ee_spell_fields_when_ie_game_path_is_set(
         stdout["feature_blocks"][3]["opcode"]["decoded"],
         "Play Sound Effect"
     );
-    assert_eq!(stdout["feature_blocks"][4]["opcode"]["decoded"], "Play 3D Effect");
+    assert_eq!(
+        stdout["feature_blocks"][4]["opcode"]["decoded"],
+        "Play 3D Effect"
+    );
 }
 
 #[test]
@@ -79,8 +88,14 @@ fn dump_silence_matches_validated_bg2ee_priest_spell_fields_when_ie_game_path_is
     assert_eq!(stdout["header"]["extended_headers_count"], 20);
     assert_eq!(stdout["header"]["feature_block_offset"], 914);
 
-    assert_eq!(stdout["extended_headers"].as_array().map(Vec::len), Some(20));
-    assert_eq!(stdout["extended_headers"][0]["spell_form"]["decoded"], "Melee");
+    assert_eq!(
+        stdout["extended_headers"].as_array().map(Vec::len),
+        Some(20)
+    );
+    assert_eq!(
+        stdout["extended_headers"][0]["spell_form"]["decoded"],
+        "Melee"
+    );
     assert_eq!(
         stdout["extended_headers"][0]["target_type"]["decoded"],
         "Any point within range"
@@ -114,8 +129,13 @@ fn dump_baldur_bcs_exposes_named_blocks_when_ie_game_path_is_set() {
     let stdout = dump_json(&game_path, "BALDUR.BCS");
 
     assert_eq!(stdout["resource_name"], "BALDUR.BCS");
-    let blocks = stdout["blocks"].as_array().expect("blocks should be an array");
-    assert!(!blocks.is_empty(), "BALDUR.BCS should contain at least one block");
+    let blocks = stdout["blocks"]
+        .as_array()
+        .expect("blocks should be an array");
+    assert!(
+        !blocks.is_empty(),
+        "BALDUR.BCS should contain at least one block"
+    );
 
     let has_named_trigger = blocks.iter().any(|block| {
         block["triggers"]
@@ -125,9 +145,9 @@ fn dump_baldur_bcs_exposes_named_blocks_when_ie_game_path_is_set() {
     let has_named_action = blocks.iter().any(|block| {
         block["responses"].as_array().is_some_and(|responses| {
             responses.iter().any(|response| {
-                response["actions"].as_array().is_some_and(|actions| {
-                    actions.iter().any(|action| action["name"].is_string())
-                })
+                response["actions"]
+                    .as_array()
+                    .is_some_and(|actions| actions.iter().any(|action| action["name"].is_string()))
             })
         })
     });
@@ -157,19 +177,24 @@ fn dump_pstee_area_exposes_actor_links_when_pstee_game_path_is_set() {
         .expect("ARE actors should be an array");
     assert!(!actors.is_empty(), "AR0202.ARE should list actors");
     assert!(
-        actors.iter().any(|actor| actor["position"]["x"].is_number()
-            && actor["position"]["y"].is_number()),
+        actors
+            .iter()
+            .any(|actor| actor["position"]["x"].is_number() && actor["position"]["y"].is_number()),
         "at least one actor should expose placement coordinates"
     );
     assert!(
-        actors.iter().any(|actor| actor["cre_file"]["exists"] == true
-            && actor["cre_file"]["short_name"]["strref"].is_number()),
+        actors
+            .iter()
+            .any(|actor| actor["cre_file"]["exists"] == true
+                && actor["cre_file"]["short_name"]["strref"].is_number()),
         "at least one actor should expose CRE display-name enrichment"
     );
     assert!(
-        actors.iter().any(|actor| actor["dialog"]["exists"].is_boolean()
-            || actor["scripts"]["override_script"]["exists"].is_boolean()
-            || actor["scripts"]["default_script"]["exists"].is_boolean()),
+        actors
+            .iter()
+            .any(|actor| actor["dialog"]["exists"].is_boolean()
+                || actor["scripts"]["override_script"]["exists"].is_boolean()
+                || actor["scripts"]["default_script"]["exists"].is_boolean()),
         "expected actor dialog or script link metadata"
     );
 
@@ -189,7 +214,8 @@ fn dump_pstee_area_exposes_actor_links_when_pstee_game_path_is_set() {
         "automap_notes_offset must clear the ARE header: {automap_notes_offset:#x}"
     );
     assert_ne!(
-        automap_notes_count, deferred["projectile_traps_offset"].as_u64().unwrap_or(0),
+        automap_notes_count,
+        deferred["projectile_traps_offset"].as_u64().unwrap_or(0),
         "automap_notes_count and projectile_traps_offset must not alias the same bytes"
     );
 }

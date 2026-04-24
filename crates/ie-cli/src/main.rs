@@ -5,8 +5,8 @@ use ie_core::{
 };
 use ie_formats::decode_to_json;
 use ie_io::{
-    FileBackedIdsResolver, GameInstallation, ListedResource, ResourceListOptions,
-    ResourceLocator, ResourceReader, ResourceSource, TlkResolver,
+    FileBackedIdsResolver, GameInstallation, ListedResource, ResourceListOptions, ResourceLocator,
+    ResourceReader, ResourceSource, TlkResolver,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -154,7 +154,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let resource = ResourceName::parse(args.resource.resource)?;
             let locator = ResourceLocator::new(installation)?;
             let reader = ResourceReader;
-            let bytes = reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
+            let bytes =
+                reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
 
             if let Some(parent) = args.output.parent() {
                 if !parent.as_os_str().is_empty() {
@@ -180,7 +181,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let resource = ResourceName::parse(args.resource.resource)?;
             let locator = ResourceLocator::new(installation.clone())?;
             let reader = ResourceReader;
-            let bytes = reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
+            let bytes =
+                reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
             let tlk_resolver = installation
                 .dialog_tlk
                 .as_ref()
@@ -210,7 +212,9 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let installation = GameInstallation::discover(args.game)?;
             let locator = ResourceLocator::new(installation)?;
             let resources = locator.list(ResourceListOptions {
-                resource_type: args.resource_type.map(|value| value.trim().to_ascii_uppercase()),
+                resource_type: args
+                    .resource_type
+                    .map(|value| value.trim().to_ascii_uppercase()),
                 name_glob: args.name,
                 source: Some(args.source.selection()),
             })?;

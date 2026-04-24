@@ -620,7 +620,7 @@ fn parse_effects(
         other => {
             return Err(CreatureParseError::InvalidField(format!(
                 "unsupported CRE effect structure version {other}"
-            )))
+            )));
         }
     };
 

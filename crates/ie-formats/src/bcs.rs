@@ -321,9 +321,11 @@ impl<'a> ParserState<'a> {
     }
 
     fn expect_tag(&mut self, expected: Tag) -> Result<(), BcsParseError> {
-        let token = self.next_token().ok_or_else(|| BcsParseError::UnexpectedEof {
-            message: format!("expected tag {}", expected.as_str()),
-        })?;
+        let token = self
+            .next_token()
+            .ok_or_else(|| BcsParseError::UnexpectedEof {
+                message: format!("expected tag {}", expected.as_str()),
+            })?;
 
         match token.kind {
             TokenKind::Tag(actual) if actual == expected => Ok(()),
@@ -339,23 +341,30 @@ impl<'a> ParserState<'a> {
     }
 
     fn expect_int(&mut self) -> Result<i32, BcsParseError> {
-        let token = self.next_token().ok_or_else(|| BcsParseError::UnexpectedEof {
-            message: "expected integer".to_string(),
-        })?;
+        let token = self
+            .next_token()
+            .ok_or_else(|| BcsParseError::UnexpectedEof {
+                message: "expected integer".to_string(),
+            })?;
 
         match &token.kind {
             TokenKind::Int(value) => Ok(*value),
             _ => Err(BcsParseError::UnexpectedToken {
                 pos: token.pos,
-                message: format!("expected integer, found {}", describe_token_kind(&token.kind)),
+                message: format!(
+                    "expected integer, found {}",
+                    describe_token_kind(&token.kind)
+                ),
             }),
         }
     }
 
     fn expect_string(&mut self) -> Result<String, BcsParseError> {
-        let token = self.next_token().ok_or_else(|| BcsParseError::UnexpectedEof {
-            message: "expected quoted string".to_string(),
-        })?;
+        let token = self
+            .next_token()
+            .ok_or_else(|| BcsParseError::UnexpectedEof {
+                message: "expected quoted string".to_string(),
+            })?;
 
         match &token.kind {
             TokenKind::Str(value) => Ok(value.clone()),
@@ -393,10 +402,7 @@ impl<'a> ParserState<'a> {
         if let Some(token) = self.tokens.get(self.index) {
             Err(BcsParseError::UnexpectedToken {
                 pos: token.pos,
-                message: format!(
-                    "unexpected trailing {}",
-                    describe_token_kind(&token.kind)
-                ),
+                message: format!("unexpected trailing {}", describe_token_kind(&token.kind)),
             })
         } else {
             Ok(())
@@ -507,10 +513,12 @@ fn tokenize(bytes: &[u8]) -> Result<Vec<Token>, BcsParseError> {
                         message: format!("invalid integer token: {err}"),
                     }
                 })?;
-                let value = raw.parse::<i32>().map_err(|err| BcsParseError::InvalidToken {
-                    pos: start,
-                    message: format!("invalid integer '{raw}': {err}"),
-                })?;
+                let value = raw
+                    .parse::<i32>()
+                    .map_err(|err| BcsParseError::InvalidToken {
+                        pos: start,
+                        message: format!("invalid integer '{raw}': {err}"),
+                    })?;
 
                 tokens.push(Token {
                     kind: TokenKind::Int(value),
@@ -598,7 +606,10 @@ fn decode_object(raw: [i32; 12], resolver: Option<&dyn IdsResolver>) -> BcsObjec
         gender: resolve("GENDER", raw[5]),
         alignment: resolve("ALIGN", raw[6]),
         identifier: resolve("OBJECT", raw[7]),
-        extra_targets: extra_targets.iter().any(|value| *value != 0).then_some(extra_targets),
+        extra_targets: extra_targets
+            .iter()
+            .any(|value| *value != 0)
+            .then_some(extra_targets),
     }
 }
 
@@ -736,7 +747,10 @@ SC"#;
         assert_eq!(trigger_0.name.as_deref(), Some("Global"));
         assert!(!trigger_0.negated);
         assert_eq!(trigger_0.int_args, [10, 20, 30, 40]);
-        assert_eq!(trigger_0.string_args, ["PLOT".to_string(), "GLOBAL".to_string()]);
+        assert_eq!(
+            trigger_0.string_args,
+            ["PLOT".to_string(), "GLOBAL".to_string()]
+        );
         assert_eq!(trigger_0.object.decoded.ea.as_deref(), Some("PC"));
         assert_eq!(
             trigger_0.object.decoded.identifier.as_deref(),
@@ -774,10 +788,7 @@ SC"#;
         let response_1 = &block.responses[1];
         assert_eq!(response_1.weight, 50);
         assert_eq!(response_1.actions[0].leading, 60);
-        assert_eq!(
-            response_1.actions[0].name.as_deref(),
-            Some("GiveItem")
-        );
+        assert_eq!(response_1.actions[0].name.as_deref(), Some("GiveItem"));
         assert!(response_1.actions[0].point.is_none());
     }
 
@@ -800,6 +811,9 @@ SC"#;
 
         let err = parse_bcs(bytes, "BAD.BCS", None).expect_err("BCS parse should fail");
         let message = format!("{err}");
-        assert!(message.contains("expected tag TR"), "unexpected error: {message}");
+        assert!(
+            message.contains("expected tag TR"),
+            "unexpected error: {message}"
+        );
     }
 }

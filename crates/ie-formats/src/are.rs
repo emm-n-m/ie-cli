@@ -146,10 +146,9 @@ pub fn parse_are(
 
     let version = parse_ascii_string(bytes, 4, 4)?;
     if version != "V1.0" {
-        return Err(AreaParseError::InvalidHeader(format!(
-            "unsupported ARE version {version}"
-        ))
-        .into());
+        return Err(
+            AreaParseError::InvalidHeader(format!("unsupported ARE version {version}")).into(),
+        );
     }
 
     let actors_offset = parse_u32(bytes, 0x54)?;
@@ -408,11 +407,7 @@ fn parse_ascii_string(
     Ok(String::from_utf8_lossy(raw).to_string())
 }
 
-fn parse_char_array(
-    bytes: &[u8],
-    offset: usize,
-    length: usize,
-) -> Result<String, AreaParseError> {
+fn parse_char_array(bytes: &[u8], offset: usize, length: usize) -> Result<String, AreaParseError> {
     let raw = bytes.get(offset..offset + length).ok_or_else(|| {
         AreaParseError::UnexpectedEof(format!("missing char array at {}", offset))
     })?;
@@ -421,9 +416,10 @@ fn parse_char_array(
 }
 
 fn parse_u8(bytes: &[u8], offset: usize) -> Result<u8, AreaParseError> {
-    bytes.get(offset).copied().ok_or_else(|| {
-        AreaParseError::UnexpectedEof(format!("unable to read u8 at {}", offset))
-    })
+    bytes
+        .get(offset)
+        .copied()
+        .ok_or_else(|| AreaParseError::UnexpectedEof(format!("unable to read u8 at {}", offset)))
 }
 
 fn parse_u16(bytes: &[u8], offset: usize) -> Result<u16, AreaParseError> {
@@ -556,7 +552,10 @@ mod tests {
         assert_eq!(area.resource_type, "ARE");
         assert_eq!(area.resource_name, "AR0202.ARE");
         assert_eq!(area.version, "V1.0");
-        assert_eq!(area.header.wed_resource.as_ref().map(|r| r.as_str()), Some("AR0202"));
+        assert_eq!(
+            area.header.wed_resource.as_ref().map(|r| r.as_str()),
+            Some("AR0202")
+        );
         assert_eq!(area.header.actors_count, 0);
         assert!(area.actors.is_empty());
         assert_eq!(area.deferred_sections.regions_count, 2);
@@ -598,7 +597,13 @@ mod tests {
         assert_eq!(actor.is_random_monster.decoded.as_deref(), Some("Yes"));
         assert_eq!(actor.orientation, 12);
         assert_eq!(actor.removal_timer_seconds, -1);
-        assert_eq!(actor.dialog.as_ref().map(|link| link.resource_name.as_str()), Some("DGRACE.DLG"));
+        assert_eq!(
+            actor
+                .dialog
+                .as_ref()
+                .map(|link| link.resource_name.as_str()),
+            Some("DGRACE.DLG")
+        );
         assert_eq!(
             actor
                 .scripts

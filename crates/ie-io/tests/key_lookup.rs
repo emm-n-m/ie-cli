@@ -15,7 +15,12 @@ fn parses_key_file_into_typed_model() {
         "data/mixed.bif",
         &[
             ("FOO", ITM_TYPE_CODE, 0x0000_0001, b"ITM DATA".as_slice()),
-            ("SPWI112", SPL_TYPE_CODE, 0x0000_0002, b"SPL DATA".as_slice()),
+            (
+                "SPWI112",
+                SPL_TYPE_CODE,
+                0x0000_0002,
+                b"SPL DATA".as_slice(),
+            ),
             ("IMOEN2", CRE_TYPE_CODE, 0x0000_0003, b"CRE DATA".as_slice()),
         ],
     );
@@ -49,7 +54,12 @@ fn locates_and_reads_multiple_resource_families_from_key() {
         "data/mixed.bif",
         &[
             ("FOO", ITM_TYPE_CODE, 0x0000_0001, b"ITM DATA".as_slice()),
-            ("SPWI112", SPL_TYPE_CODE, 0x0000_0002, b"SPL DATA".as_slice()),
+            (
+                "SPWI112",
+                SPL_TYPE_CODE,
+                0x0000_0002,
+                b"SPL DATA".as_slice(),
+            ),
             ("IMOEN2", CRE_TYPE_CODE, 0x0000_0003, b"CRE DATA".as_slice()),
         ],
     );

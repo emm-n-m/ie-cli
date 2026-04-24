@@ -3,13 +3,15 @@ mod bytes;
 mod ids;
 
 use crate::bytes::{read_u16_le, read_u32_le};
-use ie_core::{ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind, StrRef, StrRefResolver};
+use ie_core::{
+    ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind, StrRef, StrRefResolver,
+};
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-pub use ids::{parse_ids, parse_ids_text, FileBackedIdsResolver};
+pub use ids::{FileBackedIdsResolver, parse_ids, parse_ids_text};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameInstallation {
@@ -210,7 +212,8 @@ impl ResourceLocator {
                 .filter_map(|entry| entry.ok())
                 .filter(|entry| entry.path().is_file())
                 .collect::<Vec<_>>();
-            dir_entries.sort_by_key(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase());
+            dir_entries
+                .sort_by_key(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase());
 
             for entry in dir_entries {
                 let file_name = entry.file_name().to_string_lossy().to_string();

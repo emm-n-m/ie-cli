@@ -12,7 +12,11 @@ fn dump_raw_source_bif_reads_archive_when_override_exists() {
     let fixture = TestInstallation::new("dump-raw-source-bif");
     fixture.write_archive_install(
         "data/items.bif",
-        &[TestResourceSpec::new("KIRINH.CRE", CRE_TYPE_CODE, b"CRE BASE")],
+        &[TestResourceSpec::new(
+            "KIRINH.CRE",
+            CRE_TYPE_CODE,
+            b"CRE BASE",
+        )],
     );
     fixture.write_override("KIRINH.CRE", b"CRE OVERRIDE");
 
@@ -73,7 +77,9 @@ fn list_json_prefers_override_and_filters_by_glob() {
     );
 
     let stdout: Value = serde_json::from_slice(&output.stdout).expect("list should emit JSON");
-    let entries = stdout.as_array().expect("list output should be a JSON array");
+    let entries = stdout
+        .as_array()
+        .expect("list output should be a JSON array");
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0]["resref"], "KIRINH");
     assert_eq!(entries[0]["type"], "CRE");
@@ -85,7 +91,11 @@ fn locate_source_override_errors_cleanly_when_missing() {
     let fixture = TestInstallation::new("locate-override-missing");
     fixture.write_archive_install(
         "data/items.bif",
-        &[TestResourceSpec::new("KIRINH.CRE", CRE_TYPE_CODE, b"CRE BASE")],
+        &[TestResourceSpec::new(
+            "KIRINH.CRE",
+            CRE_TYPE_CODE,
+            b"CRE BASE",
+        )],
     );
 
     let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
@@ -145,7 +155,11 @@ impl TestInstallation {
         &self.root
     }
 
-    fn write_archive_install(&self, relative_archive_path: &str, resources: &[TestResourceSpec<'_>]) {
+    fn write_archive_install(
+        &self,
+        relative_archive_path: &str,
+        resources: &[TestResourceSpec<'_>],
+    ) {
         let archive_path = self.root.join(relative_archive_path);
         if let Some(parent) = archive_path.parent() {
             fs::create_dir_all(parent).expect("archive parent directory should exist");

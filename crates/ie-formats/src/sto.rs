@@ -600,11 +600,13 @@ mod tests {
         assert_eq!(store.version, "V1.0");
         assert_eq!(store.header.store_type.decoded.as_deref(), Some("Temple"));
         assert!(store.header.flags.decoded.contains(&"CanBuy".to_string()));
-        assert!(store
-            .header
-            .flags
-            .decoded
-            .contains(&"CanBuyCures".to_string()));
+        assert!(
+            store
+                .header
+                .flags
+                .decoded
+                .contains(&"CanBuyCures".to_string())
+        );
         assert_eq!(store.header.room_flags.decoded, vec!["Peasant", "Merchant"]);
         assert_eq!(store.items_for_sale.len(), 1);
         assert_eq!(store.drinks.len(), 1);

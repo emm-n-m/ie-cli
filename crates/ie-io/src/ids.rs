@@ -161,11 +161,7 @@ fn strip_signature(name: &str) -> &str {
     if let Some((bare, _)) = trimmed.split_once('(') {
         bare.trim()
     } else {
-        trimmed
-            .split_whitespace()
-            .next()
-            .unwrap_or_default()
-            .trim()
+        trimmed.split_whitespace().next().unwrap_or_default().trim()
     }
 }
 

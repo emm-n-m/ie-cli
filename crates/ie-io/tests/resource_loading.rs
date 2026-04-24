@@ -1,7 +1,9 @@
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use ie_core::{ResourceName, SourceKind};
-use ie_io::{GameInstallation, IoError, ResourceListOptions, ResourceLocator, ResourceReader, ResourceSource};
+use ie_io::{
+    GameInstallation, IoError, ResourceListOptions, ResourceLocator, ResourceReader, ResourceSource,
+};
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -345,7 +347,12 @@ impl TestInstallation {
             build_key_file(
                 relative_archive_path,
                 relative_archive_path.ends_with(".cbf"),
-                &[KeyResourceSpec::new("FOO", "ITM", ITM_TYPE_CODE, RESOURCE_LOCATOR)],
+                &[KeyResourceSpec::new(
+                    "FOO",
+                    "ITM",
+                    ITM_TYPE_CODE,
+                    RESOURCE_LOCATOR,
+                )],
             ),
         )
         .expect("chitin.key should be writable");
@@ -599,11 +606,7 @@ fn build_biff_with_file_entry(
     locator: u32,
     resource_bytes: &[u8],
 ) -> Vec<u8> {
-    build_biff_archive_with_file_entries(&[BiffFileEntry::new(
-        type_code,
-        locator,
-        resource_bytes,
-    )])
+    build_biff_archive_with_file_entries(&[BiffFileEntry::new(type_code, locator, resource_bytes)])
 }
 
 fn build_biff_with_file_and_tileset_entries(
