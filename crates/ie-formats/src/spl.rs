@@ -71,7 +71,6 @@ pub struct SpellFeatureBlockJson {
     pub saving_throw_type: u32,
     pub saving_throw_bonus: i32,
     pub special: u32,
-    pub dice: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -351,12 +350,6 @@ fn parse_feature_block(
     let saving_throw_bonus = parse_i32(bytes, offset + 40)?;
     let special = parse_u32(bytes, offset + 44)?;
 
-    let dice = if probability_2 > 0 {
-        Some(format!("{}d{}", probability_1, probability_2))
-    } else {
-        None
-    };
-
     Ok(SpellFeatureBlockJson {
         opcode: RawDecoded {
             raw: opcode,
@@ -383,7 +376,6 @@ fn parse_feature_block(
         saving_throw_type,
         saving_throw_bonus,
         special,
-        dice,
     })
 }
 

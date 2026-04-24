@@ -102,7 +102,6 @@ pub struct ItemEffectJson {
     pub duration: u32,
     pub probability_1: u8,
     pub probability_2: u8,
-    pub dice: Option<String>,
 }
 
 const ITEM_EFFECT_SIZE: usize = 48;
@@ -156,8 +155,8 @@ pub fn parse_itm(
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;
-    let identified_name = parse_strref(bytes, 0x08, resolver)?;
-    let general_name = parse_strref(bytes, 0x0C, resolver)?;
+    let general_name = parse_strref(bytes, 0x08, resolver)?;
+    let identified_name = parse_strref(bytes, 0x0C, resolver)?;
 
     let used_up_item = if version == "V1.1" {
         None
@@ -318,18 +317,12 @@ fn parse_effect(bytes: &[u8], offset: usize) -> Result<ItemEffectJson, ItemParse
     let power = parse_u8(bytes, offset + 3)?;
     let parameter1 = parse_u32(bytes, offset + 4)?;
     let parameter2 = parse_u32(bytes, offset + 8)?;
-    let resource = parse_resref_option(bytes, offset + 12, 8)?;
-    let timing = parse_u8(bytes, offset + 20)?;
-    let timing_dispel = parse_u8(bytes, offset + 21)?;
-    let duration = parse_u32(bytes, offset + 22)?;
-    let probability_1 = parse_u8(bytes, offset + 26)?;
-    let probability_2 = parse_u8(bytes, offset + 27)?;
-
-    let dice = if probability_2 > 0 {
-        Some(format!("{}d{}", probability_1, probability_2))
-    } else {
-        None
-    };
+    let timing = parse_u8(bytes, offset + 0x0C)?;
+    let timing_dispel = parse_u8(bytes, offset + 0x0D)?;
+    let duration = parse_u32(bytes, offset + 0x0E)?;
+    let probability_1 = parse_u8(bytes, offset + 0x12)?;
+    let probability_2 = parse_u8(bytes, offset + 0x13)?;
+    let resource = parse_resref_option(bytes, offset + 0x14, 8)?;
 
     Ok(ItemEffectJson {
         opcode: RawDecoded {
@@ -352,7 +345,6 @@ fn parse_effect(bytes: &[u8], offset: usize) -> Result<ItemEffectJson, ItemParse
         duration,
         probability_1,
         probability_2,
-        dice,
     })
 }
 
