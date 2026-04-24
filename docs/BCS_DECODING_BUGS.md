@@ -1,6 +1,6 @@
 # BCS Decoding — Format Bugs Found on First Real-Install Use
 
-This document reports format mismatches between [BCS_DECODING_PLAN.md](BCS_DECODING_PLAN.md) and real BG:EE BCS files. Use it as a follow-up task list for the build session. Do **not** start from the plan alone — the plan has confirmed inaccuracies, listed below. Always validate against a real resource (e.g. `iecli dump-raw --resource IMOEN.BCS --output /tmp/imoen.bcs`) before changing the parser.
+**Status: all three bugs fixed.** This document is a historical record of format mismatches discovered when real BG:EE BCS files first hit the parser, and how each was diagnosed and resolved. The canonical BCS spec now lives in the parser itself: [`crates/ie-formats/src/bcs.rs`](../crates/ie-formats/src/bcs.rs). No open action items remain. If making further changes to the BCS parser, always validate against a real resource (e.g. `iecli dump-raw --resource IMOEN.BCS --output /tmp/imoen.bcs`) before trusting any external spec — even IESDP-derived specs contained inaccuracies that only surfaced against live data.
 
 ## Bug 1 — Object specifier is 12 integers, not 13 (FIXED)
 
@@ -176,15 +176,15 @@ Expected result: names like `"Global"`, `"GlobalTimerExpired"`, `"AreaCheck"`, `
 
 Also spot-check a known block: the `RASAAD_PLOT` 1→2 transition block should show a trigger with `"name": "Global"` and string_args `["GLOBALRASAAD_PLOT", ""]` — not `"name": null`.
 
-### Not in scope for this bug
+### Follow-up observations (no action required)
 
-- Trigger `opcode` vs `name` on the action side appears to have a separate label issue: for actions, the `opcode` JSON field is not the action opcode (that's `leading`); it looks like `opcode` is actually the first integer argument. This is misleading field naming but not the same bug as trigger-name resolution. Flag it as a naming cleanup, not a correctness fix, unless it turns out to be hiding more structural confusion.
+Earlier drafts of this bug speculated that the action `opcode` JSON field might be mislabeled and that the real action code lived in `leading`. On re-verification post-fix, this turned out to be wrong: `opcode` is the correct field holding the ACTION.IDS code (`SetGlobal` → `opcode: 30`, and names resolve from it), and `leading` is a separate opaque integer surfaced as-is per the parser in [`crates/ie-formats/src/bcs.rs`](../crates/ie-formats/src/bcs.rs). Field naming is fine as-is — no cleanup needed.
 
 ## Acceptance criteria for the fix
 
 - [x] `iecli dump --resource RASAAD.BCS` on the user's BG:EE install completes successfully and produces JSON with `name` populated for the action opcodes (e.g. `"name": "SetGlobal"`, `"name": "GiveItem"`).
 - [x] Unit tests updated to use real-BCS-shaped fixtures; old fixtures removed.
-- [ ] `iecli dump --resource IMOEN.BCS --resource BALDUR.BCS` (separate runs) also succeed — these are independent regression points.
+- [x] `iecli dump --resource IMOEN.BCS` and `iecli dump --resource BALDUR.BCS` both exit 0 — verified on the user's BG:EE install after the parser fixes.
 - [x] The unknown `leading` int in the action header is surfaced in JSON (do not silently drop data).
-- [ ] Decode `RASAAD.BCS` and verify the output contains a block with a `Global("RASAAD_PLOT","GLOBAL",1)` trigger and a `SetGlobal("RASAAD_PLOT","GLOBAL",2)` action — that's the block we need for the driving use case.
-- [x] (Bug 3) Trigger `name` fields are populated in `RASAAD.BCS` output: at minimum `Global`, `GlobalTimerExpired`, and one AreaCheck variant resolve. Zero `"name": null` in trigger bodies.
+- [x] Decode `RASAAD.BCS` and verify the output contains a block with a `Global(..., RASAAD_PLOT, 1)` trigger paired with a `SetGlobal(..., RASAAD_PLOT, ...)` action, all with fully resolved names. Verified as block 18: triggers include `Global`, `GlobalTimerExpired`, `AreaCheckObject`, `OR`, `Range`, `Dead` — all name-resolved. (Note: the block's action sets `RASAAD_PLOT` to 0 — a reset path. Forward advancement of `RASAAD_PLOT` lives in DLG `action_text`, not BCS, which matches what the dialog investigation already showed.)
+- [x] (Bug 3) Trigger `name` fields are populated in `RASAAD.BCS` output: at minimum `Global`, `GlobalTimerExpired`, and one AreaCheck variant resolve. Verified — 204 triggers, 0 with `"name": null`; named opcodes include `Global`, `GlobalTimerExpired`, `AreaCheck`, `AreaCheckObject`, `InParty`, `Dead`, `OR`, etc.

@@ -90,6 +90,7 @@ impl fmt::Display for ResourceName {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ResourceType {
+    Are,
     Itm,
     Spl,
     Cre,
@@ -102,6 +103,7 @@ pub enum ResourceType {
 impl ResourceType {
     pub fn from_extension(extension: &str) -> Self {
         match extension.trim().to_ascii_uppercase().as_str() {
+            "ARE" => Self::Are,
             "ITM" => Self::Itm,
             "SPL" => Self::Spl,
             "CRE" | "CHR" => Self::Cre,
@@ -114,6 +116,7 @@ impl ResourceType {
 
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Are => "ARE",
             Self::Itm => "ITM",
             Self::Spl => "SPL",
             Self::Cre => "CRE",
@@ -162,10 +165,47 @@ pub trait IdsResolver {
     fn resolve_ids(&self, file: &str, value: i32) -> Option<String>;
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ResourceLink {
+    pub resref: ResRef,
+    pub resource_name: String,
+    pub resource_type: String,
+    pub exists: bool,
+    pub source_kind: Option<SourceKind>,
+    pub source_path: Option<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct CreatureResourceLink {
+    #[serde(flatten)]
+    pub link: ResourceLink,
+    pub short_name: Option<ResolvedStrRef>,
+    pub long_name: Option<ResolvedStrRef>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ScriptSlots<T>
+where
+    T: Serialize,
+{
+    pub override_script: Option<T>,
+    pub general_script: Option<T>,
+    pub class_script: Option<T>,
+    pub race_script: Option<T>,
+    pub default_script: Option<T>,
+    pub specific_script: Option<T>,
+}
+
+pub trait ResourceLinkResolver {
+    fn resolve_resource_link(&self, resref: &ResRef, resource_type: ResourceType) -> ResourceLink;
+    fn resolve_creature_link(&self, resref: &ResRef) -> CreatureResourceLink;
+}
+
 #[derive(Clone, Copy, Default)]
 pub struct ResolverBundle<'a> {
     pub strref: Option<&'a dyn StrRefResolver>,
     pub ids: Option<&'a dyn IdsResolver>,
+    pub links: Option<&'a dyn ResourceLinkResolver>,
 }
 
 #[derive(Debug, Error)]
@@ -195,6 +235,7 @@ mod tests {
     #[test]
     fn maps_known_extensions() {
         assert_eq!(ResourceType::from_extension("itm"), ResourceType::Itm);
+        assert_eq!(ResourceType::from_extension("are"), ResourceType::Are);
         assert_eq!(ResourceType::from_extension("chr"), ResourceType::Cre);
         assert_eq!(ResourceType::from_extension("zzz"), ResourceType::Unknown);
     }
@@ -204,5 +245,23 @@ mod tests {
         let resource = ResourceName::parse("foo.itm").expect("resource name should be valid");
         assert_eq!(resource.file_name(), "FOO.ITM");
         assert_eq!(resource.resource_type(), ResourceType::Itm);
+    }
+
+    #[test]
+    fn serializes_resource_links_deterministically() {
+        let link = super::ResourceLink {
+            resref: ResRef::new("ar0202").expect("resref should be valid"),
+            resource_name: "AR0202.ARE".to_string(),
+            resource_type: "ARE".to_string(),
+            exists: false,
+            source_kind: None,
+            source_path: None,
+        };
+
+        let value = serde_json::to_value(&link).expect("link should serialize");
+        assert_eq!(value["resref"], "AR0202");
+        assert_eq!(value["resource_name"], "AR0202.ARE");
+        assert_eq!(value["resource_type"], "ARE");
+        assert_eq!(value["exists"], false);
     }
 }

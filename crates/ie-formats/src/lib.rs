@@ -1,3 +1,4 @@
+mod are;
 mod bcs;
 mod cre;
 mod dlg;
@@ -16,6 +17,14 @@ pub fn decode_to_json(
     let resource_type = resource.metadata.resource_type;
 
     match resource_type {
+        ResourceType::Are => {
+            let area = are::parse_are(
+                &resource.bytes,
+                &resource.metadata.resource_name,
+                resolvers.links,
+            )?;
+            serde_json::to_value(&area).map_err(|err| FormatError::Serialization(err.to_string()))
+        }
         ResourceType::Itm => {
             let item = itm::parse_itm(
                 &resource.bytes,

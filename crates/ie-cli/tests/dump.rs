@@ -142,6 +142,58 @@ fn dump_baldur_bcs_exposes_named_blocks_when_ie_game_path_is_set() {
     );
 }
 
+#[test]
+fn dump_pstee_area_exposes_actor_links_when_pstee_game_path_is_set() {
+    let Some(game_path) = std::env::var_os("IE_PSTEE_GAME_PATH") else {
+        return;
+    };
+
+    let stdout = dump_json(&game_path, "AR0202.ARE");
+
+    assert_eq!(stdout["resource_name"], "AR0202.ARE");
+    assert_eq!(stdout["resource_type"], "ARE");
+    let actors = stdout["actors"]
+        .as_array()
+        .expect("ARE actors should be an array");
+    assert!(!actors.is_empty(), "AR0202.ARE should list actors");
+    assert!(
+        actors.iter().any(|actor| actor["position"]["x"].is_number()
+            && actor["position"]["y"].is_number()),
+        "at least one actor should expose placement coordinates"
+    );
+    assert!(
+        actors.iter().any(|actor| actor["cre_file"]["exists"] == true
+            && actor["cre_file"]["short_name"]["strref"].is_number()),
+        "at least one actor should expose CRE display-name enrichment"
+    );
+    assert!(
+        actors.iter().any(|actor| actor["dialog"]["exists"].is_boolean()
+            || actor["scripts"]["override_script"]["exists"].is_boolean()
+            || actor["scripts"]["default_script"]["exists"].is_boolean()),
+        "expected actor dialog or script link metadata"
+    );
+
+    let deferred = &stdout["deferred_sections"];
+    let automap_notes_offset = deferred["automap_notes_offset"]
+        .as_u64()
+        .expect("automap_notes_offset should be u32");
+    let automap_notes_count = deferred["automap_notes_count"]
+        .as_u64()
+        .expect("automap_notes_count should be u32");
+    assert!(
+        automap_notes_count < 1024,
+        "automap_notes_count looks like an offset, not a count: {automap_notes_count}"
+    );
+    assert!(
+        automap_notes_offset == 0 || automap_notes_offset >= 0x11C,
+        "automap_notes_offset must clear the ARE header: {automap_notes_offset:#x}"
+    );
+    assert_ne!(
+        automap_notes_count, deferred["projectile_traps_offset"].as_u64().unwrap_or(0),
+        "automap_notes_count and projectile_traps_offset must not alias the same bytes"
+    );
+}
+
 fn dump_json(game_path: &OsString, resource_name: &str) -> Value {
     let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
         .arg("dump")
