@@ -12,6 +12,8 @@ is useful for:
 - AI-assisted analysis
 - future patch-generation workflows
 
+The motivation is to have a tool that AI agents can use natively to explore/fix/modify Infinity Engine games.
+
 ## Status
 
 The Rust rewrite is in progress. The current workspace already supports:
@@ -59,8 +61,7 @@ The Rust workspace is organized into:
 - `crates/ie-formats`
 - `crates/ie-cli`
 
-Near Infinity remains a behavioral reference for format validation, but the legacy Java snapshot is no longer vendored
-in this repository. See [Near Infinity Reference](./docs/NEAR_INFINITY_REFERENCE.md) for the expected workflow.
+Near Infinity remains a behavioral reference for format validation. See [Near Infinity Reference](./docs/NEAR_INFINITY_REFERENCE.md) for the expected workflow.
 
 ## Acknowledgement
 
@@ -114,5 +115,8 @@ iecli tlk --game /path/to/game --strref 1
 
 ## Notes
 
-This is a new tool with its own architecture and scope. Near Infinity remains part of the validation workflow, but the
-Rust workspace does not depend on the legacy Java source being present in this repository.
+This is a new tool with its own architecture and scope. Its development was based on NearInfinity, 
+
+## Disclosure
+These tools were created with assistance from AI tools: Codex from OpenAI wrote most of the code while Claude(by Anthropic) perfomed code reviews and bug fixes, and usually runs the tool to debug issues with my game installations & mods
+
