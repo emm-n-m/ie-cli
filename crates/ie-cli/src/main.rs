@@ -3,7 +3,7 @@ use ie_core::{
     CreatureResourceLink, ResRef, ResolvedStrRef, ResolverBundle, ResourceLink,
     ResourceLinkResolver, ResourceName, ResourceType,
 };
-use ie_formats::decode_to_json;
+use ie_formats::{CreatureScalarPatch, decode_to_json, patch_cre_scalars};
 use ie_io::{
     FileBackedIdsResolver, GameInstallation, ListedResource, ResourceListOptions, ResourceLocator,
     ResourceReader, ResourceSource, TlkResolver,
@@ -24,6 +24,7 @@ enum Command {
     Locate(ResourceArgs),
     DumpRaw(DumpRawArgs),
     Dump(DumpArgs),
+    Patch(PatchArgs),
     List(ListArgs),
     Tlk(TlkArgs),
 }
@@ -52,6 +53,18 @@ struct DumpArgs {
     resource: ResourceArgs,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
+}
+
+#[derive(Debug, Args)]
+struct PatchArgs {
+    #[command(flatten)]
+    resource: ResourceArgs,
+    #[arg(long = "set")]
+    sets: Vec<String>,
+    #[arg(long)]
+    patch_json: Option<PathBuf>,
+    #[arg(long)]
+    output: PathBuf,
 }
 
 #[derive(Debug, Args)]
@@ -208,6 +221,40 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+        Command::Patch(args) => {
+            let installation = GameInstallation::discover(args.resource.game)?;
+            let resource = ResourceName::parse(args.resource.resource)?;
+            if resource.resource_type() != ResourceType::Cre {
+                return Err("patch currently supports CRE/CHR resources only".into());
+            }
+
+            let locator = ResourceLocator::new(installation)?;
+            let reader = ResourceReader;
+            let bytes =
+                reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
+            let patches = collect_cre_patches(&args.sets, args.patch_json.as_ref())?;
+            let patched = patch_cre_scalars(&bytes.bytes, &patches)?;
+
+            if let Some(parent) = args.output.parent() {
+                if !parent.as_os_str().is_empty() {
+                    fs::create_dir_all(parent)?;
+                }
+            }
+
+            fs::write(&args.output, &patched)?;
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "resource_name": bytes.metadata.resource_name,
+                    "resource_type": bytes.metadata.resource_type.as_str(),
+                    "source_kind": format!("{:?}", bytes.metadata.source_kind),
+                    "source_path": bytes.metadata.source_path,
+                    "output_path": args.output,
+                    "patches_applied": patches.len(),
+                    "bytes_written": patched.len(),
+                }))?
+            );
+        }
         Command::List(args) => {
             let installation = GameInstallation::discover(args.game)?;
             let locator = ResourceLocator::new(installation)?;
@@ -251,6 +298,70 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn collect_cre_patches(
+    sets: &[String],
+    patch_json: Option<&PathBuf>,
+) -> Result<Vec<CreatureScalarPatch>, Box<dyn std::error::Error>> {
+    let mut patches = Vec::new();
+
+    for set in sets {
+        let (field, value) = set
+            .split_once('=')
+            .ok_or_else(|| format!("invalid --set value '{set}', expected field=value"))?;
+        patches.push(CreatureScalarPatch {
+            field: field.to_string(),
+            value: value.to_string(),
+        });
+    }
+
+    if let Some(path) = patch_json {
+        let value: serde_json::Value = serde_json::from_slice(&fs::read(path)?)?;
+        patches.extend(parse_patch_json(&value)?);
+    }
+
+    Ok(patches)
+}
+
+fn parse_patch_json(
+    value: &serde_json::Value,
+) -> Result<Vec<CreatureScalarPatch>, Box<dyn std::error::Error>> {
+    match value {
+        serde_json::Value::Object(fields) => Ok(fields
+            .iter()
+            .map(|(field, value)| CreatureScalarPatch {
+                field: field.clone(),
+                value: scalar_json_value_to_string(value),
+            })
+            .collect()),
+        serde_json::Value::Array(rows) => rows
+            .iter()
+            .map(|row| {
+                let field = row
+                    .get("field")
+                    .and_then(serde_json::Value::as_str)
+                    .ok_or("patch array entries must include string field")?;
+                let value = row
+                    .get("value")
+                    .ok_or("patch array entries must include value")?;
+                Ok(CreatureScalarPatch {
+                    field: field.to_string(),
+                    value: scalar_json_value_to_string(value),
+                })
+            })
+            .collect(),
+        _ => Err("patch JSON must be an object or array".into()),
+    }
+}
+
+fn scalar_json_value_to_string(value: &serde_json::Value) -> String {
+    match value {
+        serde_json::Value::String(value) => value.clone(),
+        serde_json::Value::Number(value) => value.to_string(),
+        serde_json::Value::Null => String::new(),
+        other => other.to_string(),
+    }
 }
 
 fn listed_resource_json(resource: &ListedResource) -> serde_json::Value {

@@ -289,6 +289,175 @@ impl From<CreatureParseError> for crate::FormatError {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CreatureScalarPatch {
+    pub field: String,
+    pub value: String,
+}
+
+#[derive(Debug, Error)]
+pub enum CreaturePatchError {
+    #[error("invalid CRE patch: {0}")]
+    InvalidPatch(String),
+    #[error("unknown CRE scalar field: {0}")]
+    UnknownField(String),
+    #[error("invalid CRE scalar value for {field}: {reason}")]
+    InvalidValue { field: String, reason: String },
+    #[error(transparent)]
+    Parse(#[from] CreatureParseError),
+}
+
+impl From<CreaturePatchError> for crate::FormatError {
+    fn from(err: CreaturePatchError) -> Self {
+        crate::FormatError::Parse(err.to_string())
+    }
+}
+
+struct ByteEdit {
+    offset: usize,
+    bytes: Vec<u8>,
+}
+
+pub fn patch_cre_scalars(
+    bytes: &[u8],
+    patches: &[CreatureScalarPatch],
+) -> Result<Vec<u8>, CreaturePatchError> {
+    validate_cre_header(bytes)?;
+
+    let edits = patches
+        .iter()
+        .map(resolve_scalar_patch)
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut output = bytes.to_vec();
+    for edit in edits {
+        let end = edit.offset + edit.bytes.len();
+        output
+            .get_mut(edit.offset..end)
+            .ok_or_else(|| {
+                CreaturePatchError::InvalidPatch("patch exceeds CRE length".to_string())
+            })?
+            .copy_from_slice(&edit.bytes);
+    }
+
+    Ok(output)
+}
+
+fn resolve_scalar_patch(patch: &CreatureScalarPatch) -> Result<ByteEdit, CreaturePatchError> {
+    let field = patch.field.trim().to_ascii_lowercase();
+    match field.as_str() {
+        "long_name" | "long_name_strref" => u32_edit(0x08, &field, &patch.value),
+        "short_name" | "short_name_strref" => u32_edit(0x0C, &field, &patch.value),
+        "reputation" => i8_edit(0x44, &field, &patch.value),
+        "morale" => u8_edit(0x23F, &field, &patch.value),
+        "morale_break" => u8_edit(0x240, &field, &patch.value),
+        "morale_recovery_time" => u16_edit(0x242, &field, &patch.value),
+        "override_script" => resref_edit(0x248, &field, &patch.value),
+        "class_script" => resref_edit(0x250, &field, &patch.value),
+        "race_script" => resref_edit(0x258, &field, &patch.value),
+        "general_script" => resref_edit(0x260, &field, &patch.value),
+        "default_script" => resref_edit(0x268, &field, &patch.value),
+        "dialog" | "dialog_resref" => resref_edit(0x2CC, &field, &patch.value),
+        _ => Err(CreaturePatchError::UnknownField(patch.field.clone())),
+    }
+}
+
+fn validate_cre_header(bytes: &[u8]) -> Result<(), CreaturePatchError> {
+    if bytes.len() < CRE_HEADER_SIZE {
+        return Err(CreaturePatchError::Parse(
+            CreatureParseError::UnexpectedEof(format!(
+                "CRE resource must contain at least {} bytes",
+                CRE_HEADER_SIZE
+            )),
+        ));
+    }
+
+    if &bytes[0..4] != b"CRE " {
+        return Err(CreaturePatchError::Parse(
+            CreatureParseError::InvalidHeader("missing CRE signature".to_string()),
+        ));
+    }
+
+    Ok(())
+}
+
+fn u8_edit(offset: usize, field: &str, value: &str) -> Result<ByteEdit, CreaturePatchError> {
+    let value = parse_u64_value(field, value)?;
+    let value = u8::try_from(value).map_err(|_| CreaturePatchError::InvalidValue {
+        field: field.to_string(),
+        reason: "expected integer in range 0..=255".to_string(),
+    })?;
+    Ok(ByteEdit {
+        offset,
+        bytes: vec![value],
+    })
+}
+
+fn i8_edit(offset: usize, field: &str, value: &str) -> Result<ByteEdit, CreaturePatchError> {
+    let value = value
+        .trim()
+        .parse::<i16>()
+        .map_err(|err| CreaturePatchError::InvalidValue {
+            field: field.to_string(),
+            reason: err.to_string(),
+        })?;
+    let value = i8::try_from(value).map_err(|_| CreaturePatchError::InvalidValue {
+        field: field.to_string(),
+        reason: "expected integer in range -128..=127".to_string(),
+    })?;
+    Ok(ByteEdit {
+        offset,
+        bytes: vec![value as u8],
+    })
+}
+
+fn u16_edit(offset: usize, field: &str, value: &str) -> Result<ByteEdit, CreaturePatchError> {
+    let value = parse_u64_value(field, value)?;
+    let value = u16::try_from(value).map_err(|_| CreaturePatchError::InvalidValue {
+        field: field.to_string(),
+        reason: "expected integer in range 0..=65535".to_string(),
+    })?;
+    Ok(ByteEdit {
+        offset,
+        bytes: value.to_le_bytes().to_vec(),
+    })
+}
+
+fn u32_edit(offset: usize, field: &str, value: &str) -> Result<ByteEdit, CreaturePatchError> {
+    let value = parse_u64_value(field, value)?;
+    let value = u32::try_from(value).map_err(|_| CreaturePatchError::InvalidValue {
+        field: field.to_string(),
+        reason: "expected integer in range 0..=4294967295".to_string(),
+    })?;
+    Ok(ByteEdit {
+        offset,
+        bytes: value.to_le_bytes().to_vec(),
+    })
+}
+
+fn resref_edit(offset: usize, field: &str, value: &str) -> Result<ByteEdit, CreaturePatchError> {
+    let trimmed = value.trim();
+    let mut bytes = vec![0u8; 8];
+    if !trimmed.is_empty() {
+        let resref = ResRef::new(trimmed).map_err(|err| CreaturePatchError::InvalidValue {
+            field: field.to_string(),
+            reason: err.to_string(),
+        })?;
+        bytes[..resref.as_str().len()].copy_from_slice(resref.as_str().as_bytes());
+    }
+    Ok(ByteEdit { offset, bytes })
+}
+
+fn parse_u64_value(field: &str, value: &str) -> Result<u64, CreaturePatchError> {
+    value
+        .trim()
+        .parse::<u64>()
+        .map_err(|err| CreaturePatchError::InvalidValue {
+            field: field.to_string(),
+            reason: err.to_string(),
+        })
+}
+
 pub fn parse_cre(
     bytes: &[u8],
     resource_name: &str,
@@ -1270,5 +1439,120 @@ mod tests {
         );
         assert_eq!(effect.raw_prefix_bytes.len(), 8);
         assert_eq!(effect.raw_tail_bytes.len(), CRE_EFFECT_V2_SIZE - 0x58);
+    }
+
+    #[test]
+    fn patch_cre_scalars_copy_only_is_byte_exact() {
+        let bytes = patchable_cre();
+
+        let patched = patch_cre_scalars(&bytes, &[]).expect("copy-only patch should work");
+
+        assert_eq!(patched, bytes);
+    }
+
+    #[test]
+    fn patch_cre_scalars_edits_only_requested_fixed_offsets() {
+        let bytes = patchable_cre();
+        let patched = patch_cre_scalars(
+            &bytes,
+            &[
+                CreatureScalarPatch {
+                    field: "morale".to_string(),
+                    value: "9".to_string(),
+                },
+                CreatureScalarPatch {
+                    field: "morale_break".to_string(),
+                    value: "4".to_string(),
+                },
+                CreatureScalarPatch {
+                    field: "dialog".to_string(),
+                    value: "NEWDLG".to_string(),
+                },
+                CreatureScalarPatch {
+                    field: "short_name".to_string(),
+                    value: "12345".to_string(),
+                },
+            ],
+        )
+        .expect("scalar patch should work");
+
+        assert_eq!(patched[0x23F], 9);
+        assert_eq!(patched[0x240], 4);
+        assert_eq!(
+            &patched[0x2CC..0x2D4],
+            &[b'N', b'E', b'W', b'D', b'L', b'G', 0, 0]
+        );
+        assert_eq!(&patched[0x0C..0x10], &12345u32.to_le_bytes());
+
+        let changed = changed_offsets(&bytes, &patched);
+        assert_eq!(changed, vec![0x0C, 0x0D, 0x23F, 0x240, 0x2CC, 0x2CD, 0x2CE]);
+    }
+
+    #[test]
+    fn patch_cre_scalars_rejects_unknown_field_before_editing() {
+        let bytes = patchable_cre();
+
+        let error = patch_cre_scalars(
+            &bytes,
+            &[CreatureScalarPatch {
+                field: "not_a_cre_field".to_string(),
+                value: "1".to_string(),
+            }],
+        )
+        .expect_err("unknown field should fail");
+
+        assert!(error.to_string().contains("unknown CRE scalar field"));
+    }
+
+    #[test]
+    fn patch_cre_scalars_rejects_out_of_range_values() {
+        let bytes = patchable_cre();
+
+        let error = patch_cre_scalars(
+            &bytes,
+            &[CreatureScalarPatch {
+                field: "morale".to_string(),
+                value: "256".to_string(),
+            }],
+        )
+        .expect_err("out-of-range value should fail");
+
+        assert!(error.to_string().contains("0..=255"));
+    }
+
+    #[test]
+    fn patch_cre_scalars_rejects_invalid_resrefs() {
+        let bytes = patchable_cre();
+
+        let error = patch_cre_scalars(
+            &bytes,
+            &[CreatureScalarPatch {
+                field: "override_script".to_string(),
+                value: "TOO_LONG_RESREF".to_string(),
+            }],
+        )
+        .expect_err("invalid resref should fail");
+
+        assert!(error.to_string().contains("exceeds 8 characters"));
+    }
+
+    fn patchable_cre() -> Vec<u8> {
+        let mut bytes = vec![0u8; CRE_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"CRE ");
+        bytes[4..8].copy_from_slice(b"V1.0");
+        bytes[0x0C..0x10].copy_from_slice(&1u32.to_le_bytes());
+        bytes[0x23F] = 10;
+        bytes[0x240] = 3;
+        bytes[0x2CC..0x2D4].copy_from_slice(b"OLDDLG\0\0");
+        bytes
+    }
+
+    fn changed_offsets(before: &[u8], after: &[u8]) -> Vec<usize> {
+        before
+            .iter()
+            .zip(after)
+            .enumerate()
+            .filter_map(|(index, (before, after))| (before != after).then_some(index))
+            .collect()
     }
 }

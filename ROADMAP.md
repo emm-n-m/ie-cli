@@ -25,7 +25,7 @@ Near Infinity remains the right tool for last-mile manual sanity checks and for 
 
 ## Status Snapshot
 
-Current as of 2026-04-19.
+Current as of 2026-04-25.
 
 ### Done
 
@@ -37,9 +37,11 @@ Current as of 2026-04-19.
 - Resource enumeration: `list --type <T> --name <glob> --source <S> --format <text|json>`.
 - `TLK` string resolution.
 - Typed decoders + JSON export for: `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`.
+- Minimum viable `ARE` decoder + JSON export for header, deferred-section offsets/counts, and actor placement/link data.
 - Lazy IDS loading and opcode/name resolution for BCS decoding.
 - Real-install smoke coverage for `ITM` and `SPL`; selected Near Infinity comparisons for `SPL`.
-- Env-gated CLI smoke coverage for `BCS`.
+- Env-gated CLI smoke coverage for `BCS` and PSTEE `ARE`.
+- Initial CRE scalar patch support for fixed-offset fields, with byte-exact copy-only behavior.
 
 ### Validated in real-world use
 
@@ -90,25 +92,18 @@ Remaining follow-up:
 - compare representative scripts against Near Infinity and encode findings in assertions
 - decide whether later script-adjacent tooling should add pretty-printing or cross-reference output
 
+#### ARE Read + JSON Export
+
+Implemented. `iecli dump --resource AR0202.ARE` exports stable area JSON with actor placement coordinates, dialog/script/CRE links, and CRE display-name enrichment when a linked creature can be resolved.
+
+Validated locally against PSTEE `AR0202.ARE` and `AR0500.ARE`.
+
+Remaining follow-up:
+
+- compare selected area actor fields against Near Infinity
+- expand ARE support only when a concrete workflow needs regions, doors, containers, spawn points, or ambients
+
 ## Next Milestones
-
-### M6: ARE Read
-
-**Why first:** needed to answer "what's already in AR0202" before the agent can meaningfully place new actors.
-
-**Scope:**
-
-- Parse ARE header and actor table (minimum viable).
-- List actors with position, resref, dialog resref, script resrefs.
-- Stable JSON export.
-
-**Acceptance criteria:**
-
-- Lists all actors in AR0202 with placement coordinates.
-- Resolves actor CRE resrefs to names via TLK.
-- Parses 2+ real PSTEE area files without error.
-
-Non-goals: regions, doors, spawn points, ambients — not needed for MVP, defer until demanded.
 
 ### M7: CRE Write — Tier 1 (Scalar Edits)
 
@@ -121,6 +116,13 @@ Non-goals: regions, doors, spawn points, ambients — not needed for MVP, defer 
 - Scalar fields only — no variable-length section edits (no adding/removing effects, items, spells). That is Tier 2 and deferred until a use case demands it.
 - Copy input bytes verbatim, overwrite only the specified byte ranges.
 - Validate field name and value bounds before writing.
+
+Current slice delivered:
+
+- `iecli patch` for CRE/CHR resources.
+- `--set field=value` and `--patch-json` inputs.
+- Fixed-offset scalar coverage for names, morale, morale break, morale recovery time, reputation, dialog, and script resrefs.
+- Unit tests for copy-only byte exactness, offset-limited edits, unknown fields, out-of-range numeric values, and invalid resrefs.
 
 **Acceptance criteria:**
 

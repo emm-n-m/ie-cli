@@ -39,12 +39,15 @@ The Rust rewrite is in progress. The current workspace already supports:
   - `STO`
   - `DLG`
   - `BCS`
+  - `ARE`
+- Tier 1 CRE scalar patching with byte-exact copy behavior outside requested fixed-offset fields
 
 Not implemented yet:
 
 - real-resource fixture coverage for decoded formats
 - broad Near Infinity comparison coverage for `ITM` and `SPL`
 - JSON golden/snapshot coverage for decoded formats
+- structured write support for variable-length resource sections
 
 Current validation for decoded formats already includes:
 
@@ -102,6 +105,8 @@ iecli dump-raw --game /path/to/game --resource KIRINH.CRE --source bif --output 
 iecli dump --game /path/to/game --resource ACIDBL.ITM --format json
 iecli dump --game /path/to/game --resource SPWI112.SPL --format json
 iecli dump --game /path/to/game --resource BALDUR.BCS --format json
+iecli dump --game /path/to/game --resource AR0202.ARE --format json
+iecli patch --game /path/to/game --resource KIRINH.CRE --set morale=9 --set morale_break=3 --output ./KIRINH.CRE
 iecli list --game /path/to/game --type CRE --name "kirin*"
 iecli list --game /path/to/game --type ITM --source override --format json
 iecli tlk --game /path/to/game --strref 1
@@ -119,4 +124,3 @@ This is a new tool with its own architecture and scope. Its development was base
 
 ## Disclosure
 These tools were created with assistance from AI tools: Codex from OpenAI wrote most of the code while Claude(by Anthropic) perfomed code reviews and bug fixes, and usually runs the tool to debug issues with my game installations & mods
-

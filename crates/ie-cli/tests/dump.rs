@@ -164,7 +164,7 @@ fn dump_baldur_bcs_exposes_named_blocks_when_ie_game_path_is_set() {
 
 #[test]
 fn dump_pstee_area_exposes_actor_links_when_pstee_game_path_is_set() {
-    let Some(game_path) = std::env::var_os("IE_PSTEE_GAME_PATH") else {
+    let Some(game_path) = pstee_game_path() else {
         return;
     };
 
@@ -222,7 +222,7 @@ fn dump_pstee_area_exposes_actor_links_when_pstee_game_path_is_set() {
 
 #[test]
 fn dump_pstee_mortuary_parses_without_error_when_pstee_game_path_is_set() {
-    let Some(game_path) = std::env::var_os("IE_PSTEE_GAME_PATH") else {
+    let Some(game_path) = pstee_game_path() else {
         return;
     };
 
@@ -245,6 +245,10 @@ fn dump_pstee_mortuary_parses_without_error_when_pstee_game_path_is_set() {
         deferred["regions_offset"].is_number(),
         "deferred_sections.regions_offset must be present"
     );
+}
+
+fn pstee_game_path() -> Option<OsString> {
+    std::env::var_os("IE_PSTEE_PATH").or_else(|| std::env::var_os("IE_PSTEE_GAME_PATH"))
 }
 
 fn dump_json(game_path: &OsString, resource_name: &str) -> Value {

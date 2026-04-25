@@ -10,6 +10,8 @@ use ie_core::{ResolverBundle, ResourceBytes, ResourceType};
 use serde_json::Value;
 use thiserror::Error;
 
+pub use cre::{CreatureScalarPatch, patch_cre_scalars};
+
 pub fn decode_to_json(
     resource: &ResourceBytes,
     resolvers: ResolverBundle<'_>,
