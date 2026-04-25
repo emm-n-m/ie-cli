@@ -113,13 +113,12 @@ pub fn parse_spl(
         return Err(SpellParseError::UnexpectedEof(format!(
             "SPL resource must contain at least {} bytes",
             SPL_HEADER_SIZE
-        )))?;
+        ))
+        .into());
     }
 
     if &bytes[0..4] != b"SPL " {
-        return Err(SpellParseError::InvalidHeader(
-            "missing SPL signature".to_string(),
-        ))?;
+        return Err(SpellParseError::InvalidHeader("missing SPL signature".to_string()).into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;

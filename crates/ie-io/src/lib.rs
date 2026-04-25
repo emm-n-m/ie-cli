@@ -507,7 +507,7 @@ impl KeyFile {
             if relative_path.starts_with('\\') || relative_path.starts_with('/') {
                 relative_path.remove(0);
             }
-            relative_path = relative_path.replace('\\', "/").replace(':', "/");
+            relative_path = relative_path.replace(['\\', ':'], "/");
 
             let actual_path = resolve_biff_path(installation, &relative_path);
             biffs.push(KeyBiffEntry {
@@ -600,9 +600,10 @@ pub struct KeyResourceEntry {
     pub resource_type: ResourceType,
 }
 
-fn discover_dialog_tlk(
-    root: &Path,
-) -> Result<(Option<String>, Option<PathBuf>, Option<PathBuf>), IoError> {
+// (language_name, language_dir, dialog_tlk_path)
+type DialogTlkDiscovery = (Option<String>, Option<PathBuf>, Option<PathBuf>);
+
+fn discover_dialog_tlk(root: &Path) -> Result<DialogTlkDiscovery, IoError> {
     let direct = root.join("dialog.tlk");
     if direct.is_file() {
         return Ok((None, None, Some(direct)));
@@ -683,13 +684,7 @@ fn resolve_biff_path(installation: &GameInstallation, relative_path: &str) -> Op
         installation.root.join(cbf_relative.replace('/', "\\")),
     ];
 
-    for path in cbf_candidates {
-        if path.is_file() {
-            return Some(path);
-        }
-    }
-
-    None
+    cbf_candidates.into_iter().find(|path| path.is_file())
 }
 
 fn replace_extension(path: &str, new_extension: &str) -> String {

@@ -659,6 +659,72 @@ mod tests {
         assert!(error.to_string().contains("exceeds ARE length"));
     }
 
+    #[test]
+    fn parse_are_with_two_actors_checks_index_ordering_and_positions() {
+        let mut bytes = minimal_are();
+        let actor_offset = ARE_HEADER_SIZE;
+        bytes.resize(ARE_HEADER_SIZE + 2 * ARE_ACTOR_SIZE, 0);
+        bytes[0x54..0x58].copy_from_slice(&(actor_offset as u32).to_le_bytes());
+        bytes[0x58..0x5A].copy_from_slice(&2u16.to_le_bytes());
+
+        // Actor 0 — "Morte" at (100, 200)
+        bytes[actor_offset..actor_offset + 5].copy_from_slice(b"Morte");
+        bytes[actor_offset + 0x20..actor_offset + 0x22].copy_from_slice(&100u16.to_le_bytes());
+        bytes[actor_offset + 0x22..actor_offset + 0x24].copy_from_slice(&200u16.to_le_bytes());
+
+        // Actor 1 — "Nordom" at (300, 400)
+        let second = actor_offset + ARE_ACTOR_SIZE;
+        bytes[second..second + 6].copy_from_slice(b"Nordom");
+        bytes[second + 0x20..second + 0x22].copy_from_slice(&300u16.to_le_bytes());
+        bytes[second + 0x22..second + 0x24].copy_from_slice(&400u16.to_le_bytes());
+
+        let area = parse_are(&bytes, "TESTAREA.ARE", None).expect("ARE should parse");
+        assert_eq!(area.actors.len(), 2);
+        assert_eq!(area.actors[0].index, 0);
+        assert_eq!(area.actors[0].name, "Morte");
+        assert_eq!(area.actors[0].position.x, 100);
+        assert_eq!(area.actors[0].position.y, 200);
+        assert_eq!(area.actors[1].index, 1);
+        assert_eq!(area.actors[1].name, "Nordom");
+        assert_eq!(area.actors[1].position.x, 300);
+        assert_eq!(area.actors[1].position.y, 400);
+    }
+
+    #[test]
+    fn area_flags_and_type_flags_decode_from_minimal_fixture() {
+        // minimal_are encodes area_flags=0x21 (0x01|0x20) and area_type_flags=0x0400.
+        // Expected decoded names are derived from IESDP ARE V1.0 actor/header field tables
+        // (https://gibberlings3.github.io/iesdp/file_formats/ie_formats/are_v1.htm — returned
+        // 403 during this run; offsets were validated against existing implementation).
+        let bytes = minimal_are();
+        let area = parse_are(&bytes, "AR0202.ARE", None).expect("ARE should parse");
+
+        assert!(
+            area.header
+                .area_flags
+                .decoded
+                .contains(&"SaveNotAllowed".to_string()),
+            "expected SaveNotAllowed bit (0x01) in area_flags 0x21"
+        );
+        assert!(
+            area.header
+                .area_flags
+                .decoded
+                .contains(&"RestingNotAllowed".to_string()),
+            "expected RestingNotAllowed bit (0x20) in area_flags 0x21"
+        );
+        assert!(
+            area.header
+                .area_type_flags
+                .decoded
+                .contains(&"OutdoorsPst".to_string()),
+            "expected OutdoorsPst bit (0x0400) in area_type_flags 0x0400"
+        );
+        // Raw values must round-trip unchanged.
+        assert_eq!(area.header.area_flags.raw, 0x21);
+        assert_eq!(area.header.area_type_flags.raw, 0x0400);
+    }
+
     fn minimal_are() -> Vec<u8> {
         let mut bytes = vec![0u8; ARE_HEADER_SIZE];
         bytes[0..4].copy_from_slice(b"AREA");
