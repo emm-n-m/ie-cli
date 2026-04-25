@@ -11,9 +11,10 @@ Run, in order:
 1. `git fetch origin && git status` — if branch ≠ `main`, working tree dirty, or local is ahead of `origin/main`: notify `blocked: tree not clean, your turn` and exit.
 2. `gh pr list --state open --search "head:agent/"` — if any open `agent/*` PR exists: notify `blocked: prior PR #N awaiting review` and exit. Never stack PRs.
 3. `cargo --version && rustfmt --version && cargo clippy --version && gh --version` — if any fails: notify `blocked: environment broken: <error>` and exit.
-4. `IE_GAME_PATH` must be set and point at a directory containing `chitin.key`. If unset or the file is missing: notify `blocked: IE_GAME_PATH unset or game install missing` and exit. Real-fixture validation is required (see §4); without an install you cannot finish a slice.
 
 If all checks pass, proceed.
+
+You do not have a game install available — this routine runs in a sandboxed environment without Infinity Engine game files. Real-install validation is the owner's responsibility at PR review time. Your job is to make their cross-check fast and obvious.
 
 ## 2. Scope
 
@@ -53,11 +54,12 @@ Never use `--no-verify`, `--no-gpg-sign`, or any flag that bypasses gates. If a 
 
 If the slice touches a format decoder:
 
-- Parse at least one real fixture from `IE_GAME_PATH` (guaranteed available — see §1 pre-flight). Pick fixtures relevant to the slice; record exactly which resrefs were exercised in the PR body.
+- You do not have a game install. Validation is byte-level only: synthetic fixtures in unit tests, hexdumps in PR body where instructive, and IESDP cross-reference for spec authority.
+- For any new decoded field, add a unit test with synthetic bytes covering at least one happy-path case and one boundary/error case.
 - If IESDP is the spec source for any offset/field, fetch the relevant page from `https://gibberlings3.github.io/iesdp/` and quote the offset/field definitions in the PR body. WebFetch is allowed only for that domain.
 - Mark anything ambiguous under "Open questions" in the PR body. Do not silently pick.
 
-You cannot run Near Infinity. The owner does NI cross-checks at review time. Make their job easy: list the resrefs, offsets, and opcodes you decoded so they know exactly what to spot-check.
+The owner does the real-install + Near Infinity cross-check at PR review on their machine. Make their job easy: list every offset, opcode, and field you touched, plus the IESDP citation, so they know exactly what to spot-check.
 
 ## 5. Ship
 
@@ -74,11 +76,11 @@ You cannot run Near Infinity. The owner does NI cross-checks at review time. Mak
 
    ## Validation
    - cargo test/fmt/clippy: all green
-   - real-fixture: <fixture name and what was checked, or "not available">
+   - synthetic fixtures: <unit test names and what they cover>
    - IESDP refs: <urls + quoted offsets>
 
-   ## NI spot-check suggestions for review
-   - <resref>: confirm <field> = <value>
+   ## Spot-check suggestions for review (real install / NI)
+   - <resref or fixture>: confirm <field> = <value>
 
    ## Open questions
    - <ambiguity, if any>
