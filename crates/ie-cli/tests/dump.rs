@@ -220,6 +220,33 @@ fn dump_pstee_area_exposes_actor_links_when_pstee_game_path_is_set() {
     );
 }
 
+#[test]
+fn dump_pstee_mortuary_parses_without_error_when_pstee_game_path_is_set() {
+    let Some(game_path) = std::env::var_os("IE_PSTEE_GAME_PATH") else {
+        return;
+    };
+
+    // AR0500 is the Mortuary — first area of the game, always present, structurally different
+    // from AR0202, satisfying the M6 "2+ real PSTEE area files" acceptance criterion.
+    let stdout = dump_json(&game_path, "AR0500.ARE");
+
+    assert_eq!(stdout["resource_type"], "ARE");
+    assert_eq!(stdout["version"], "V1.0");
+    assert!(
+        stdout["actors"].is_array(),
+        "AR0500.ARE actors field must be a JSON array"
+    );
+    let deferred = &stdout["deferred_sections"];
+    assert!(
+        deferred["regions_count"].is_number(),
+        "deferred_sections.regions_count must be present"
+    );
+    assert!(
+        deferred["regions_offset"].is_number(),
+        "deferred_sections.regions_offset must be present"
+    );
+}
+
 fn dump_json(game_path: &OsString, resource_name: &str) -> Value {
     let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
         .arg("dump")
