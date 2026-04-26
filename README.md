@@ -117,6 +117,7 @@ iecli tlk --game /path/to/game --strref 1
 - [Architecture](./ARCHITECTURE.md)
 - [Todo priorities](./TODO_PRIORITIES.md)
 - [Testing notes](./docs/TESTING.md)
+- [Project skills](./docs/SKILLS.md) — Claude Code skills shipped with the repo (`diagnose-dialog`, `explore-dungeon`)
 
 ## Notes
 

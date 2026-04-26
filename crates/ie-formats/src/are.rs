@@ -8,6 +8,7 @@ use thiserror::Error;
 
 const ARE_HEADER_SIZE: usize = 0x11C;
 const ARE_ACTOR_SIZE: usize = 0x110;
+const ARE_REGION_SIZE: usize = 0xC4;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AreaJson {
@@ -16,6 +17,7 @@ pub struct AreaJson {
     pub version: String,
     pub header: AreaHeaderJson,
     pub actors: Vec<AreaActorJson>,
+    pub regions: Vec<AreaRegionJson>,
     pub deferred_sections: AreaDeferredSectionsJson,
 }
 
@@ -36,8 +38,6 @@ pub struct AreaHeaderJson {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AreaDeferredSectionsJson {
-    pub regions_offset: u32,
-    pub regions_count: u16,
     pub spawn_points_offset: u32,
     pub spawn_points_count: u32,
     pub entrances_offset: u32,
@@ -94,6 +94,36 @@ pub struct AreaActorJson {
 pub struct AreaPointJson {
     pub x: u16,
     pub y: u16,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AreaBoundingBoxJson {
+    pub top_left: AreaPointJson,
+    pub bottom_right: AreaPointJson,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AreaRegionJson {
+    pub index: usize,
+    pub name: String,
+    pub region_type: RawDecoded<u16>,
+    pub bounding_box: AreaBoundingBoxJson,
+    pub vertex_count: u16,
+    pub first_vertex_index: u32,
+    pub trigger_value: u32,
+    pub cursor_index: u32,
+    pub destination_area: Option<ResourceLink>,
+    pub destination_entrance: Option<String>,
+    pub flags: RawDecodedFlags,
+    pub info_point_text_strref: u32,
+    pub trap_detection_difficulty: u16,
+    pub trap_removal_difficulty: u16,
+    pub region_is_trapped: u16,
+    pub trap_detected: u16,
+    pub trap_launch: AreaPointJson,
+    pub key_item: Option<ResourceLink>,
+    pub region_script: Option<ResourceLink>,
+    pub activation_point: AreaPointJson,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -177,20 +207,23 @@ pub fn parse_are(
 
     let actors = parse_actors(bytes, actors_offset, actors_count, links)?;
 
+    let regions_count = parse_u16(bytes, 0x5A)?;
+    let regions_offset = parse_u32(bytes, 0x5C)?;
+    let regions = parse_regions(bytes, regions_offset, regions_count, links)?;
+
     Ok(AreaJson {
         resource_type: ResourceType::Are.as_str().to_string(),
         resource_name: resource_name.to_string(),
         version,
         header,
         actors,
+        regions,
         deferred_sections: parse_deferred_sections(bytes)?,
     })
 }
 
 fn parse_deferred_sections(bytes: &[u8]) -> Result<AreaDeferredSectionsJson, AreaParseError> {
     Ok(AreaDeferredSectionsJson {
-        regions_count: parse_u16(bytes, 0x5A)?,
-        regions_offset: parse_u32(bytes, 0x5C)?,
         spawn_points_offset: parse_u32(bytes, 0x60)?,
         spawn_points_count: parse_u32(bytes, 0x64)?,
         entrances_offset: parse_u32(bytes, 0x68)?,
@@ -285,6 +318,84 @@ fn parse_actors(
                         ))
                     })?
                     .to_vec(),
+            })
+        },
+    )
+}
+
+fn parse_regions(
+    bytes: &[u8],
+    offset: u32,
+    count: u16,
+    links: Option<&dyn ResourceLinkResolver>,
+) -> Result<Vec<AreaRegionJson>, AreaParseError> {
+    parse_table(
+        bytes,
+        offset,
+        count as u32,
+        ARE_REGION_SIZE,
+        |bytes, position, index| {
+            let region_type_raw = parse_u16(bytes, position + 0x20)?;
+            let flags = parse_u32(bytes, position + 0x60)?;
+            let is_travel = region_type_raw == 2;
+
+            let destination_area = if is_travel {
+                parse_resref_option(bytes, position + 0x38, 8)?
+                    .map(|resref| resolve_resource_link(links, &resref, ResourceType::Are))
+            } else {
+                None
+            };
+            let destination_entrance = if is_travel {
+                let name = parse_char_array(bytes, position + 0x40, 32)?;
+                if name.is_empty() { None } else { Some(name) }
+            } else {
+                None
+            };
+
+            Ok(AreaRegionJson {
+                index,
+                name: parse_char_array(bytes, position, 32)?,
+                region_type: RawDecoded {
+                    raw: region_type_raw,
+                    decoded: decode_region_type(region_type_raw).map(str::to_string),
+                },
+                bounding_box: AreaBoundingBoxJson {
+                    top_left: AreaPointJson {
+                        x: parse_u16(bytes, position + 0x22)?,
+                        y: parse_u16(bytes, position + 0x24)?,
+                    },
+                    bottom_right: AreaPointJson {
+                        x: parse_u16(bytes, position + 0x26)?,
+                        y: parse_u16(bytes, position + 0x28)?,
+                    },
+                },
+                vertex_count: parse_u16(bytes, position + 0x2A)?,
+                first_vertex_index: parse_u32(bytes, position + 0x2C)?,
+                trigger_value: parse_u32(bytes, position + 0x30)?,
+                cursor_index: parse_u32(bytes, position + 0x34)?,
+                destination_area,
+                destination_entrance,
+                flags: RawDecodedFlags {
+                    raw: flags,
+                    decoded: decode_region_flags(flags),
+                },
+                info_point_text_strref: parse_u32(bytes, position + 0x64)?,
+                trap_detection_difficulty: parse_u16(bytes, position + 0x68)?,
+                trap_removal_difficulty: parse_u16(bytes, position + 0x6A)?,
+                region_is_trapped: parse_u16(bytes, position + 0x6C)?,
+                trap_detected: parse_u16(bytes, position + 0x6E)?,
+                trap_launch: AreaPointJson {
+                    x: parse_u16(bytes, position + 0x70)?,
+                    y: parse_u16(bytes, position + 0x72)?,
+                },
+                key_item: parse_resref_option(bytes, position + 0x74, 8)?
+                    .map(|resref| resolve_resource_link(links, &resref, ResourceType::Itm)),
+                region_script: parse_resref_option(bytes, position + 0x7C, 8)?
+                    .map(|resref| resolve_resource_link(links, &resref, ResourceType::Bcs)),
+                activation_point: AreaPointJson {
+                    x: parse_u16(bytes, position + 0x84)?,
+                    y: parse_u16(bytes, position + 0x86)?,
+                },
             })
         },
     )
@@ -491,6 +602,37 @@ fn decode_actor_flags(value: u32) -> Vec<String> {
     )
 }
 
+fn decode_region_type(value: u16) -> Option<&'static str> {
+    match value {
+        0 => Some("Trigger"),
+        1 => Some("Info"),
+        2 => Some("Travel"),
+        _ => None,
+    }
+}
+
+fn decode_region_flags(value: u32) -> Vec<String> {
+    decode_bits(
+        value,
+        &[
+            (0x0000_0001, "KeyRequired"),
+            (0x0000_0002, "TrapResetWhenSprung"),
+            (0x0000_0004, "PartyRequired"),
+            (0x0000_0008, "TrapDetectable"),
+            (0x0000_0010, "TrapEnemyOnly"),
+            (0x0000_0020, "TutorialTrigger"),
+            (0x0000_0040, "TrapNonNpc"),
+            (0x0000_0080, "DeactivatedDoor"),
+            (0x0000_0100, "NpcCannotPass"),
+            (0x0000_0200, "AlternativePoint"),
+            (0x0000_0400, "DoorClosed"),
+            (0x0000_0800, "AreaScriptRunsOnEnter"),
+            (0x0000_1000, "AreaActivatedAfterEnter"),
+            (0x0000_2000, "Used"),
+        ],
+    )
+}
+
 fn decode_random_monster(value: u16) -> Option<&'static str> {
     match value {
         0 => Some("No"),
@@ -558,7 +700,7 @@ mod tests {
         );
         assert_eq!(area.header.actors_count, 0);
         assert!(area.actors.is_empty());
-        assert_eq!(area.deferred_sections.regions_count, 2);
+        assert!(area.regions.is_empty());
     }
 
     #[test]
@@ -725,6 +867,85 @@ mod tests {
         assert_eq!(area.header.area_type_flags.raw, 0x0400);
     }
 
+    #[test]
+    fn parse_are_travel_region_links_destination_area_and_entrance() {
+        // Build an ARE with one Travel region and one Trigger region. Layout:
+        //   [header][regions_table]
+        // regions_offset starts immediately after the header.
+        let regions_offset = ARE_HEADER_SIZE;
+        let mut bytes = vec![0u8; regions_offset + 2 * ARE_REGION_SIZE];
+        bytes[0..4].copy_from_slice(b"AREA");
+        bytes[4..8].copy_from_slice(b"V1.0");
+        bytes[0x08..0x10].copy_from_slice(b"AR4300\0\0");
+        bytes[0x54..0x58].copy_from_slice(&(regions_offset as u32).to_le_bytes());
+        bytes[0x5A..0x5C].copy_from_slice(&2u16.to_le_bytes());
+        bytes[0x5C..0x60].copy_from_slice(&(regions_offset as u32).to_le_bytes());
+
+        // Region 0 — Travel exit to AR4500 / entrance "FromAR4300".
+        let travel = regions_offset;
+        bytes[travel..travel + 7].copy_from_slice(b"ToL2_NW");
+        bytes[travel + 0x20..travel + 0x22].copy_from_slice(&2u16.to_le_bytes()); // type=Travel
+        bytes[travel + 0x22..travel + 0x24].copy_from_slice(&100u16.to_le_bytes());
+        bytes[travel + 0x24..travel + 0x26].copy_from_slice(&110u16.to_le_bytes());
+        bytes[travel + 0x26..travel + 0x28].copy_from_slice(&140u16.to_le_bytes());
+        bytes[travel + 0x28..travel + 0x2A].copy_from_slice(&150u16.to_le_bytes());
+        bytes[travel + 0x38..travel + 0x40].copy_from_slice(b"AR4500\0\0");
+        bytes[travel + 0x40..travel + 0x4A].copy_from_slice(b"FromAR4300");
+        bytes[travel + 0x60..travel + 0x64].copy_from_slice(&0x0000_0004u32.to_le_bytes()); // PartyRequired
+        bytes[travel + 0x7C..travel + 0x84].copy_from_slice(b"GUARDIAN");
+
+        // Region 1 — Trigger; destination_area MUST be ignored even if bytes happen to look like a resref.
+        let trigger = travel + ARE_REGION_SIZE;
+        bytes[trigger..trigger + 4].copy_from_slice(b"Trap");
+        bytes[trigger + 0x20..trigger + 0x22].copy_from_slice(&0u16.to_le_bytes()); // type=Trigger
+        bytes[trigger + 0x38..trigger + 0x40].copy_from_slice(b"GHOST\0\0\0");
+        bytes[trigger + 0x40..trigger + 0x4A].copy_from_slice(b"NoSuchExit");
+
+        let area = parse_are(&bytes, "AR4300.ARE", Some(&TestLinks)).expect("ARE should parse");
+        assert_eq!(area.regions.len(), 2);
+
+        let travel = &area.regions[0];
+        assert_eq!(travel.name, "ToL2_NW");
+        assert_eq!(travel.region_type.raw, 2);
+        assert_eq!(travel.region_type.decoded.as_deref(), Some("Travel"));
+        assert_eq!(travel.bounding_box.top_left.x, 100);
+        assert_eq!(travel.bounding_box.bottom_right.y, 150);
+        assert_eq!(
+            travel
+                .destination_area
+                .as_ref()
+                .map(|link| link.resource_name.as_str()),
+            Some("AR4500.ARE")
+        );
+        assert_eq!(travel.destination_entrance.as_deref(), Some("FromAR4300"));
+        assert!(travel.flags.decoded.contains(&"PartyRequired".to_string()));
+        assert_eq!(
+            travel
+                .region_script
+                .as_ref()
+                .map(|link| link.resource_name.as_str()),
+            Some("GUARDIAN.BCS")
+        );
+
+        let trigger = &area.regions[1];
+        assert_eq!(trigger.region_type.decoded.as_deref(), Some("Trigger"));
+        assert!(
+            trigger.destination_area.is_none(),
+            "non-Travel regions must not surface a destination_area"
+        );
+        assert!(trigger.destination_entrance.is_none());
+    }
+
+    #[test]
+    fn reject_truncated_region_table() {
+        let mut bytes = minimal_are();
+        bytes[0x5A..0x5C].copy_from_slice(&1u16.to_le_bytes());
+        bytes[0x5C..0x60].copy_from_slice(&(ARE_HEADER_SIZE as u32).to_le_bytes());
+
+        let error = parse_are(&bytes, "AR4300.ARE", None).expect_err("region table should fail");
+        assert!(error.to_string().contains("exceeds ARE length"));
+    }
+
     fn minimal_are() -> Vec<u8> {
         let mut bytes = vec![0u8; ARE_HEADER_SIZE];
         bytes[0..4].copy_from_slice(b"AREA");
@@ -733,7 +954,6 @@ mod tests {
         bytes[0x14..0x18].copy_from_slice(&0x21u32.to_le_bytes());
         bytes[0x48..0x4A].copy_from_slice(&0x0400u16.to_le_bytes());
         bytes[0x54..0x58].copy_from_slice(&(ARE_HEADER_SIZE as u32).to_le_bytes());
-        bytes[0x5A..0x5C].copy_from_slice(&2u16.to_le_bytes());
         bytes[0x94..0x9C].copy_from_slice(b"AR0202\0\0");
         bytes
     }
