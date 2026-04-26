@@ -107,6 +107,7 @@ iecli dump --game /path/to/game --resource SPWI112.SPL --format json
 iecli dump --game /path/to/game --resource BALDUR.BCS --format json
 iecli dump --game /path/to/game --resource AR0202.ARE --format json
 iecli patch --game /path/to/game --resource KIRINH.CRE --set morale=9 --set morale_break=3 --output ./KIRINH.CRE
+iecli patch --game /path/to/game --resource ARR019.ARE --set "regions.Door1900.destination_entrance=Exit1903" --output ./ARR019.ARE
 iecli list --game /path/to/game --type CRE --name "kirin*"
 iecli list --game /path/to/game --type ITM --source override --format json
 iecli tlk --game /path/to/game --strref 1

@@ -9,6 +9,7 @@ use thiserror::Error;
 const ARE_HEADER_SIZE: usize = 0x11C;
 const ARE_ACTOR_SIZE: usize = 0x110;
 const ARE_REGION_SIZE: usize = 0xC4;
+const ARE_ENTRANCE_SIZE: usize = 0x68;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AreaJson {
@@ -18,6 +19,7 @@ pub struct AreaJson {
     pub header: AreaHeaderJson,
     pub actors: Vec<AreaActorJson>,
     pub regions: Vec<AreaRegionJson>,
+    pub entrances: Vec<AreaEntranceJson>,
     pub deferred_sections: AreaDeferredSectionsJson,
 }
 
@@ -40,8 +42,6 @@ pub struct AreaHeaderJson {
 pub struct AreaDeferredSectionsJson {
     pub spawn_points_offset: u32,
     pub spawn_points_count: u32,
-    pub entrances_offset: u32,
-    pub entrances_count: u32,
     pub containers_offset: u32,
     pub containers_count: u16,
     pub items_offset: u32,
@@ -100,6 +100,14 @@ pub struct AreaPointJson {
 pub struct AreaBoundingBoxJson {
     pub top_left: AreaPointJson,
     pub bottom_right: AreaPointJson,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AreaEntranceJson {
+    pub index: usize,
+    pub name: String,
+    pub position: AreaPointJson,
+    pub orientation: u16,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -211,6 +219,10 @@ pub fn parse_are(
     let regions_offset = parse_u32(bytes, 0x5C)?;
     let regions = parse_regions(bytes, regions_offset, regions_count, links)?;
 
+    let entrances_offset = parse_u32(bytes, 0x68)?;
+    let entrances_count = parse_u32(bytes, 0x6C)?;
+    let entrances = parse_entrances(bytes, entrances_offset, entrances_count)?;
+
     Ok(AreaJson {
         resource_type: ResourceType::Are.as_str().to_string(),
         resource_name: resource_name.to_string(),
@@ -218,6 +230,7 @@ pub fn parse_are(
         header,
         actors,
         regions,
+        entrances,
         deferred_sections: parse_deferred_sections(bytes)?,
     })
 }
@@ -226,8 +239,6 @@ fn parse_deferred_sections(bytes: &[u8]) -> Result<AreaDeferredSectionsJson, Are
     Ok(AreaDeferredSectionsJson {
         spawn_points_offset: parse_u32(bytes, 0x60)?,
         spawn_points_count: parse_u32(bytes, 0x64)?,
-        entrances_offset: parse_u32(bytes, 0x68)?,
-        entrances_count: parse_u32(bytes, 0x6C)?,
         containers_offset: parse_u32(bytes, 0x70)?,
         containers_count: parse_u16(bytes, 0x74)?,
         items_count: parse_u16(bytes, 0x76)?,
@@ -318,6 +329,30 @@ fn parse_actors(
                         ))
                     })?
                     .to_vec(),
+            })
+        },
+    )
+}
+
+fn parse_entrances(
+    bytes: &[u8],
+    offset: u32,
+    count: u32,
+) -> Result<Vec<AreaEntranceJson>, AreaParseError> {
+    parse_table(
+        bytes,
+        offset,
+        count,
+        ARE_ENTRANCE_SIZE,
+        |bytes, position, index| {
+            Ok(AreaEntranceJson {
+                index,
+                name: parse_char_array(bytes, position, 32)?,
+                position: AreaPointJson {
+                    x: parse_u16(bytes, position + 0x20)?,
+                    y: parse_u16(bytes, position + 0x22)?,
+                },
+                orientation: parse_u16(bytes, position + 0x24)?,
             })
         },
     )
@@ -648,6 +683,201 @@ fn decode_bits(value: u32, mapping: &[(u32, &str)]) -> Vec<String> {
         .collect()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AreaScalarPatch {
+    pub field: String,
+    pub value: String,
+}
+
+#[derive(Debug, Error)]
+pub enum AreaPatchError {
+    #[error("invalid ARE patch: {0}")]
+    InvalidPatch(String),
+    #[error("unknown ARE field path: {0}")]
+    UnknownField(String),
+    #[error("invalid ARE value for {field}: {reason}")]
+    InvalidValue { field: String, reason: String },
+    #[error("ARE region selector {selector:?} matched {matches} regions; use an index instead")]
+    AmbiguousSelector { selector: String, matches: usize },
+    #[error("ARE region selector {selector:?} matched no region")]
+    UnknownRegion { selector: String },
+    #[error(transparent)]
+    Parse(#[from] AreaParseError),
+}
+
+impl From<AreaPatchError> for crate::FormatError {
+    fn from(err: AreaPatchError) -> Self {
+        crate::FormatError::Parse(err.to_string())
+    }
+}
+
+struct AreaByteEdit {
+    offset: usize,
+    bytes: Vec<u8>,
+}
+
+pub fn patch_are_scalars(
+    bytes: &[u8],
+    patches: &[AreaScalarPatch],
+) -> Result<Vec<u8>, AreaPatchError> {
+    validate_are_header(bytes)?;
+    let regions_offset = parse_u32(bytes, 0x5C)?;
+    let regions_count = parse_u16(bytes, 0x5A)?;
+
+    let edits = patches
+        .iter()
+        .map(|patch| resolve_area_patch(bytes, patch, regions_offset, regions_count))
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut output = bytes.to_vec();
+    for edit in edits {
+        let end = edit.offset + edit.bytes.len();
+        output
+            .get_mut(edit.offset..end)
+            .ok_or_else(|| AreaPatchError::InvalidPatch("patch exceeds ARE length".to_string()))?
+            .copy_from_slice(&edit.bytes);
+    }
+    Ok(output)
+}
+
+fn validate_are_header(bytes: &[u8]) -> Result<(), AreaPatchError> {
+    if bytes.len() < ARE_HEADER_SIZE {
+        return Err(AreaPatchError::Parse(AreaParseError::UnexpectedEof(
+            format!("ARE resource must contain at least {ARE_HEADER_SIZE} bytes"),
+        )));
+    }
+    if &bytes[0..4] != b"AREA" {
+        return Err(AreaPatchError::Parse(AreaParseError::InvalidHeader(
+            "missing AREA signature".to_string(),
+        )));
+    }
+    Ok(())
+}
+
+fn resolve_area_patch(
+    bytes: &[u8],
+    patch: &AreaScalarPatch,
+    regions_offset: u32,
+    regions_count: u16,
+) -> Result<AreaByteEdit, AreaPatchError> {
+    // Field path is dot-separated. Currently supports `regions.<selector>.<subfield>`.
+    // Add new top-level tables (entrances, actors) by extending this match.
+    let parts: Vec<&str> = patch.field.splitn(3, '.').collect();
+    if parts.len() != 3 {
+        return Err(AreaPatchError::UnknownField(patch.field.clone()));
+    }
+    match parts[0] {
+        "regions" => resolve_region_patch(
+            bytes,
+            patch,
+            parts[1],
+            parts[2],
+            regions_offset,
+            regions_count,
+        ),
+        _ => Err(AreaPatchError::UnknownField(patch.field.clone())),
+    }
+}
+
+fn resolve_region_patch(
+    bytes: &[u8],
+    patch: &AreaScalarPatch,
+    selector: &str,
+    subfield: &str,
+    regions_offset: u32,
+    regions_count: u16,
+) -> Result<AreaByteEdit, AreaPatchError> {
+    let region_index = resolve_region_selector(bytes, selector, regions_offset, regions_count)?;
+    let region_offset = regions_offset as usize
+        + region_index
+            .checked_mul(ARE_REGION_SIZE)
+            .ok_or_else(|| AreaPatchError::InvalidPatch("region index overflow".to_string()))?;
+
+    match subfield.to_ascii_lowercase().as_str() {
+        "destination_entrance" => {
+            are_string_edit(region_offset + 0x40, 32, &patch.field, &patch.value)
+        }
+        "destination_area" => are_resref_edit(region_offset + 0x38, &patch.field, &patch.value),
+        _ => Err(AreaPatchError::UnknownField(patch.field.clone())),
+    }
+}
+
+fn resolve_region_selector(
+    bytes: &[u8],
+    selector: &str,
+    regions_offset: u32,
+    regions_count: u16,
+) -> Result<usize, AreaPatchError> {
+    if let Ok(index) = selector.parse::<usize>() {
+        if index >= regions_count as usize {
+            return Err(AreaPatchError::InvalidPatch(format!(
+                "region index {index} out of range (count={regions_count})"
+            )));
+        }
+        return Ok(index);
+    }
+
+    let mut matches: Vec<usize> = Vec::new();
+    for i in 0..regions_count as usize {
+        let pos = regions_offset as usize + i * ARE_REGION_SIZE;
+        let name = parse_char_array(bytes, pos, 32)?;
+        if name == selector {
+            matches.push(i);
+        }
+    }
+    match matches.len() {
+        0 => Err(AreaPatchError::UnknownRegion {
+            selector: selector.to_string(),
+        }),
+        1 => Ok(matches[0]),
+        n => Err(AreaPatchError::AmbiguousSelector {
+            selector: selector.to_string(),
+            matches: n,
+        }),
+    }
+}
+
+fn are_string_edit(
+    offset: usize,
+    length: usize,
+    field: &str,
+    value: &str,
+) -> Result<AreaByteEdit, AreaPatchError> {
+    let value_bytes = value.as_bytes();
+    if value_bytes.len() > length {
+        return Err(AreaPatchError::InvalidValue {
+            field: field.to_string(),
+            reason: format!("value exceeds field length {length}"),
+        });
+    }
+    if !value_bytes.iter().all(|b| *b != 0) {
+        return Err(AreaPatchError::InvalidValue {
+            field: field.to_string(),
+            reason: "value contains embedded NUL".to_string(),
+        });
+    }
+    let mut bytes = vec![0u8; length];
+    bytes[..value_bytes.len()].copy_from_slice(value_bytes);
+    Ok(AreaByteEdit { offset, bytes })
+}
+
+fn are_resref_edit(
+    offset: usize,
+    field: &str,
+    value: &str,
+) -> Result<AreaByteEdit, AreaPatchError> {
+    let trimmed = value.trim();
+    let mut bytes = vec![0u8; 8];
+    if !trimmed.is_empty() {
+        let resref = ResRef::new(trimmed).map_err(|err| AreaPatchError::InvalidValue {
+            field: field.to_string(),
+            reason: err.to_string(),
+        })?;
+        bytes[..resref.as_str().len()].copy_from_slice(resref.as_str().as_bytes());
+    }
+    Ok(AreaByteEdit { offset, bytes })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -937,6 +1167,50 @@ mod tests {
     }
 
     #[test]
+    fn parse_are_entrances_surface_name_position_orientation() {
+        let entrances_offset = ARE_HEADER_SIZE;
+        let mut bytes = vec![0u8; entrances_offset + 2 * ARE_ENTRANCE_SIZE];
+        bytes[0..4].copy_from_slice(b"AREA");
+        bytes[4..8].copy_from_slice(b"V1.0");
+        bytes[0x08..0x10].copy_from_slice(b"AR1900\0\0");
+        bytes[0x54..0x58].copy_from_slice(&(entrances_offset as u32).to_le_bytes());
+        bytes[0x68..0x6C].copy_from_slice(&(entrances_offset as u32).to_le_bytes());
+        bytes[0x6C..0x70].copy_from_slice(&2u32.to_le_bytes());
+
+        // Entrance 0 — "Exit1900" at (1500, 2500), orientation 4.
+        let e0 = entrances_offset;
+        bytes[e0..e0 + 8].copy_from_slice(b"Exit1900");
+        bytes[e0 + 0x20..e0 + 0x22].copy_from_slice(&1500u16.to_le_bytes());
+        bytes[e0 + 0x22..e0 + 0x24].copy_from_slice(&2500u16.to_le_bytes());
+        bytes[e0 + 0x24..e0 + 0x26].copy_from_slice(&4u16.to_le_bytes());
+
+        // Entrance 1 — "Exit1901" at (3000, 1200), orientation 0.
+        let e1 = entrances_offset + ARE_ENTRANCE_SIZE;
+        bytes[e1..e1 + 8].copy_from_slice(b"Exit1901");
+        bytes[e1 + 0x20..e1 + 0x22].copy_from_slice(&3000u16.to_le_bytes());
+        bytes[e1 + 0x22..e1 + 0x24].copy_from_slice(&1200u16.to_le_bytes());
+
+        let area = parse_are(&bytes, "AR1900.ARE", None).expect("ARE should parse");
+        assert_eq!(area.entrances.len(), 2);
+        assert_eq!(area.entrances[0].name, "Exit1900");
+        assert_eq!(area.entrances[0].position.x, 1500);
+        assert_eq!(area.entrances[0].position.y, 2500);
+        assert_eq!(area.entrances[0].orientation, 4);
+        assert_eq!(area.entrances[1].name, "Exit1901");
+        assert_eq!(area.entrances[1].position.x, 3000);
+    }
+
+    #[test]
+    fn reject_truncated_entrance_table() {
+        let mut bytes = minimal_are();
+        bytes[0x68..0x6C].copy_from_slice(&(ARE_HEADER_SIZE as u32).to_le_bytes());
+        bytes[0x6C..0x70].copy_from_slice(&1u32.to_le_bytes());
+
+        let error = parse_are(&bytes, "AR1900.ARE", None).expect_err("entrance table should fail");
+        assert!(error.to_string().contains("exceeds ARE length"));
+    }
+
+    #[test]
     fn reject_truncated_region_table() {
         let mut bytes = minimal_are();
         bytes[0x5A..0x5C].copy_from_slice(&1u16.to_le_bytes());
@@ -944,6 +1218,136 @@ mod tests {
 
         let error = parse_are(&bytes, "AR4300.ARE", None).expect_err("region table should fail");
         assert!(error.to_string().contains("exceeds ARE length"));
+    }
+
+    fn fixture_with_one_travel_region(
+        region_name: &[u8],
+        dest_resref: &[u8],
+        dest_entrance: &[u8],
+    ) -> Vec<u8> {
+        let regions_offset = ARE_HEADER_SIZE;
+        let mut bytes = vec![0u8; regions_offset + ARE_REGION_SIZE];
+        bytes[0..4].copy_from_slice(b"AREA");
+        bytes[4..8].copy_from_slice(b"V1.0");
+        bytes[0x08..0x10].copy_from_slice(b"ARSRC\0\0\0");
+        bytes[0x54..0x58].copy_from_slice(&(regions_offset as u32).to_le_bytes());
+        bytes[0x5A..0x5C].copy_from_slice(&1u16.to_le_bytes());
+        bytes[0x5C..0x60].copy_from_slice(&(regions_offset as u32).to_le_bytes());
+        let r = regions_offset;
+        bytes[r..r + region_name.len()].copy_from_slice(region_name);
+        bytes[r + 0x20..r + 0x22].copy_from_slice(&2u16.to_le_bytes()); // type=Travel
+        bytes[r + 0x38..r + 0x38 + dest_resref.len()].copy_from_slice(dest_resref);
+        bytes[r + 0x40..r + 0x40 + dest_entrance.len()].copy_from_slice(dest_entrance);
+        bytes
+    }
+
+    #[test]
+    fn patch_are_destination_entrance_by_region_name() {
+        let bytes = fixture_with_one_travel_region(b"Door1900", b"AR1900\0\0", b"ExitR019");
+        let patched = patch_are_scalars(
+            &bytes,
+            &[AreaScalarPatch {
+                field: "regions.Door1900.destination_entrance".to_string(),
+                value: "Exit1903".to_string(),
+            }],
+        )
+        .expect("patch should apply");
+
+        assert_eq!(patched.len(), bytes.len());
+        let area = parse_are(&patched, "ARSRC.ARE", None).expect("patched ARE should parse");
+        assert_eq!(
+            area.regions[0].destination_entrance.as_deref(),
+            Some("Exit1903")
+        );
+        // Untouched bytes outside the entrance field stay byte-identical.
+        let entrance_offset = ARE_HEADER_SIZE + 0x40;
+        assert_eq!(&patched[..entrance_offset], &bytes[..entrance_offset]);
+        assert_eq!(
+            &patched[entrance_offset + 32..],
+            &bytes[entrance_offset + 32..]
+        );
+    }
+
+    #[test]
+    fn patch_are_destination_entrance_by_region_index() {
+        let bytes = fixture_with_one_travel_region(b"Door1900", b"AR1900\0\0", b"ExitR019");
+        let patched = patch_are_scalars(
+            &bytes,
+            &[AreaScalarPatch {
+                field: "regions.0.destination_entrance".to_string(),
+                value: "Exit1907".to_string(),
+            }],
+        )
+        .expect("patch by index should apply");
+        let area = parse_are(&patched, "ARSRC.ARE", None).expect("patched ARE should parse");
+        assert_eq!(
+            area.regions[0].destination_entrance.as_deref(),
+            Some("Exit1907")
+        );
+    }
+
+    #[test]
+    fn patch_are_destination_area_resref() {
+        let bytes = fixture_with_one_travel_region(b"DoorR019", b"ARR019\0\0", b"ExitR018");
+        let patched = patch_are_scalars(
+            &bytes,
+            &[AreaScalarPatch {
+                field: "regions.DoorR019.destination_area".to_string(),
+                value: "ARR018".to_string(),
+            }],
+        )
+        .expect("resref patch should apply");
+        let area = parse_are(&patched, "ARSRC.ARE", None).expect("patched ARE should parse");
+        assert_eq!(
+            area.regions[0]
+                .destination_area
+                .as_ref()
+                .map(|link| link.resref.as_str().to_string()),
+            Some("ARR018".to_string())
+        );
+    }
+
+    #[test]
+    fn patch_are_unknown_region_name_errors() {
+        let bytes = fixture_with_one_travel_region(b"Door1900", b"AR1900\0\0", b"ExitR019");
+        let err = patch_are_scalars(
+            &bytes,
+            &[AreaScalarPatch {
+                field: "regions.NotARegion.destination_entrance".to_string(),
+                value: "Exit1903".to_string(),
+            }],
+        )
+        .expect_err("unknown region should fail");
+        assert!(err.to_string().contains("NotARegion"));
+    }
+
+    #[test]
+    fn patch_are_string_too_long_errors() {
+        let bytes = fixture_with_one_travel_region(b"Door1900", b"AR1900\0\0", b"ExitR019");
+        let err = patch_are_scalars(
+            &bytes,
+            &[AreaScalarPatch {
+                field: "regions.Door1900.destination_entrance".to_string(),
+                // 33 chars — one over the 32-byte field.
+                value: "X".repeat(33),
+            }],
+        )
+        .expect_err("oversized value should fail");
+        assert!(err.to_string().contains("exceeds field length"));
+    }
+
+    #[test]
+    fn patch_are_unknown_field_path_errors() {
+        let bytes = fixture_with_one_travel_region(b"Door1900", b"AR1900\0\0", b"ExitR019");
+        let err = patch_are_scalars(
+            &bytes,
+            &[AreaScalarPatch {
+                field: "actors.0.name".to_string(),
+                value: "Whatever".to_string(),
+            }],
+        )
+        .expect_err("unknown top-level table should fail");
+        assert!(err.to_string().contains("unknown ARE field path"));
     }
 
     fn minimal_are() -> Vec<u8> {

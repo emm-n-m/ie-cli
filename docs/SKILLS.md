@@ -103,6 +103,15 @@ Faction classification is regex-based on actor display names. Current factions: 
 
 **Final pass:** WED-tileset reuse — flags rooms cloning the same tileset (e.g., `AR1401: ['ARR003', 'ARR015', 'ARR016', 'ARR018']` — the spider-room template).
 
+### Patching broken exits
+
+Once a broken Travel region is identified (dead link or phantom entrance), the skill instructs Claude to fix it via `iecli patch` rather than dropping back to NearInfinity or hex-edits. ARE region patching supports two fields:
+
+- `regions.<selector>.destination_entrance` — 32-byte string, the entrance name in the destination ARE
+- `regions.<selector>.destination_area` — 8-byte resref, the destination ARE itself
+
+Selector is either the region's exact name (case-sensitive, NUL-truncated) or its 0-based index. Always back up first; warn the user that BG:EE caches loaded areas, so a fresh entry into the patched area is required to verify in-game. Full reasoning lives in the SKILL.md.
+
 ### Prerequisites
 
 `iecli` must be built before either script runs:

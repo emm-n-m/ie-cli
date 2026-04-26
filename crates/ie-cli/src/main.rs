@@ -3,7 +3,9 @@ use ie_core::{
     CreatureResourceLink, ResRef, ResolvedStrRef, ResolverBundle, ResourceLink,
     ResourceLinkResolver, ResourceName, ResourceType,
 };
-use ie_formats::{CreatureScalarPatch, decode_to_json, patch_cre_scalars};
+use ie_formats::{
+    AreaScalarPatch, CreatureScalarPatch, decode_to_json, patch_are_scalars, patch_cre_scalars,
+};
 use ie_io::{
     FileBackedIdsResolver, GameInstallation, ListedResource, ResourceListOptions, ResourceLocator,
     ResourceReader, ResourceSource, TlkResolver,
@@ -224,16 +226,30 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Command::Patch(args) => {
             let installation = GameInstallation::discover(args.resource.game)?;
             let resource = ResourceName::parse(args.resource.resource)?;
-            if resource.resource_type() != ResourceType::Cre {
-                return Err("patch currently supports CRE/CHR resources only".into());
-            }
+            let resource_type = resource.resource_type();
 
             let locator = ResourceLocator::new(installation)?;
             let reader = ResourceReader;
             let bytes =
                 reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
-            let patches = collect_cre_patches(&args.sets, args.patch_json.as_ref())?;
-            let patched = patch_cre_scalars(&bytes.bytes, &patches)?;
+
+            let (patched, patches_applied) = match resource_type {
+                ResourceType::Cre => {
+                    let patches = collect_cre_patches(&args.sets, args.patch_json.as_ref())?;
+                    let count = patches.len();
+                    let out = patch_cre_scalars(&bytes.bytes, &patches)?;
+                    (out, count)
+                }
+                ResourceType::Are => {
+                    let patches = collect_are_patches(&args.sets, args.patch_json.as_ref())?;
+                    let count = patches.len();
+                    let out = patch_are_scalars(&bytes.bytes, &patches)?;
+                    (out, count)
+                }
+                _ => {
+                    return Err("patch currently supports CRE/CHR and ARE resources only".into());
+                }
+            };
 
             if let Some(parent) = args.output.parent() {
                 if !parent.as_os_str().is_empty() {
@@ -250,7 +266,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     "source_kind": format!("{:?}", bytes.metadata.source_kind),
                     "source_path": bytes.metadata.source_path,
                     "output_path": args.output,
-                    "patches_applied": patches.len(),
+                    "patches_applied": patches_applied,
                     "bytes_written": patched.len(),
                 }))?
             );
@@ -298,6 +314,53 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn collect_are_patches(
+    sets: &[String],
+    patch_json: Option<&PathBuf>,
+) -> Result<Vec<AreaScalarPatch>, Box<dyn std::error::Error>> {
+    let mut patches = Vec::new();
+
+    for set in sets {
+        let (field, value) = set
+            .split_once('=')
+            .ok_or_else(|| format!("invalid --set value '{set}', expected field=value"))?;
+        patches.push(AreaScalarPatch {
+            field: field.to_string(),
+            value: value.to_string(),
+        });
+    }
+
+    if let Some(path) = patch_json {
+        let value: serde_json::Value = serde_json::from_slice(&fs::read(path)?)?;
+        match &value {
+            serde_json::Value::Object(fields) => {
+                patches.extend(fields.iter().map(|(field, v)| AreaScalarPatch {
+                    field: field.clone(),
+                    value: scalar_json_value_to_string(v),
+                }))
+            }
+            serde_json::Value::Array(rows) => {
+                for row in rows {
+                    let field = row
+                        .get("field")
+                        .and_then(serde_json::Value::as_str)
+                        .ok_or("ARE patch array entries must include string field")?;
+                    let value = row
+                        .get("value")
+                        .ok_or("ARE patch array entries must include value")?;
+                    patches.push(AreaScalarPatch {
+                        field: field.to_string(),
+                        value: scalar_json_value_to_string(value),
+                    });
+                }
+            }
+            _ => return Err("ARE patch JSON must be an object or array".into()),
+        }
+    }
+
+    Ok(patches)
 }
 
 fn collect_cre_patches(

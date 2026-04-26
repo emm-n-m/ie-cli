@@ -42,10 +42,12 @@ Current as of 2026-04-25.
 - Real-install smoke coverage for `ITM` and `SPL`; selected Near Infinity comparisons for `SPL`.
 - Env-gated CLI smoke coverage for `BCS` and PSTEE `ARE`.
 - Initial CRE scalar patch support for fixed-offset fields, with byte-exact copy-only behavior.
+- Initial ARE region patch support for `regions.<selector>.destination_entrance` and `regions.<selector>.destination_area`, addressed by region name or 0-based index, byte-exact copy-only behavior.
 
 ### Validated in real-world use
 
 - Override-vs-BIFF comparison workflow used end-to-end to diagnose a modded-install bug (Kirinhale morale regression) in a single session.
+- Read-extend → diagnose → patch loop used end-to-end to fix a broken Travel-region exit (ARR019 → AR1900 in a drow-mod dungeon): added Travel-region and entrance parsing to ARE, identified a destination-entrance name mismatch, repaired via `iecli patch`, verified in-game.
 
 ### Not started
 
