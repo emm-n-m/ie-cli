@@ -5,13 +5,19 @@ mod dlg;
 mod itm;
 mod spl;
 mod sto;
+mod verify;
 
 use ie_core::{ResolverBundle, ResourceBytes, ResourceType};
 use serde_json::Value;
 use thiserror::Error;
 
+pub use are::{AreaJson, parse_are};
 pub use are::{AreaScalarPatch, patch_are_scalars};
 pub use cre::{CreatureScalarPatch, patch_cre_scalars};
+pub use verify::{
+    AreaSource, AreaSourceEntry, AreaSourceError, EntranceRegistry, VerifyCategory, VerifyIssue,
+    VerifyOptions, VerifySeverity, build_entrance_registry, filter_issues, verify_are,
+};
 
 pub fn decode_to_json(
     resource: &ResourceBytes,

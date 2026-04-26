@@ -13,6 +13,7 @@ Given a starting ARE, walk the area graph by following Travel regions, describe 
 - **Faction transitions** — rooms where the dominant enemy roster shifts (duergar → drow, etc.)
 - WED tileset reuse (rooms cloning the same template)
 - Missing area scripts (referenced but not installed)
+- Broken cross-resource references reported by `iecli verify` (dead links, phantom entrances, missing scripts/actors/items)
 
 ## Inputs
 
@@ -22,6 +23,17 @@ Given a starting ARE, walk the area graph by following Travel regions, describe 
 iecli must be built. From the repo root: `cargo build`. The scripts default to `target/debug/iecli.exe`.
 
 ## Step 1 — Walk the graph
+
+Before walking a modded dungeon by hand, run the install-wide ARE verifier over override content. It is the fastest way to surface mechanical cross-resource breakage:
+
+```bash
+target/debug/iecli verify \
+    --game "<game-path>" \
+    --source override \
+    --format json
+```
+
+Prioritize `phantom_entrance` and `dead_link` errors before interpreting traversal output. Warnings such as missing area scripts or actor dialogs are useful leads, but can be benign in modded installs.
 
 ```bash
 python .claude/skills/explore-dungeon/walk_graph.py \

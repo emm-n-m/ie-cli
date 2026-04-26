@@ -33,6 +33,8 @@ Skills are part of `iecli`'s AI-native design (see [README](../README.md), [ROAD
 
 **Purpose:** Walk an IE dungeon's area graph from a starting ARE by following Travel regions, describe each room (actors, traps, exits), highlight enemy-faction transitions, and flag orphaned area files installed but unreachable.
 
+Before graph walking, prefer `iecli verify --source override --format json` to find install-wide ARE cross-resource breakage such as dead Travel links, phantom entrances, missing area scripts, missing actor CRE/dialog/script links, and missing key items.
+
 **Triggers on questions like:**
 - "Walk me through this dungeon starting from AR4300"
 - "I think I missed a level — can you find it?"

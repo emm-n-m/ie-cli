@@ -48,6 +48,7 @@ Current as of 2026-04-25.
 
 - Override-vs-BIFF comparison workflow used end-to-end to diagnose a modded-install bug (Kirinhale morale regression) in a single session.
 - Read-extend → diagnose → patch loop used end-to-end to fix a broken Travel-region exit (ARR019 → AR1900 in a drow-mod dungeon): added Travel-region and entrance parsing to ARE, identified a destination-entrance name mismatch, repaired via `iecli patch`, verified in-game.
+- `iecli verify --source override` now automates ARE cross-resource checks for dead Travel links, phantom entrances, and missing referenced scripts/actors/items.
 
 ### Not started
 

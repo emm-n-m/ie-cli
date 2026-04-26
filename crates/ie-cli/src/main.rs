@@ -4,7 +4,9 @@ use ie_core::{
     ResourceLinkResolver, ResourceName, ResourceType,
 };
 use ie_formats::{
-    AreaScalarPatch, CreatureScalarPatch, decode_to_json, patch_are_scalars, patch_cre_scalars,
+    AreaJson, AreaScalarPatch, CreatureScalarPatch, EntranceRegistry, VerifyCategory, VerifyIssue,
+    VerifyOptions, VerifySeverity, decode_to_json, filter_issues, parse_are, patch_are_scalars,
+    patch_cre_scalars, verify_are,
 };
 use ie_io::{
     FileBackedIdsResolver, GameInstallation, ListedResource, ResourceListOptions, ResourceLocator,
@@ -29,6 +31,7 @@ enum Command {
     Patch(PatchArgs),
     List(ListArgs),
     Tlk(TlkArgs),
+    Verify(VerifyArgs),
 }
 
 #[derive(Debug, Args)]
@@ -83,6 +86,22 @@ struct ListArgs {
     format: ListFormat,
 }
 
+#[derive(Debug, Args)]
+struct VerifyArgs {
+    #[arg(long)]
+    game: PathBuf,
+    #[command(flatten)]
+    source: SourceArgs,
+    #[arg(long = "resource-type", default_value = "ARE")]
+    resource_type: String,
+    #[arg(long, value_enum)]
+    severity: Option<SeverityArg>,
+    #[arg(long, value_enum, default_value_t = VerifyFormat::Text)]
+    format: VerifyFormat,
+    #[arg(long)]
+    max_issues: Option<usize>,
+}
+
 #[derive(Debug, Args, Default)]
 struct SourceArgs {
     #[arg(long, value_enum)]
@@ -110,6 +129,27 @@ enum OutputFormat {
 enum ListFormat {
     Text,
     Json,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum VerifyFormat {
+    Text,
+    Json,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum SeverityArg {
+    Error,
+    Warning,
+}
+
+impl From<SeverityArg> for VerifySeverity {
+    fn from(value: SeverityArg) -> Self {
+        match value {
+            SeverityArg::Error => VerifySeverity::Error,
+            SeverityArg::Warning => VerifySeverity::Warning,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -311,9 +351,133 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }))?
             );
         }
+        Command::Verify(args) => {
+            if !args.resource_type.eq_ignore_ascii_case("ARE") {
+                return Err(format!(
+                    "verify currently supports --resource-type ARE only, got '{}'",
+                    args.resource_type
+                )
+                .into());
+            }
+
+            let options = VerifyOptions {
+                severity: args.severity.map(Into::into),
+                max_issues: args.max_issues,
+            };
+            let issues = verify_installation(args.game, args.source.selection(), options)?;
+
+            match args.format {
+                VerifyFormat::Text => {
+                    for issue in issues {
+                        println!("{}", format_verify_issue_text(&issue));
+                    }
+                }
+                VerifyFormat::Json => {
+                    println!("{}", serde_json::to_string_pretty(&issues)?);
+                }
+            }
+        }
     }
 
     Ok(())
+}
+
+fn verify_installation(
+    game: PathBuf,
+    target_source: ResourceSource,
+    options: VerifyOptions,
+) -> Result<Vec<VerifyIssue>, Box<dyn std::error::Error>> {
+    let installation = GameInstallation::discover(game)?;
+    let locator = ResourceLocator::new(installation)?;
+    let reader = ResourceReader;
+    let link_resolver = CliResourceLinkResolver {
+        locator: &locator,
+        tlk_resolver: None,
+    };
+
+    let registry_entries =
+        parse_are_resources(&locator, &reader, ResourceSource::Auto, &link_resolver)?;
+    let mut registry = EntranceRegistry::default();
+    for area in registry_entries
+        .iter()
+        .filter_map(|entry| entry.as_ref().ok())
+    {
+        registry.insert_area(area);
+    }
+
+    let target_entries = if target_source == ResourceSource::Auto {
+        registry_entries
+    } else {
+        parse_are_resources(&locator, &reader, target_source, &link_resolver)?
+    };
+
+    let mut issues = Vec::new();
+    for entry in target_entries {
+        match entry {
+            Ok(area) => issues.extend(verify_are(&area, &registry)),
+            Err(issue) => issues.push(issue),
+        }
+    }
+
+    Ok(filter_issues(issues, options))
+}
+
+fn parse_are_resources(
+    locator: &ResourceLocator,
+    reader: &ResourceReader,
+    source: ResourceSource,
+    link_resolver: &CliResourceLinkResolver<'_>,
+) -> Result<Vec<Result<AreaJson, VerifyIssue>>, Box<dyn std::error::Error>> {
+    let resources = locator.list(ResourceListOptions {
+        resource_type: Some("ARE".to_string()),
+        name_glob: None,
+        source: Some(source),
+    })?;
+
+    let mut areas = Vec::with_capacity(resources.len());
+    for listed in resources {
+        let parsed_name = ResourceName::parse(&listed.resource_name)?;
+        let result = match reader.read_with_source(locator, &parsed_name, source) {
+            Ok(bytes) => parse_are(
+                &bytes.bytes,
+                &bytes.metadata.resource_name,
+                Some(link_resolver),
+            )
+            .map_err(|err| err.to_string()),
+            Err(error) => Err(error.to_string()),
+        };
+
+        areas.push(result.map_err(|message| parse_error_issue(listed.resource_name, message)));
+    }
+
+    Ok(areas)
+}
+
+fn parse_error_issue(resource_name: String, message: String) -> VerifyIssue {
+    VerifyIssue {
+        resource: resource_name,
+        issue: VerifyCategory::ParseError,
+        severity: VerifySeverity::Error,
+        path: "$".to_string(),
+        expected_in: None,
+        expected_value: None,
+        available_entrances: None,
+        message,
+    }
+}
+
+fn format_verify_issue_text(issue: &VerifyIssue) -> String {
+    format!(
+        "{} {} {} {}: {}",
+        match issue.severity {
+            VerifySeverity::Error => "ERROR",
+            VerifySeverity::Warning => "WARNING",
+        },
+        issue.resource,
+        issue.path,
+        issue.issue.as_str(),
+        issue.message
+    )
 }
 
 fn collect_are_patches(
@@ -506,5 +670,34 @@ impl ResourceLinkResolver for CliResourceLinkResolver<'_> {
         creature_link.long_name =
             serde_json::from_value::<ResolvedStrRef>(value["header"]["long_name"].clone()).ok();
         creature_link
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify_smoke_against_ie_game_path_when_set() {
+        let Ok(game_path) = std::env::var("IE_GAME_PATH") else {
+            return;
+        };
+
+        let issues = verify_installation(
+            PathBuf::from(game_path),
+            ResourceSource::Override,
+            VerifyOptions::default(),
+        )
+        .expect("verify should run against IE_GAME_PATH");
+
+        let mut sorted = issues.clone();
+        sorted.sort_by(|left, right| {
+            (&left.resource, &left.path, left.issue).cmp(&(
+                &right.resource,
+                &right.path,
+                right.issue,
+            ))
+        });
+        assert_eq!(issues, sorted);
     }
 }
