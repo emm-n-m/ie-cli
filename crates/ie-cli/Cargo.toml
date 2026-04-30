@@ -1,0 +1,13 @@
+[package]
+name = "iecli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+clap.workspace = true
+ie-core = { path = "../ie-core" }
+ie-formats = { path = "../ie-formats" }
+ie-io = { path = "../ie-io" }
+serde_json.workspace = true

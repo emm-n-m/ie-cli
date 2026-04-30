@@ -1,0 +1,14 @@
+NearInfinity.jar
+jar/NearInfinity.jar
+*.class
+/bin
+/build
+/target
+/.idea
+/.settings
+.vscode/launch.json
+docs/TESTING.md
+docs/LOCAL_GAME_PATHS.md
+.claude/.claude/settings.local.json
+# Local-only golden files (contain game data, must not be committed)
+tests/golden/

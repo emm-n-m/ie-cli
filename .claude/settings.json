@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python c:/tmp/walk_describe.py)",
+      "Edit(/.claude/skills/explore-dungeon/**)",
+      "Bash(cargo install *)",
+      "Bash(iecli --help)"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+[package]
+name = "ie-io"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+flate2.workspace = true
+ie-core = { path = "../ie-core" }
+thiserror.workspace = true
