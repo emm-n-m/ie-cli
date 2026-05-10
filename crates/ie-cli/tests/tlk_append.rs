@@ -106,7 +106,7 @@ fn tlk_append_default_updates_dialog_tlk_in_place() {
 fn tlk_append_rejects_malformed_tlk_without_writing_copy() {
     let fixture = TestInstallation::new(
         "cli-tlk-append-malformed",
-        build_tlk_with_invalid_string_pointer(),
+        build_tlk_with_invalid_text_length(),
     );
     let output = fixture.root().join("dialog-patched.tlk");
 
@@ -130,6 +130,37 @@ fn tlk_append_rejects_malformed_tlk_without_writing_copy() {
     assert!(
         !output.exists(),
         "failed append must not leave a patched TLK copy"
+    );
+}
+
+#[test]
+fn tlk_append_rejects_malformed_tlk_without_overwriting_input() {
+    let corrupted_tlk = build_tlk_with_invalid_text_length();
+    let fixture = TestInstallation::new("cli-tlk-append-malformed-in-place", corrupted_tlk.clone());
+    let input = fixture.root().join("dialog.tlk");
+
+    let result = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("tlk-append")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--text")
+        .arg("Should not overwrite")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        !result.status.success(),
+        "malformed in-place TLK append should fail"
+    );
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    assert!(
+        stderr.contains("string points outside the file"),
+        "unexpected stderr: {stderr}"
+    );
+    assert_eq!(
+        fs::read(input).expect("dialog.tlk should still exist"),
+        corrupted_tlk,
+        "failed in-place append must leave the original TLK bytes untouched"
     );
 }
 
@@ -236,7 +267,7 @@ fn build_tlk(entries: &[&str]) -> Vec<u8> {
     bytes
 }
 
-fn build_tlk_with_invalid_string_pointer() -> Vec<u8> {
+fn build_tlk_with_invalid_text_length() -> Vec<u8> {
     let mut bytes = build_tlk(&["Existing"]);
     let offset_of_first_entry_text_length = 18 + 22;
     bytes[offset_of_first_entry_text_length..offset_of_first_entry_text_length + 4]
