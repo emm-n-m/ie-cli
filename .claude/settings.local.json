@@ -1,8 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cargo run:*)",
-      "Bash(./target/debug/iecli.exe locate:*)"
-    ]
-  }
-}
