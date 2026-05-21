@@ -27,16 +27,15 @@ pub struct BcsTriggerJson {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct BcsActionJson {
-    pub leading: i32,
     pub opcode: i32,
     pub name: Option<String>,
-    pub int_args: [i32; 4],
+    pub int_args: [i32; 3],
     pub string_args: [String; 2],
     pub objects: [BcsObjectJson; 3],
-    pub point: Option<BcsPointJson>,
+    pub point: BcsPointJson,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BcsPointJson {
     pub x: i32,
     pub y: i32,
@@ -251,7 +250,7 @@ impl<'a> ParserState<'a> {
     fn parse_ac(&mut self) -> Result<BcsActionJson, BcsParseError> {
         self.expect_tag(Tag::Ac)?;
 
-        let leading = self.expect_int()?;
+        let opcode = self.expect_int()?;
 
         self.expect_tag(Tag::Ob)?;
         let object_1 = self.parse_object()?;
@@ -265,34 +264,23 @@ impl<'a> ParserState<'a> {
         let object_3 = self.parse_object()?;
         self.expect_tag(Tag::Ob)?;
 
-        let opcode = self.expect_int()?;
-        let int_args = [
-            self.expect_int()?,
-            self.expect_int()?,
-            self.expect_int()?,
-            self.expect_int()?,
-        ];
+        let int1 = self.expect_int()?;
+        let x = self.expect_int()?;
+        let y = self.expect_int()?;
+        let int2 = self.expect_int()?;
+        let int3 = self.expect_int()?;
         let string_args = [self.expect_string()?, self.expect_string()?];
-        let point = if self.next_is_int() {
-            Some(BcsPointJson {
-                x: self.expect_int()?,
-                y: self.expect_int()?,
-            })
-        } else {
-            None
-        };
         self.expect_tag(Tag::Ac)?;
 
         Ok(BcsActionJson {
-            leading,
             opcode,
             name: self
                 .resolver
-                .and_then(|resolver| resolver.resolve_action(leading)),
-            int_args,
+                .and_then(|resolver| resolver.resolve_action(opcode)),
+            int_args: [int1, int2, int3],
             string_args,
             objects: [object_1, object_2, object_3],
-            point,
+            point: BcsPointJson { x, y },
         })
     }
 
@@ -382,13 +370,6 @@ impl<'a> ParserState<'a> {
         matches!(
             self.tokens.get(self.index).map(|token| &token.kind),
             Some(TokenKind::Tag(actual)) if *actual == expected
-        )
-    }
-
-    fn next_is_int(&self) -> bool {
-        matches!(
-            self.tokens.get(self.index).map(|token| &token.kind),
-            Some(TokenKind::Int(_))
         )
     }
 
@@ -717,7 +698,7 @@ OB
 0 0 0 0 0 0 0 0 0 0 0 0 ""OB
 OB
 0 0 0 0 0 0 0 0 0 0 0 0 ""OB
-6 0 0 0 0 "" "" 0 0 AC
+6 0 0 0 0 "" "" AC
 RE
 RE
 50AC
@@ -769,27 +750,29 @@ SC"#;
         let response_0 = &block.responses[0];
         assert_eq!(response_0.weight, 100);
         assert_eq!(response_0.actions.len(), 2);
-        assert_eq!(response_0.actions[0].leading, 30);
+        assert_eq!(response_0.actions[0].opcode, 30);
         assert_eq!(response_0.actions[0].name.as_deref(), Some("SetGlobal"));
         assert_eq!(response_0.actions[0].objects[2].name.as_deref(), Some("DV"));
         assert_eq!(
             response_0.actions[0].objects[2].decoded.extra_targets,
             Some([1, 2, 3, 4])
         );
-        assert!(response_0.actions[0].point.is_none());
-        assert_eq!(response_0.actions[1].leading, 40);
+        assert_eq!(response_0.actions[0].int_args, [5, 9, 10]);
+        assert_eq!(response_0.actions[0].point, BcsPointJson { x: 7, y: 8 });
+        assert_eq!(response_0.actions[1].opcode, 40);
         assert_eq!(
             response_0.actions[1].name.as_deref(),
             Some("DisplayStringHead")
         );
-        assert_eq!(response_0.actions[1].point.as_ref().map(|p| p.x), Some(0));
-        assert_eq!(response_0.actions[1].point.as_ref().map(|p| p.y), Some(0));
+        assert_eq!(response_0.actions[1].int_args, [6, 0, 0]);
+        assert_eq!(response_0.actions[1].point, BcsPointJson { x: 0, y: 0 });
 
         let response_1 = &block.responses[1];
         assert_eq!(response_1.weight, 50);
-        assert_eq!(response_1.actions[0].leading, 60);
+        assert_eq!(response_1.actions[0].opcode, 60);
         assert_eq!(response_1.actions[0].name.as_deref(), Some("GiveItem"));
-        assert!(response_1.actions[0].point.is_none());
+        assert_eq!(response_1.actions[0].int_args, [6, 0, 0]);
+        assert_eq!(response_1.actions[0].point, BcsPointJson { x: 0, y: 0 });
     }
 
     #[test]
@@ -801,8 +784,25 @@ SC"#;
         assert!(block.triggers[0].name.is_none());
         assert!(block.responses[0].actions[0].name.is_none());
         assert!(block.triggers[0].object.decoded.identifier.is_none());
-        assert_eq!(block.responses[0].actions[0].leading, 30);
-        assert!(block.responses[0].actions[0].point.is_none());
+        assert_eq!(block.responses[0].actions[0].opcode, 30);
+        assert_eq!(
+            block.responses[0].actions[0].point,
+            BcsPointJson { x: 0, y: 0 }
+        );
+    }
+
+    #[test]
+    fn maps_action_trailer_to_int_args_point_and_strings() {
+        let bytes = br#"SC CR CO TR 1 0 0 0 0 "" "" OB 0 0 0 0 0 0 0 0 0 0 0 0 "" OB TR CO RS RE 1 AC 30 OB 0 0 0 0 0 0 0 0 0 0 0 0 "" OB OB 0 0 0 0 0 0 0 0 0 0 0 0 "" OB OB 0 0 0 0 0 0 0 0 0 0 0 0 "" OB 111 222 333 444 555 "A" "B" AC RE RS CR SC"#;
+
+        let bcs = parse_bcs(bytes, "TRAILER.BCS", Some(&TestResolver)).expect("BCS should parse");
+        let action = &bcs.blocks[0].responses[0].actions[0];
+
+        assert_eq!(action.opcode, 30);
+        assert_eq!(action.name.as_deref(), Some("SetGlobal"));
+        assert_eq!(action.int_args, [111, 444, 555]);
+        assert_eq!(action.point, BcsPointJson { x: 222, y: 333 });
+        assert_eq!(action.string_args, ["A".to_string(), "B".to_string()]);
     }
 
     #[test]
