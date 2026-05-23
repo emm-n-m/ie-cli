@@ -9,7 +9,8 @@
       "Bash(iecli dump *)",
       "Bash(python3 -c ' *)",
       "Bash(git check-ignore *)",
-      "Bash(git rev-list *)"
+      "Bash(git rev-list *)",
+      "Bash(python3 .claude/skills/trace-quest-timer/trace_timer.py --game 'C:/Program Files \\(x86\\)/Steam/steamapps/common/Baldur'\\\\''s Gate II Enhanced Edition' --prefix DORN)"
     ]
   }
 }
