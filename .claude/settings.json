@@ -6,7 +6,10 @@
       "Bash(cargo install *)",
       "Bash(iecli --help)",
       "Bash(iecli locate *)",
-      "Bash(iecli dump *)"
+      "Bash(iecli dump *)",
+      "Bash(python3 -c ' *)",
+      "Bash(git check-ignore *)",
+      "Bash(git rev-list *)"
     ]
   }
 }

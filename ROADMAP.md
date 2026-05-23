@@ -151,6 +151,7 @@ Current RC slice delivered:
 - In-place append by default, or copy output through `--tlk-out`.
 - Optional `--output-strref-to` file for scripting follow-up commands.
 - Synthetic TLK regression tests for in-place append, copy output, and malformed table rejection.
+- CLI regression coverage for default in-place append, copy output plus strref file, malformed TLK rejection without writing a patched copy, and missing `dialog.tlk` errors.
 
 **Acceptance criteria:**
 

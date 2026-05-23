@@ -227,9 +227,7 @@ fn parse_states(
             let trigger_index_raw = parse_u32(bytes, position + 0x0C)?;
 
             let trigger_index = optional_index(trigger_index_raw);
-            let trigger_text = trigger_index
-                .and_then(|idx| state_triggers.get(idx as usize))
-                .map(|script| script.text.clone());
+            let trigger_text = script_text_at(trigger_index, state_triggers);
 
             let state_transitions = slice_transitions(
                 transitions,
@@ -328,18 +326,14 @@ fn parse_transitions(
             } else {
                 None
             };
-            let trigger_text = trigger_index
-                .and_then(|idx| transition_triggers.get(idx as usize))
-                .map(|script| script.text.clone());
+            let trigger_text = script_text_at(trigger_index, transition_triggers);
 
             let action_index = if has_action {
                 optional_index(action_index_raw)
             } else {
                 None
             };
-            let action_text = action_index
-                .and_then(|idx| actions.get(idx as usize))
-                .map(|script| script.text.clone());
+            let action_text = script_text_at(action_index, actions);
 
             let next_state_index = if terminates_dialog {
                 None
@@ -457,6 +451,12 @@ where
 
 fn optional_index(value: u32) -> Option<u32> {
     if value == u32::MAX { None } else { Some(value) }
+}
+
+fn script_text_at(index: Option<u32>, scripts: &[DialogScriptJson]) -> Option<String> {
+    index
+        .and_then(|idx| scripts.get(idx as usize))
+        .map(|script| script.text.clone())
 }
 
 fn parse_resref_option(
@@ -719,6 +719,20 @@ mod tests {
         assert_eq!(dlg.state_triggers.len(), 1);
         assert_eq!(dlg.transition_triggers.len(), 1);
         assert_eq!(dlg.actions.len(), 1);
+
+        let json = serde_json::to_value(&dlg).expect("DLG JSON should serialize");
+        assert_eq!(
+            json["states"][0]["trigger_text"],
+            "CheckStatGT(Myself,12,STR)"
+        );
+        assert_eq!(
+            json["states"][0]["transitions"][0]["trigger_text"],
+            "Global(\"X\",\"GLOBAL\",0)"
+        );
+        assert_eq!(
+            json["states"][1]["transitions"][0]["action_text"],
+            "SetGlobal(\"X\",\"GLOBAL\",1)"
+        );
     }
 
     #[test]
