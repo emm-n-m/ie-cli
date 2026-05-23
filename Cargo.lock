@@ -148,6 +148,7 @@ dependencies = [
 name = "ie-formats"
 version = "0.1.0-rc.1"
 dependencies = [
+ "flate2",
  "ie-core",
  "serde",
  "serde_json",
@@ -168,6 +169,7 @@ name = "iecli"
 version = "0.1.0-rc.1"
 dependencies = [
  "clap",
+ "flate2",
  "ie-core",
  "ie-formats",
  "ie-io",

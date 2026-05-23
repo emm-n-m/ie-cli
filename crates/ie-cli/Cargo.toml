@@ -11,3 +11,6 @@ ie-core = { path = "../ie-core" }
 ie-formats = { path = "../ie-formats" }
 ie-io = { path = "../ie-io" }
 serde_json.workspace = true
+
+[dev-dependencies]
+flate2.workspace = true

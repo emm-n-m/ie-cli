@@ -82,6 +82,38 @@ pub struct ListedResource {
     pub source_path: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SaveDirectory {
+    pub kind: SaveDirectoryKind,
+    pub path: PathBuf,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SaveDirectoryKind {
+    Save,
+    MultiplayerSave,
+}
+
+impl SaveDirectoryKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Save => "save",
+            Self::MultiplayerSave => "mpsave",
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ListedSave {
+    pub folder_name: String,
+    pub display_name: String,
+    pub path: PathBuf,
+    pub save_dir_kind: SaveDirectoryKind,
+    pub has_gam: bool,
+    pub has_sav: bool,
+    pub portraits: Vec<PathBuf>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ResourceListOptions {
     pub resource_type: Option<String>,
@@ -264,6 +296,143 @@ impl ResourceLocator {
     pub fn key_file(&self) -> &KeyFile {
         &self.key_file
     }
+}
+
+pub fn discover_save_directories(
+    installation: &GameInstallation,
+    explicit_saves_dir: Option<&Path>,
+) -> Vec<SaveDirectory> {
+    let mut dirs = Vec::new();
+
+    if let Some(path) = explicit_saves_dir {
+        push_save_dir_candidate(&mut dirs, path.to_path_buf(), SaveDirectoryKind::Save);
+        push_save_dir_candidate(
+            &mut dirs,
+            path.join("mpsave"),
+            SaveDirectoryKind::MultiplayerSave,
+        );
+        return dirs;
+    }
+
+    push_save_dir_candidate(
+        &mut dirs,
+        installation.root.join("save"),
+        SaveDirectoryKind::Save,
+    );
+    push_save_dir_candidate(
+        &mut dirs,
+        installation.root.join("mpsave"),
+        SaveDirectoryKind::MultiplayerSave,
+    );
+
+    for base in user_document_dirs() {
+        for game_folder in candidate_documents_game_folders(&installation.root) {
+            push_save_dir_candidate(
+                &mut dirs,
+                base.join(&game_folder).join("save"),
+                SaveDirectoryKind::Save,
+            );
+            push_save_dir_candidate(
+                &mut dirs,
+                base.join(&game_folder).join("mpsave"),
+                SaveDirectoryKind::MultiplayerSave,
+            );
+        }
+    }
+
+    dirs.sort_by(|left, right| {
+        (
+            left.path.to_string_lossy().to_ascii_lowercase(),
+            left.kind.as_str(),
+        )
+            .cmp(&(
+                right.path.to_string_lossy().to_ascii_lowercase(),
+                right.kind.as_str(),
+            ))
+    });
+    dirs.dedup_by(|left, right| left.path == right.path && left.kind == right.kind);
+    dirs
+}
+
+pub fn list_saves(
+    installation: &GameInstallation,
+    explicit_saves_dir: Option<&Path>,
+) -> Result<Vec<ListedSave>, IoError> {
+    let mut saves = Vec::new();
+    for save_dir in discover_save_directories(installation, explicit_saves_dir) {
+        let mut entries = fs::read_dir(&save_dir.path)
+            .map_err(IoError::FileIo)?
+            .filter_map(|entry| entry.ok())
+            .filter(|entry| entry.path().is_dir())
+            .collect::<Vec<_>>();
+        entries.sort_by_key(|entry| entry.file_name().to_string_lossy().to_ascii_lowercase());
+
+        for entry in entries {
+            let path = entry.path();
+            let folder_name = entry.file_name().to_string_lossy().to_string();
+            let has_gam = resolve_child_file_case_insensitive(&path, "BALDUR.gam").is_some();
+            let has_sav = resolve_child_file_case_insensitive(&path, "BALDUR.SAV").is_some();
+            if !has_gam && !has_sav {
+                continue;
+            }
+
+            saves.push(ListedSave {
+                display_name: save_display_name(&folder_name),
+                folder_name,
+                path: path.clone(),
+                save_dir_kind: save_dir.kind,
+                has_gam,
+                has_sav,
+                portraits: list_save_portraits(&path)?,
+            });
+        }
+    }
+
+    saves.sort_by(|left, right| {
+        (
+            left.save_dir_kind.as_str(),
+            left.folder_name.to_ascii_lowercase(),
+            left.path.to_string_lossy().to_ascii_lowercase(),
+        )
+            .cmp(&(
+                right.save_dir_kind.as_str(),
+                right.folder_name.to_ascii_lowercase(),
+                right.path.to_string_lossy().to_ascii_lowercase(),
+            ))
+    });
+    Ok(saves)
+}
+
+pub fn resolve_save_folder(
+    installation: &GameInstallation,
+    explicit_saves_dir: Option<&Path>,
+    selector: &str,
+) -> Result<ListedSave, IoError> {
+    let selector_path = Path::new(selector);
+    if selector_path.is_dir() {
+        return listed_save_from_path(selector_path, SaveDirectoryKind::Save);
+    }
+
+    let selector_lower = selector.to_ascii_lowercase();
+    let saves = list_saves(installation, explicit_saves_dir)?;
+    saves
+        .into_iter()
+        .find(|save| {
+            save.folder_name.eq_ignore_ascii_case(selector)
+                || save.display_name.eq_ignore_ascii_case(selector)
+                || save.path.to_string_lossy().to_ascii_lowercase() == selector_lower
+        })
+        .ok_or_else(|| IoError::SaveNotFound(selector.to_string()))
+}
+
+pub fn read_save_member(save: &ListedSave, file_name: &str) -> Result<Vec<u8>, IoError> {
+    let path = resolve_child_file_case_insensitive(&save.path, file_name).ok_or_else(|| {
+        IoError::SaveMemberNotFound {
+            save: save.path.clone(),
+            member: file_name.to_string(),
+        }
+    })?;
+    fs::read(path).map_err(IoError::FileIo)
 }
 
 #[derive(Debug, Default)]
@@ -885,6 +1054,133 @@ fn resolve_child_dir_case_insensitive(parent: &Path, child_name: &str) -> Option
     matches.into_iter().next()
 }
 
+fn resolve_child_file_case_insensitive(parent: &Path, child_name: &str) -> Option<PathBuf> {
+    let direct = parent.join(child_name);
+    if direct.is_file() {
+        return Some(direct);
+    }
+
+    let mut matches = fs::read_dir(parent)
+        .ok()?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_file())
+        .filter_map(|entry| {
+            let candidate = entry.file_name().to_string_lossy().to_string();
+            candidate
+                .eq_ignore_ascii_case(child_name)
+                .then(|| entry.path())
+        })
+        .collect::<Vec<_>>();
+    matches.sort();
+    matches.into_iter().next()
+}
+
+fn push_save_dir_candidate(
+    dirs: &mut Vec<SaveDirectory>,
+    path: PathBuf,
+    kind: SaveDirectoryKind,
+) {
+    if path.is_dir() {
+        dirs.push(SaveDirectory { kind, path });
+    }
+}
+
+fn user_document_dirs() -> Vec<PathBuf> {
+    let mut dirs = Vec::new();
+    for env_name in ["USERPROFILE", "HOME", "OneDrive", "OneDriveConsumer"] {
+        if let Some(base) = std::env::var_os(env_name) {
+            let base = PathBuf::from(base);
+            push_existing_path(&mut dirs, base.join("Documents"));
+            push_existing_path(&mut dirs, base.join("My Documents"));
+            push_existing_path(&mut dirs, base.join("Έγγραφα"));
+        }
+    }
+    dirs.sort();
+    dirs.dedup();
+    dirs
+}
+
+fn push_existing_path(paths: &mut Vec<PathBuf>, path: PathBuf) {
+    if path.is_dir() {
+        paths.push(path);
+    }
+}
+
+fn candidate_documents_game_folders(root: &Path) -> Vec<String> {
+    let mut names = Vec::new();
+    if let Some(root_name) = root.file_name().and_then(|name| name.to_str()) {
+        names.push(root_name.to_string());
+        match root_name.to_ascii_lowercase().as_str() {
+            "baldur's gate enhanced edition" | "baldur's gate - enhanced edition" => {
+                names.push("Baldur's Gate - Enhanced Edition".to_string());
+            }
+            "baldur's gate ii enhanced edition" | "baldur's gate ii - enhanced edition" => {
+                names.push("Baldur's Gate II - Enhanced Edition".to_string());
+            }
+            "icewind dale enhanced edition" | "icewind dale - enhanced edition" => {
+                names.push("Icewind Dale - Enhanced Edition".to_string());
+            }
+            "planescape torment enhanced edition" | "planescape torment - enhanced edition" => {
+                names.push("Planescape Torment - Enhanced Edition".to_string());
+            }
+            _ => {}
+        }
+    }
+
+    names.sort_by_key(|name| name.to_ascii_lowercase());
+    names.dedup_by(|left, right| left.eq_ignore_ascii_case(right));
+    names
+}
+
+fn save_display_name(folder_name: &str) -> String {
+    match folder_name.split_once('-') {
+        Some((prefix, name))
+            if !name.trim().is_empty() && prefix.chars().all(|ch| ch.is_ascii_digit()) =>
+        {
+            name.trim().to_string()
+        }
+        _ => folder_name.to_string(),
+    }
+}
+
+fn listed_save_from_path(path: &Path, kind: SaveDirectoryKind) -> Result<ListedSave, IoError> {
+    let folder_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| IoError::InvalidSavePath(path.to_path_buf()))?
+        .to_string();
+    let has_gam = resolve_child_file_case_insensitive(path, "BALDUR.gam").is_some();
+    let has_sav = resolve_child_file_case_insensitive(path, "BALDUR.SAV").is_some();
+    if !has_gam && !has_sav {
+        return Err(IoError::InvalidSavePath(path.to_path_buf()));
+    }
+
+    Ok(ListedSave {
+        display_name: save_display_name(&folder_name),
+        folder_name,
+        path: path.to_path_buf(),
+        save_dir_kind: kind,
+        has_gam,
+        has_sav,
+        portraits: list_save_portraits(path)?,
+    })
+}
+
+fn list_save_portraits(path: &Path) -> Result<Vec<PathBuf>, IoError> {
+    let mut portraits = fs::read_dir(path)
+        .map_err(IoError::FileIo)?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.path().is_file())
+        .filter(|entry| {
+            let file_name = entry.file_name().to_string_lossy().to_ascii_lowercase();
+            file_name.starts_with("portrt") && file_name.ends_with(".bmp")
+        })
+        .map(|entry| entry.path())
+        .collect::<Vec<_>>();
+    portraits.sort();
+    Ok(portraits)
+}
+
 fn resolve_biff_path(installation: &GameInstallation, relative_path: &str) -> Option<PathBuf> {
     let candidates = [
         installation.root.join(relative_path),
@@ -991,6 +1287,12 @@ pub enum IoError {
         resource: String,
         source_name: String,
     },
+    #[error("save not found: {0}")]
+    SaveNotFound(String),
+    #[error("save folder is invalid or contains no BALDUR.gam/BALDUR.SAV: {0}")]
+    InvalidSavePath(PathBuf),
+    #[error("save member {member} not found in {save}")]
+    SaveMemberNotFound { save: PathBuf, member: String },
     #[error("dialog.tlk not found for installation: {0}")]
     DialogTlkNotFound(PathBuf),
     #[error("strref {requested} is out of range for TLK with {entry_count} entries")]

@@ -3,6 +3,7 @@ mod bcs;
 mod cre;
 mod dlg;
 mod itm;
+mod save;
 mod spl;
 mod sto;
 mod verify;
@@ -14,6 +15,7 @@ use thiserror::Error;
 pub use are::{AreaJson, parse_are};
 pub use are::{AreaScalarPatch, patch_are_scalars};
 pub use cre::{CreatureScalarPatch, patch_cre_scalars};
+pub use save::{GameStateJson, SaveArchiveJson, parse_gam, parse_sav};
 pub use verify::{
     AreaSource, AreaSourceEntry, AreaSourceError, EntranceRegistry, VerifyCategory, VerifyIssue,
     VerifyOptions, VerifySeverity, build_entrance_registry, filter_issues, verify_are,

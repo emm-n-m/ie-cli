@@ -5,12 +5,13 @@ use ie_core::{
 };
 use ie_formats::{
     AreaJson, AreaScalarPatch, CreatureScalarPatch, EntranceRegistry, VerifyCategory, VerifyIssue,
-    VerifyOptions, VerifySeverity, decode_to_json, filter_issues, parse_are, patch_are_scalars,
-    patch_cre_scalars, verify_are,
+    VerifyOptions, VerifySeverity, decode_to_json, filter_issues, parse_are, parse_gam, parse_sav,
+    patch_are_scalars, patch_cre_scalars, verify_are,
 };
 use ie_io::{
-    FileBackedIdsResolver, GameInstallation, ListedResource, ResourceListOptions, ResourceLocator,
-    ResourceReader, ResourceSource, TlkResolver, append_tlk_string,
+    FileBackedIdsResolver, GameInstallation, ListedResource, ListedSave, ResourceListOptions,
+    ResourceLocator, ResourceReader, ResourceSource, TlkResolver, append_tlk_string, list_saves,
+    read_save_member, resolve_save_folder,
 };
 use std::fs;
 use std::path::PathBuf;
@@ -34,6 +35,8 @@ enum Command {
     Tlk(TlkArgs),
     TlkAppend(TlkAppendArgs),
     Verify(VerifyArgs),
+    SaveList(SaveListArgs),
+    SaveInfo(SaveInfoArgs),
 }
 
 #[derive(Debug, Args)]
@@ -104,6 +107,30 @@ struct VerifyArgs {
     max_issues: Option<usize>,
 }
 
+#[derive(Debug, Args)]
+struct SaveListArgs {
+    #[arg(long)]
+    game: PathBuf,
+    #[arg(long)]
+    saves_dir: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = ListFormat::Text)]
+    format: ListFormat,
+}
+
+#[derive(Debug, Args)]
+struct SaveInfoArgs {
+    #[arg(long)]
+    game: PathBuf,
+    #[arg(long)]
+    save: String,
+    #[arg(long)]
+    saves_dir: Option<PathBuf>,
+    #[arg(long, value_enum, default_value_t = SaveInfoPart::All)]
+    part: SaveInfoPart,
+    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
+    format: OutputFormat,
+}
+
 #[derive(Debug, Args, Default)]
 struct SourceArgs {
     #[arg(long, value_enum)]
@@ -137,6 +164,13 @@ enum ListFormat {
 enum VerifyFormat {
     Text,
     Json,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum SaveInfoPart {
+    All,
+    Gam,
+    Sav,
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -425,6 +459,79 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+        Command::SaveList(args) => {
+            let installation = GameInstallation::discover(args.game)?;
+            let saves = list_saves(&installation, args.saves_dir.as_deref())?;
+
+            match args.format {
+                ListFormat::Text => {
+                    for save in saves {
+                        println!(
+                            "{}\t{}\t{}",
+                            save.save_dir_kind.as_str(),
+                            save.folder_name,
+                            save.path.display()
+                        );
+                    }
+                }
+                ListFormat::Json => {
+                    let payload = saves.iter().map(listed_save_json).collect::<Vec<_>>();
+                    println!("{}", serde_json::to_string_pretty(&payload)?);
+                }
+            }
+        }
+        Command::SaveInfo(args) => {
+            let installation = GameInstallation::discover(args.game)?;
+            let save = resolve_save_folder(&installation, args.saves_dir.as_deref(), &args.save)?;
+            let tlk_resolver = installation
+                .dialog_tlk
+                .as_ref()
+                .map(|_| TlkResolver::new(&installation))
+                .transpose()?;
+
+            match args.format {
+                OutputFormat::Json => {
+                    let value = match args.part {
+                        SaveInfoPart::All => {
+                            let gam = if save.has_gam {
+                                let bytes = read_save_member(&save, "BALDUR.gam")?;
+                                Some(serde_json::to_value(parse_gam(
+                                    &bytes,
+                                    "BALDUR.GAM",
+                                    tlk_resolver.as_ref().map(|resolver| resolver as _),
+                                )?)?)
+                            } else {
+                                None
+                            };
+                            let sav = if save.has_sav {
+                                let bytes = read_save_member(&save, "BALDUR.SAV")?;
+                                Some(serde_json::to_value(parse_sav(&bytes, "BALDUR.SAV")?)?)
+                            } else {
+                                None
+                            };
+                            serde_json::json!({
+                                "save": listed_save_json(&save),
+                                "gam": gam,
+                                "sav": sav,
+                            })
+                        }
+                        SaveInfoPart::Gam => {
+                            let bytes = read_save_member(&save, "BALDUR.gam")?;
+                            serde_json::to_value(parse_gam(
+                                &bytes,
+                                "BALDUR.GAM",
+                                tlk_resolver.as_ref().map(|resolver| resolver as _),
+                            )?)?
+                        }
+                        SaveInfoPart::Sav => {
+                            let bytes = read_save_member(&save, "BALDUR.SAV")?;
+                            serde_json::to_value(parse_sav(&bytes, "BALDUR.SAV")?)?
+                        }
+                    };
+                    println!("{}", serde_json::to_string_pretty(&value)?);
+                }
+            }
+        }
     }
 
     Ok(())
@@ -647,6 +754,18 @@ fn listed_resource_json(resource: &ListedResource) -> serde_json::Value {
         "resource_name": resource.resource_name,
         "source_kind": resource.source_kind.as_str(),
         "source_path": resource.source_path,
+    })
+}
+
+fn listed_save_json(save: &ListedSave) -> serde_json::Value {
+    serde_json::json!({
+        "folder_name": save.folder_name,
+        "display_name": save.display_name,
+        "save_dir_kind": save.save_dir_kind.as_str(),
+        "path": save.path,
+        "has_gam": save.has_gam,
+        "has_sav": save.has_sav,
+        "portraits": save.portraits,
     })
 }
 

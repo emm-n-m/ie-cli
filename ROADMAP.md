@@ -43,6 +43,7 @@ Current as of 2026-04-25.
 - Env-gated CLI smoke coverage for `BCS` and PSTEE `ARE`.
 - Initial CRE scalar patch support for fixed-offset fields, with byte-exact copy-only behavior.
 - Initial ARE region patch support for `regions.<selector>.destination_entrance` and `regions.<selector>.destination_area`, addressed by region name or 0-based index, byte-exact copy-only behavior.
+- Save inspection: `save-list` (folder discovery across install root + user Documents) and `save-info` (`GAM` v2.0/2.1/2.2 header/party/globals decode, `SAV` zlib container manifest). Validated against real BG2EE saves; see [docs/SAVE_SUPPORT_TODO.md](./docs/SAVE_SUPPORT_TODO.md).
 
 ### Validated in real-world use
 
@@ -53,6 +54,7 @@ Current as of 2026-04-25.
 ### Not started
 
 - `ARE`, `WED`, `TIS`, `BAM`, `MOS`, `2DA`.
+- Save support for PSTEE (`GAM` v1.1) and an env-gated real-install save test — BG-family (`GAM` v2.0/2.1/2.2 + `SAV`) is done; see [docs/SAVE_SUPPORT_TODO.md](./docs/SAVE_SUPPORT_TODO.md).
 - Write support at any tier (see below).
 - JSON golden/snapshot tests for any decoded format.
 - Cross-game validation beyond BG2EE (BGEE, PSTEE, IWDEE).

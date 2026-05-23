@@ -577,9 +577,9 @@ mod tests {
         let offset_states: u32 = DLG_HEADER_WITH_FLAGS as u32;
         let offset_transitions = offset_states + (2 * DLG_STATE_SIZE as u32);
         let offset_state_triggers = offset_transitions + (3 * DLG_TRANSITION_SIZE as u32);
-        let offset_transition_triggers = offset_state_triggers + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
-        let offset_actions = offset_transition_triggers + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
-        let offset_strings = offset_actions + (1 * DLG_SCRIPT_ENTRY_SIZE as u32);
+        let offset_transition_triggers = offset_state_triggers + DLG_SCRIPT_ENTRY_SIZE as u32;
+        let offset_actions = offset_transition_triggers + DLG_SCRIPT_ENTRY_SIZE as u32;
+        let offset_strings = offset_actions + DLG_SCRIPT_ENTRY_SIZE as u32;
 
         let state_trigger_offset = offset_strings;
         let transition_trigger_offset = state_trigger_offset + state_trigger_text.len() as u32;
