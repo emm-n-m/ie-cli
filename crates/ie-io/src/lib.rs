@@ -613,9 +613,11 @@ impl TlkResolver {
         }
 
         let entry_offset = 18usize
-            .checked_add(strref.checked_mul(26).ok_or_else(|| {
-                IoError::InvalidTlk("TLK entry offset overflow".to_string())
-            })?)
+            .checked_add(
+                strref
+                    .checked_mul(26)
+                    .ok_or_else(|| IoError::InvalidTlk("TLK entry offset overflow".to_string()))?,
+            )
             .ok_or_else(|| IoError::InvalidTlk("TLK entry offset overflow".to_string()))?;
         let entry_end = entry_offset
             .checked_add(26)
@@ -741,13 +743,12 @@ fn parse_tlk_header(bytes: &[u8]) -> Result<TlkHeader, IoError> {
 
     let entry_count = read_u32_le(bytes, 10)? as usize;
     let strings_offset = read_u32_le(bytes, 14)? as usize;
-    let table_end = 18usize
-        .checked_add(
-            entry_count
-                .checked_mul(26)
-                .ok_or_else(|| IoError::InvalidTlk("TLK entry table offset overflow".to_string()))?,
-        )
-        .ok_or_else(|| IoError::InvalidTlk("TLK entry table offset overflow".to_string()))?;
+    let table_end =
+        18usize
+            .checked_add(entry_count.checked_mul(26).ok_or_else(|| {
+                IoError::InvalidTlk("TLK entry table offset overflow".to_string())
+            })?)
+            .ok_or_else(|| IoError::InvalidTlk("TLK entry table offset overflow".to_string()))?;
 
     if table_end > bytes.len() || strings_offset > bytes.len() {
         return Err(IoError::InvalidTlk("truncated TLK entry table".to_string()));
@@ -777,9 +778,11 @@ fn build_tlk_text_entry(relative_text_offset: u32, text_length: u32) -> [u8; 26]
 fn validate_tlk_entries(bytes: &[u8], header: TlkHeader) -> Result<(), IoError> {
     for index in 0..header.entry_count {
         let entry_offset = 18usize
-            .checked_add(index.checked_mul(26).ok_or_else(|| {
-                IoError::InvalidTlk("TLK entry offset overflow".to_string())
-            })?)
+            .checked_add(
+                index
+                    .checked_mul(26)
+                    .ok_or_else(|| IoError::InvalidTlk("TLK entry offset overflow".to_string()))?,
+            )
             .ok_or_else(|| IoError::InvalidTlk("TLK entry offset overflow".to_string()))?;
         let relative_text_offset = read_u32_le(bytes, entry_offset + 18)? as usize;
         let text_length = read_u32_le(bytes, entry_offset + 22)? as usize;
@@ -836,11 +839,12 @@ impl KeyFile {
 
         let mut biffs = Vec::with_capacity(bif_count);
         for index in 0..bif_count {
-            let entry_offset = bif_offset
-                .checked_add(index.checked_mul(12).ok_or_else(|| {
-                    IoError::InvalidKey("BIFF table offset overflow".to_string())
-                })?)
-                .ok_or_else(|| IoError::InvalidKey("BIFF table offset overflow".to_string()))?;
+            let entry_offset =
+                bif_offset
+                    .checked_add(index.checked_mul(12).ok_or_else(|| {
+                        IoError::InvalidKey("BIFF table offset overflow".to_string())
+                    })?)
+                    .ok_or_else(|| IoError::InvalidKey("BIFF table offset overflow".to_string()))?;
             let entry_end = entry_offset
                 .checked_add(12)
                 .ok_or_else(|| IoError::InvalidKey("BIFF table offset overflow".to_string()))?;
@@ -862,8 +866,7 @@ impl KeyFile {
             }
 
             let mut relative_path =
-                String::from_utf8_lossy(&bytes[string_offset..(string_end - 1)])
-                    .to_string();
+                String::from_utf8_lossy(&bytes[string_offset..(string_end - 1)]).to_string();
             if relative_path.starts_with('\\') || relative_path.starts_with('/') {
                 relative_path.remove(0);
             }
@@ -1018,12 +1021,11 @@ fn discover_dialog_tlk(root: &Path) -> Result<DialogTlkDiscovery, IoError> {
 fn discover_override_dirs(root: &Path, language_dir: Option<&Path>) -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 
-    if let Some(language_dir) = language_dir {
-        if let Some(language_override) =
+    if let Some(language_dir) = language_dir
+        && let Some(language_override) =
             resolve_child_dir_case_insensitive(language_dir, "override")
-        {
-            dirs.push(language_override);
-        }
+    {
+        dirs.push(language_override);
     }
 
     if let Some(root_override) = resolve_child_dir_case_insensitive(root, "override") {
@@ -1075,11 +1077,7 @@ fn resolve_child_file_case_insensitive(parent: &Path, child_name: &str) -> Optio
     matches.into_iter().next()
 }
 
-fn push_save_dir_candidate(
-    dirs: &mut Vec<SaveDirectory>,
-    path: PathBuf,
-    kind: SaveDirectoryKind,
-) {
+fn push_save_dir_candidate(dirs: &mut Vec<SaveDirectory>, path: PathBuf, kind: SaveDirectoryKind) {
     if path.is_dir() {
         dirs.push(SaveDirectory { kind, path });
     }

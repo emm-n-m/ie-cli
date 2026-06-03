@@ -117,6 +117,102 @@ fn locate_source_override_errors_cleanly_when_missing() {
     );
 }
 
+#[test]
+fn override_diff_json_reports_shadows_identical_files_and_override_only_resources() {
+    let fixture = TestInstallation::new("override-diff-json");
+    fixture.write_archive_install(
+        "data/resources.bif",
+        &[
+            TestResourceSpec::new("KIRINH.CRE", CRE_TYPE_CODE, b"CRE BASE"),
+            TestResourceSpec::new("SAME.CRE", CRE_TYPE_CODE, b"SAME BYTES"),
+            TestResourceSpec::new("MISC51.ITM", ITM_TYPE_CODE, b"ITM BASE"),
+        ],
+    );
+    fixture.write_override("KIRINH.CRE", b"CRE OVERRIDE");
+    fixture.write_override("SAME.CRE", b"SAME BYTES");
+    fixture.write_override("NEWCRE.CRE", b"CRE ADDED");
+    fixture.write_override("MISC51.ITM", b"ITM OVERRIDE");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("override-diff")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--type")
+        .arg("CRE")
+        .arg("--format")
+        .arg("json")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout: Value =
+        serde_json::from_slice(&output.stdout).expect("override-diff should emit JSON");
+    assert_eq!(stdout["counts"]["override_total"], 3);
+    assert_eq!(stdout["counts"]["shadowing_bif"], 2);
+    assert_eq!(stdout["counts"]["override_only"], 1);
+    assert_eq!(stdout["override_only"][0], "NEWCRE.CRE");
+
+    let shadows = stdout["shadows"]
+        .as_array()
+        .expect("shadows should be a JSON array");
+    assert_eq!(shadows.len(), 2);
+
+    let kirinh = shadows
+        .iter()
+        .find(|entry| entry["resource"] == "KIRINH.CRE")
+        .expect("KIRINH.CRE should shadow BIFF");
+    assert_eq!(kirinh["in_override"], true);
+    assert_eq!(kirinh["in_bif"], true);
+    assert_eq!(kirinh["identical"], false);
+    assert_ne!(kirinh["override_sha1"], kirinh["bif_sha1"]);
+
+    let same = shadows
+        .iter()
+        .find(|entry| entry["resource"] == "SAME.CRE")
+        .expect("SAME.CRE should shadow BIFF");
+    assert_eq!(same["identical"], true);
+    assert_eq!(same["override_sha1"], same["bif_sha1"]);
+}
+
+#[test]
+fn override_diff_text_prints_sorted_report_and_counts() {
+    let fixture = TestInstallation::new("override-diff-text");
+    fixture.write_archive_install(
+        "data/resources.bif",
+        &[TestResourceSpec::new(
+            "KIRINH.CRE",
+            CRE_TYPE_CODE,
+            b"CRE BASE",
+        )],
+    );
+    fixture.write_override("KIRINH.CRE", b"CRE OVERRIDE");
+    fixture.write_override("NEWCRE.CRE", b"CRE ADDED");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("override-diff")
+        .arg("--game")
+        .arg(fixture.root())
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("resource\tstatus\tidentical\toverride_sha1\tbif_sha1"));
+    assert!(stdout.contains("KIRINH.CRE\tshadow\tfalse\t"));
+    assert!(stdout.contains("NEWCRE.CRE\toverride_only\t\t\t"));
+    assert!(stdout.contains("counts\toverride_total=2\tshadowing_bif=1\toverride_only=1"));
+}
+
 #[derive(Clone, Copy)]
 struct TestResourceSpec<'a> {
     resource_name: &'a str,

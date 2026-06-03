@@ -4,15 +4,17 @@ use ie_core::{
     ResourceLinkResolver, ResourceName, ResourceType,
 };
 use ie_formats::{
-    AreaJson, AreaScalarPatch, CreatureScalarPatch, EntranceRegistry, VerifyCategory, VerifyIssue,
-    VerifyOptions, VerifySeverity, decode_to_json, filter_issues, parse_are, parse_gam, parse_sav,
-    patch_are_scalars, patch_cre_scalars, verify_are,
+    AreaJson, AreaScalarPatch, CreatureScalarPatch, DialogGraphOptions, DialogGraphStringMode,
+    EntranceRegistry, VerifyCategory, VerifyIssue, VerifyOptions, VerifySeverity, decode_to_json,
+    dialog_json_to_dot, dialog_json_to_mermaid, filter_issues, parse_are, parse_dlg, parse_gam,
+    parse_sav, patch_are_scalars, patch_cre_scalars, verify_are,
 };
 use ie_io::{
     FileBackedIdsResolver, GameInstallation, ListedResource, ListedSave, ResourceListOptions,
     ResourceLocator, ResourceReader, ResourceSource, TlkResolver, append_tlk_string, list_saves,
     read_save_member, resolve_save_folder,
 };
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -32,6 +34,7 @@ enum Command {
     Dump(DumpArgs),
     Patch(PatchArgs),
     List(ListArgs),
+    OverrideDiff(OverrideDiffArgs),
     Tlk(TlkArgs),
     TlkAppend(TlkAppendArgs),
     Verify(VerifyArgs),
@@ -63,6 +66,14 @@ struct DumpArgs {
     resource: ResourceArgs,
     #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
     format: OutputFormat,
+    #[arg(long, default_value_t = 40)]
+    max_label_len: usize,
+    #[arg(long)]
+    no_triggers: bool,
+    #[arg(long)]
+    no_actions: bool,
+    #[arg(long, value_enum, default_value_t = GraphStringModeArg::Resolved)]
+    strings: GraphStringModeArg,
 }
 
 #[derive(Debug, Args)]
@@ -89,6 +100,16 @@ struct ListArgs {
     source: SourceArgs,
     #[arg(long, value_enum, default_value_t = ListFormat::Text)]
     format: ListFormat,
+}
+
+#[derive(Debug, Args)]
+struct OverrideDiffArgs {
+    #[arg(long)]
+    game: PathBuf,
+    #[arg(long = "type")]
+    resource_type: Option<String>,
+    #[arg(long, value_enum, default_value_t = OverrideDiffFormat::Text)]
+    format: OverrideDiffFormat,
 }
 
 #[derive(Debug, Args)]
@@ -127,8 +148,8 @@ struct SaveInfoArgs {
     saves_dir: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t = SaveInfoPart::All)]
     part: SaveInfoPart,
-    #[arg(long, value_enum, default_value_t = OutputFormat::Json)]
-    format: OutputFormat,
+    #[arg(long, value_enum, default_value_t = SaveInfoFormat::Json)]
+    format: SaveInfoFormat,
 }
 
 #[derive(Debug, Args, Default)]
@@ -152,6 +173,25 @@ impl SourceArgs {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum OutputFormat {
     Json,
+    Dot,
+    Mermaid,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum GraphStringModeArg {
+    Resolved,
+    Strref,
+    Both,
+}
+
+impl From<GraphStringModeArg> for DialogGraphStringMode {
+    fn from(value: GraphStringModeArg) -> Self {
+        match value {
+            GraphStringModeArg::Resolved => DialogGraphStringMode::Resolved,
+            GraphStringModeArg::Strref => DialogGraphStringMode::StrRef,
+            GraphStringModeArg::Both => DialogGraphStringMode::Both,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -163,6 +203,17 @@ enum ListFormat {
 #[derive(Debug, Clone, Copy, ValueEnum)]
 enum VerifyFormat {
     Text,
+    Json,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum OverrideDiffFormat {
+    Text,
+    Json,
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+enum SaveInfoFormat {
     Json,
 }
 
@@ -260,10 +311,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             let bytes =
                 reader.read_with_source(&locator, &resource, args.resource.source.selection())?;
 
-            if let Some(parent) = args.output.parent() {
-                if !parent.as_os_str().is_empty() {
-                    fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = args.output.parent()
+                && !parent.as_os_str().is_empty()
+            {
+                fs::create_dir_all(parent)?;
             }
 
             fs::write(&args.output, &bytes.bytes)?;
@@ -310,6 +361,40 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     )?;
                     println!("{}", serde_json::to_string_pretty(&value)?);
                 }
+                OutputFormat::Dot | OutputFormat::Mermaid => {
+                    if resource.resource_type() != ResourceType::Dlg {
+                        let format_name = match args.format {
+                            OutputFormat::Dot => "dot",
+                            OutputFormat::Mermaid => "mermaid",
+                            OutputFormat::Json => unreachable!(),
+                        };
+                        return Err(
+                            format!("--format {format_name} is only supported for DLG").into()
+                        );
+                    }
+
+                    let dialog = parse_dlg(
+                        &bytes.bytes,
+                        &bytes.metadata.resource_name,
+                        tlk_resolver.as_ref().map(|resolver| resolver as _),
+                    )?;
+                    let graph_options = DialogGraphOptions {
+                        max_label_len: args.max_label_len,
+                        include_triggers: !args.no_triggers,
+                        include_actions: !args.no_actions,
+                        string_mode: args.strings.into(),
+                    };
+
+                    match args.format {
+                        OutputFormat::Dot => {
+                            println!("{}", dialog_json_to_dot(&dialog, &graph_options))
+                        }
+                        OutputFormat::Mermaid => {
+                            println!("{}", dialog_json_to_mermaid(&dialog, &graph_options))
+                        }
+                        OutputFormat::Json => unreachable!(),
+                    }
+                }
             }
         }
         Command::Patch(args) => {
@@ -340,10 +425,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
 
-            if let Some(parent) = args.output.parent() {
-                if !parent.as_os_str().is_empty() {
-                    fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = args.output.parent()
+                && !parent.as_os_str().is_empty()
+            {
+                fs::create_dir_all(parent)?;
             }
 
             fs::write(&args.output, &patched)?;
@@ -383,6 +468,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         .map(listed_resource_json)
                         .collect::<Vec<_>>();
                     println!("{}", serde_json::to_string_pretty(&payload)?);
+                }
+            }
+        }
+        Command::OverrideDiff(args) => {
+            let installation = GameInstallation::discover(args.game)?;
+            let locator = ResourceLocator::new(installation)?;
+            let report = build_override_shadow_report(
+                &locator,
+                args.resource_type
+                    .as_deref()
+                    .map(|value| value.trim().to_ascii_uppercase()),
+            )?;
+
+            match args.format {
+                OverrideDiffFormat::Text => print_override_shadow_report_text(&report),
+                OverrideDiffFormat::Json => {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&override_shadow_report_json(&report))?
+                    );
                 }
             }
         }
@@ -490,7 +595,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 .transpose()?;
 
             match args.format {
-                OutputFormat::Json => {
+                SaveInfoFormat::Json => {
                     let value = match args.part {
                         SaveInfoPart::All => {
                             let gam = if save.has_gam {
@@ -757,6 +862,207 @@ fn listed_resource_json(resource: &ListedResource) -> serde_json::Value {
     })
 }
 
+#[derive(Debug, Clone)]
+struct OverrideShadowReport {
+    shadows: Vec<OverrideShadowEntry>,
+    override_only: Vec<String>,
+    counts: OverrideShadowCounts,
+}
+
+#[derive(Debug, Clone)]
+struct OverrideShadowEntry {
+    resource: String,
+    override_sha1: String,
+    bif_sha1: String,
+    identical: bool,
+}
+
+#[derive(Debug, Clone)]
+struct OverrideShadowCounts {
+    override_total: usize,
+    shadowing_bif: usize,
+    override_only: usize,
+}
+
+fn build_override_shadow_report(
+    locator: &ResourceLocator,
+    resource_type: Option<String>,
+) -> Result<OverrideShadowReport, Box<dyn std::error::Error>> {
+    let overrides = locator.list(ResourceListOptions {
+        resource_type: resource_type.clone(),
+        name_glob: None,
+        source: Some(ResourceSource::Override),
+    })?;
+    let bifs = locator.list(ResourceListOptions {
+        resource_type,
+        name_glob: None,
+        source: Some(ResourceSource::Bif),
+    })?;
+    let bif_by_name = bifs
+        .into_iter()
+        .map(|resource| (resource.resource_name.to_ascii_uppercase(), resource))
+        .collect::<BTreeMap<_, _>>();
+
+    let reader = ResourceReader;
+    let mut shadows = Vec::new();
+    let mut override_only = Vec::new();
+
+    for override_resource in &overrides {
+        let key = override_resource.resource_name.to_ascii_uppercase();
+        if bif_by_name.contains_key(&key) {
+            let resource_name = ResourceName::parse(&override_resource.resource_name)?;
+            let override_bytes =
+                reader.read_with_source(locator, &resource_name, ResourceSource::Override)?;
+            let bif_bytes =
+                reader.read_with_source(locator, &resource_name, ResourceSource::Bif)?;
+            let override_sha1 = sha1_hex(&override_bytes.bytes);
+            let bif_sha1 = sha1_hex(&bif_bytes.bytes);
+
+            shadows.push(OverrideShadowEntry {
+                resource: resource_name.file_name(),
+                identical: override_sha1 == bif_sha1,
+                override_sha1,
+                bif_sha1,
+            });
+        } else {
+            override_only.push(override_resource.resource_name.clone());
+        }
+    }
+
+    shadows.sort_by(|left, right| left.resource.cmp(&right.resource));
+    override_only.sort();
+
+    Ok(OverrideShadowReport {
+        counts: OverrideShadowCounts {
+            override_total: overrides.len(),
+            shadowing_bif: shadows.len(),
+            override_only: override_only.len(),
+        },
+        shadows,
+        override_only,
+    })
+}
+
+fn print_override_shadow_report_text(report: &OverrideShadowReport) {
+    println!("resource\tstatus\tidentical\toverride_sha1\tbif_sha1");
+    for shadow in &report.shadows {
+        println!(
+            "{}\tshadow\t{}\t{}\t{}",
+            shadow.resource, shadow.identical, shadow.override_sha1, shadow.bif_sha1
+        );
+    }
+    for resource in &report.override_only {
+        println!("{resource}\toverride_only\t\t\t");
+    }
+    println!(
+        "counts\toverride_total={}\tshadowing_bif={}\toverride_only={}",
+        report.counts.override_total, report.counts.shadowing_bif, report.counts.override_only
+    );
+}
+
+fn override_shadow_report_json(report: &OverrideShadowReport) -> serde_json::Value {
+    serde_json::json!({
+        "shadows": report.shadows.iter().map(|shadow| {
+            serde_json::json!({
+                "resource": shadow.resource,
+                "in_override": true,
+                "in_bif": true,
+                "override_sha1": shadow.override_sha1,
+                "bif_sha1": shadow.bif_sha1,
+                "identical": shadow.identical,
+            })
+        }).collect::<Vec<_>>(),
+        "override_only": report.override_only,
+        "counts": {
+            "override_total": report.counts.override_total,
+            "shadowing_bif": report.counts.shadowing_bif,
+            "override_only": report.counts.override_only,
+        },
+    })
+}
+
+fn sha1_hex(bytes: &[u8]) -> String {
+    sha1(bytes)
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+fn sha1(bytes: &[u8]) -> [u8; 20] {
+    let mut h0 = 0x6745_2301u32;
+    let mut h1 = 0xEFCD_AB89u32;
+    let mut h2 = 0x98BA_DCFEu32;
+    let mut h3 = 0x1032_5476u32;
+    let mut h4 = 0xC3D2_E1F0u32;
+
+    let bit_len = (bytes.len() as u64) * 8;
+    let mut padded = bytes.to_vec();
+    padded.push(0x80);
+    while (padded.len() % 64) != 56 {
+        padded.push(0);
+    }
+    padded.extend_from_slice(&bit_len.to_be_bytes());
+
+    for chunk in padded.chunks_exact(64) {
+        let mut words = [0u32; 80];
+        for (index, word) in words.iter_mut().take(16).enumerate() {
+            let start = index * 4;
+            *word = u32::from_be_bytes([
+                chunk[start],
+                chunk[start + 1],
+                chunk[start + 2],
+                chunk[start + 3],
+            ]);
+        }
+        for index in 16..80 {
+            words[index] =
+                (words[index - 3] ^ words[index - 8] ^ words[index - 14] ^ words[index - 16])
+                    .rotate_left(1);
+        }
+
+        let mut a = h0;
+        let mut b = h1;
+        let mut c = h2;
+        let mut d = h3;
+        let mut e = h4;
+
+        for (index, word) in words.iter().enumerate() {
+            let (function, constant) = match index {
+                0..=19 => ((b & c) | ((!b) & d), 0x5A82_7999),
+                20..=39 => (b ^ c ^ d, 0x6ED9_EBA1),
+                40..=59 => ((b & c) | (b & d) | (c & d), 0x8F1B_BCDC),
+                _ => (b ^ c ^ d, 0xCA62_C1D6),
+            };
+
+            let temp = a
+                .rotate_left(5)
+                .wrapping_add(function)
+                .wrapping_add(e)
+                .wrapping_add(constant)
+                .wrapping_add(*word);
+            e = d;
+            d = c;
+            c = b.rotate_left(30);
+            b = a;
+            a = temp;
+        }
+
+        h0 = h0.wrapping_add(a);
+        h1 = h1.wrapping_add(b);
+        h2 = h2.wrapping_add(c);
+        h3 = h3.wrapping_add(d);
+        h4 = h4.wrapping_add(e);
+    }
+
+    let mut digest = [0u8; 20];
+    digest[0..4].copy_from_slice(&h0.to_be_bytes());
+    digest[4..8].copy_from_slice(&h1.to_be_bytes());
+    digest[8..12].copy_from_slice(&h2.to_be_bytes());
+    digest[12..16].copy_from_slice(&h3.to_be_bytes());
+    digest[16..20].copy_from_slice(&h4.to_be_bytes());
+    digest
+}
+
 fn listed_save_json(save: &ListedSave) -> serde_json::Value {
     serde_json::json!({
         "folder_name": save.folder_name,
@@ -850,6 +1156,28 @@ mod tests {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
+    fn sha1_hex_matches_known_vectors() {
+        // "abc" is a single padded block; the longer cases exercise the
+        // multi-block padding path (the usual source of hand-rolled SHA-1 bugs):
+        // 56 bytes spills the length word into a second block, 64 is an exact
+        // block boundary, and 1000 bytes spans many blocks.
+        assert_eq!(sha1_hex(b""), "da39a3ee5e6b4b0d3255bfef95601890afd80709");
+        assert_eq!(sha1_hex(b"abc"), "a9993e364706816aba3e25717850c26c9cd0d89d");
+        assert_eq!(
+            sha1_hex(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            "84983e441c3bd26ebaae4aa1f95129e5e54670f1"
+        );
+        assert_eq!(
+            sha1_hex(&[b'a'; 64]),
+            "0098ba824b5c16427bd7a1122a5a442a25ec644d"
+        );
+        assert_eq!(
+            sha1_hex(&[b'a'; 1000]),
+            "291e9a6c66994949b57ba5e650361e98fc36b1ba"
+        );
+    }
+
+    #[test]
     fn verify_smoke_against_ie_game_path_when_set() {
         let Ok(game_path) = std::env::var("IE_GAME_PATH") else {
             return;
@@ -895,10 +1223,11 @@ mod tests {
 
         assert!(link.exists);
         assert_eq!(link.source_kind, Some(SourceKind::Bif));
-        assert!(link
-            .source_path
-            .expect("link should include source path")
-            .ends_with("creatures.bif"));
+        assert!(
+            link.source_path
+                .expect("link should include source path")
+                .ends_with("creatures.bif")
+        );
     }
 
     struct TestInstallation {

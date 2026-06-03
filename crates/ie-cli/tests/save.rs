@@ -140,7 +140,9 @@ fn build_minimal_sav() -> Vec<u8> {
 
 fn zlib(bytes: &[u8]) -> Vec<u8> {
     let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-    encoder.write_all(bytes).expect("test payload should compress");
+    encoder
+        .write_all(bytes)
+        .expect("test payload should compress");
     encoder.finish().expect("test payload should finish")
 }
 

@@ -74,6 +74,32 @@ pub struct RawDecodedFlags {
     pub decoded: Vec<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DialogGraphStringMode {
+    Resolved,
+    StrRef,
+    Both,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct DialogGraphOptions {
+    pub max_label_len: usize,
+    pub include_triggers: bool,
+    pub include_actions: bool,
+    pub string_mode: DialogGraphStringMode,
+}
+
+impl Default for DialogGraphOptions {
+    fn default() -> Self {
+        Self {
+            max_label_len: 40,
+            include_triggers: true,
+            include_actions: true,
+            string_mode: DialogGraphStringMode::Resolved,
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum DialogParseError {
     #[error("invalid DLG header: {0}")]
@@ -88,6 +114,333 @@ impl From<DialogParseError> for crate::FormatError {
     fn from(err: DialogParseError) -> Self {
         crate::FormatError::Parse(err.to_string())
     }
+}
+
+pub fn dialog_json_to_dot(dialog: &DialogJson, options: &DialogGraphOptions) -> String {
+    let mut output = String::new();
+    output.push_str("digraph DLG {\n");
+    output.push_str("  rankdir=LR;\n");
+    output.push_str("  node [fontname=\"Arial\"];\n");
+    output.push_str("  edge [fontname=\"Arial\"];\n");
+    output.push_str("  END [shape=doublecircle,label=\"END\"];\n");
+
+    for state in &dialog.states {
+        output.push_str(&format!(
+            "  S{} [shape=box,label=\"{}\"];\n",
+            state.index,
+            escape_dot_label(&state_label(state, options))
+        ));
+    }
+
+    let mut external_nodes = Vec::new();
+    for state in &dialog.states {
+        for transition in &state.transitions {
+            if let Some(external) = external_node_id(dialog, transition)
+                && !external_nodes.contains(&external)
+            {
+                external_nodes.push(external);
+            }
+        }
+    }
+    external_nodes.sort();
+    for node in external_nodes {
+        output.push_str(&format!(
+            "  {node} [shape=box,style=\"dashed,filled\",fillcolor=\"#fff2cc\",label=\"{}\"];\n",
+            escape_dot_label(&external_node_label(&node))
+        ));
+    }
+
+    for state in &dialog.states {
+        for transition in &state.transitions {
+            let target = transition_target(dialog, transition).unwrap_or_else(|| "END".to_string());
+            let mut attrs = vec![format!(
+                "label=\"{}\"",
+                escape_dot_label(&transition_label(transition, options))
+            )];
+            if options.include_triggers && non_empty(transition.trigger_text.as_deref()).is_some() {
+                attrs.push("color=\"#b00020\"".to_string());
+                attrs.push("fontcolor=\"#b00020\"".to_string());
+            }
+            output.push_str(&format!(
+                "  S{} -> {} [{}];\n",
+                state.index,
+                target,
+                attrs.join(",")
+            ));
+        }
+    }
+
+    output.push_str("}\n");
+    output
+}
+
+pub fn dialog_json_to_mermaid(dialog: &DialogJson, options: &DialogGraphOptions) -> String {
+    let mut output = String::new();
+    output.push_str("graph LR\n");
+    output.push_str("  END((END))\n");
+
+    for state in &dialog.states {
+        output.push_str(&format!(
+            "  S{}[\"{}\"]\n",
+            state.index,
+            escape_mermaid_label(&state_label(state, options))
+        ));
+    }
+
+    let mut external_nodes = Vec::new();
+    for state in &dialog.states {
+        for transition in &state.transitions {
+            if let Some(external) = external_node_id(dialog, transition)
+                && !external_nodes.contains(&external)
+            {
+                external_nodes.push(external);
+            }
+        }
+    }
+    external_nodes.sort();
+    for node in &external_nodes {
+        output.push_str(&format!(
+            "  {node}[\"{}\"]\n",
+            escape_mermaid_label(&external_node_label(node))
+        ));
+    }
+
+    for state in &dialog.states {
+        for transition in &state.transitions {
+            let target = transition_target(dialog, transition).unwrap_or_else(|| "END".to_string());
+            let label = transition_label(transition, options);
+            if label.is_empty() {
+                output.push_str(&format!("  S{} --> {}\n", state.index, target));
+            } else {
+                output.push_str(&format!(
+                    "  S{} -->|\"{}\"| {}\n",
+                    state.index,
+                    escape_mermaid_label(&label),
+                    target
+                ));
+            }
+        }
+    }
+
+    if !external_nodes.is_empty() {
+        output.push_str("  classDef external fill:#fff2cc,stroke-dasharray: 5 5\n");
+        output.push_str(&format!("  class {} external\n", external_nodes.join(",")));
+    }
+
+    output
+}
+
+fn state_label(state: &DialogStateJson, options: &DialogGraphOptions) -> String {
+    let mut parts = vec![format!(
+        "S{}: {}",
+        state.index,
+        truncate(
+            &resolved_label(&state.response_text, options.string_mode),
+            options.max_label_len
+        )
+    )];
+
+    if options.include_triggers
+        && let Some(trigger) = non_empty(state.trigger_text.as_deref())
+    {
+        parts.push(format!("if {}", truncate(trigger, options.max_label_len)));
+    }
+
+    parts.join("\n")
+}
+
+fn transition_label(transition: &DialogTransitionJson, options: &DialogGraphOptions) -> String {
+    let mut parts = Vec::new();
+
+    if let Some(player_text) = &transition.player_text {
+        parts.push(truncate(
+            &resolved_label(player_text, options.string_mode),
+            options.max_label_len,
+        ));
+    }
+
+    if options.include_triggers
+        && let Some(trigger) = non_empty(transition.trigger_text.as_deref())
+    {
+        parts.push(format!("if {}", truncate(trigger, options.max_label_len)));
+    }
+
+    if transition.journal_text.is_some() {
+        parts.push("[journal]".to_string());
+    }
+
+    if options.include_actions
+        && let Some(action) = non_empty(transition.action_text.as_deref())
+    {
+        if let Some(cutscene) = cutscene_tag(action) {
+            parts.push(cutscene);
+        } else {
+            parts.push(truncate(action, options.max_label_len));
+        }
+    }
+
+    parts.join("\n")
+}
+
+fn transition_target(dialog: &DialogJson, transition: &DialogTransitionJson) -> Option<String> {
+    if transition.terminates_dialog {
+        return Some("END".to_string());
+    }
+
+    if let Some(external) = external_node_id(dialog, transition) {
+        return Some(external);
+    }
+
+    transition
+        .next_state_index
+        .map(|state_index| format!("S{state_index}"))
+}
+
+fn external_node_id(dialog: &DialogJson, transition: &DialogTransitionJson) -> Option<String> {
+    let next_dialog = transition.next_dialog.as_ref()?;
+    if next_dialog
+        .as_str()
+        .eq_ignore_ascii_case(dialog_resref(dialog))
+    {
+        return None;
+    }
+
+    let state = transition
+        .next_state_index
+        .map(|index| index.to_string())
+        .unwrap_or_else(|| "UNKNOWN".to_string());
+    Some(format!(
+        "EXT_{}_{}",
+        graph_id_component(next_dialog.as_str()),
+        graph_id_component(&state)
+    ))
+}
+
+fn external_node_label(node_id: &str) -> String {
+    node_id
+        .strip_prefix("EXT_")
+        .unwrap_or(node_id)
+        .replace('_', " ")
+}
+
+fn dialog_resref(dialog: &DialogJson) -> &str {
+    dialog
+        .resource_name
+        .rsplit_once('.')
+        .map(|(resref, _)| resref)
+        .unwrap_or(&dialog.resource_name)
+}
+
+fn resolved_label(value: &ResolvedStrRef, mode: DialogGraphStringMode) -> String {
+    match mode {
+        DialogGraphStringMode::Resolved => value
+            .text
+            .clone()
+            .unwrap_or_else(|| format!("#{}", value.strref.0)),
+        DialogGraphStringMode::StrRef => format!("#{}", value.strref.0),
+        DialogGraphStringMode::Both => value
+            .text
+            .as_ref()
+            .map(|text| format!("{text} (#{})", value.strref.0))
+            .unwrap_or_else(|| format!("#{}", value.strref.0)),
+    }
+}
+
+fn cutscene_tag(action: &str) -> Option<String> {
+    // Find a StartCutScene / StartCutSceneEx call that carries a quoted cutscene
+    // name. In practice these are preceded by a nameless StartCutSceneMode() call
+    // (e.g. `StartCutSceneMode()StartCutSceneEx("finmel1",FALSE)`), so we must skip
+    // the "Mode" variant and keep scanning rather than short-circuit on it.
+    for marker in ["StartCutSceneEx", "StartCutScene"] {
+        let mut search_from = 0;
+        while let Some(rel) = action[search_from..].find(marker) {
+            let start = search_from + rel;
+            let after_marker = &action[start + marker.len()..];
+            search_from = start + marker.len();
+
+            // "StartCutScene" is a prefix of "StartCutSceneMode"; the mode call has
+            // no name argument, so skip it.
+            if after_marker.starts_with("Mode") {
+                continue;
+            }
+
+            let Some(open) = after_marker.find('(') else {
+                continue;
+            };
+            let after_open = after_marker[open + 1..].trim_start();
+            let end = after_open.find([',', ')']).unwrap_or(after_open.len());
+            let name = after_open[..end].trim().trim_matches('"');
+            if !name.is_empty() {
+                return Some(format!("[cutscene: {name}]"));
+            }
+        }
+    }
+
+    // A cutscene is fired but we could not recover a name (e.g. mode-only).
+    if action.contains("StartCutScene") {
+        Some("[cutscene mode]".to_string())
+    } else {
+        None
+    }
+}
+
+fn truncate(value: &str, max_len: usize) -> String {
+    let normalized = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    if max_len == 0 || normalized.chars().count() <= max_len {
+        return normalized;
+    }
+
+    if max_len <= 3 {
+        return ".".repeat(max_len);
+    }
+
+    let mut truncated = normalized
+        .chars()
+        .take(max_len.saturating_sub(3))
+        .collect::<String>();
+    truncated.push_str("...");
+    truncated
+}
+
+fn non_empty(value: Option<&str>) -> Option<&str> {
+    value.and_then(|value| {
+        let trimmed = value.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    })
+}
+
+fn graph_id_component(value: &str) -> String {
+    let mut output = String::new();
+    for character in value.chars() {
+        if character.is_ascii_alphanumeric() {
+            output.push(character.to_ascii_uppercase());
+        } else {
+            output.push('_');
+        }
+    }
+    if output.is_empty() {
+        "UNKNOWN".to_string()
+    } else {
+        output
+    }
+}
+
+fn escape_dot_label(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+}
+
+fn escape_mermaid_label(value: &str) -> String {
+    value
+        .replace('"', "#quot;")
+        .replace('|', "&#124;")
+        .replace('\n', "<br/>")
 }
 
 pub fn parse_dlg(
@@ -749,6 +1102,143 @@ mod tests {
         let err = parse_dlg(&bytes, "BAD.DLG", None).expect_err("should fail");
         let message = format!("{err}");
         assert!(message.contains("at least"), "unexpected error: {message}");
+    }
+
+    #[test]
+    fn renders_dlg_as_dot_with_internal_external_and_terminal_edges() {
+        let dialog = graph_test_dialog();
+        let dot = dialog_json_to_dot(&dialog, &DialogGraphOptions::default());
+
+        assert!(dot.contains("digraph DLG"));
+        assert!(dot.contains("S0 [shape=box,label=\"S0: Hello there\\nif StateCheck()\"]"));
+        assert!(
+            dot.contains("S0 -> S1 [label=\"Continue\\nif Global(\\\"X\\\",\\\"GLOBAL\\\",0)\"")
+        );
+        assert!(dot.contains("S0 -> END [label=\"Leave\"]"));
+        assert!(dot.contains("EXT_OTHER_2 [shape=box"));
+        assert!(dot.contains(
+            "S1 -> EXT_OTHER_2 [label=\"Ask about cutscene\\n[journal]\\n[cutscene: CUT01]\"]"
+        ));
+    }
+
+    #[test]
+    fn renders_dlg_as_mermaid_with_string_modes_and_options() {
+        let dialog = graph_test_dialog();
+        let options = DialogGraphOptions {
+            max_label_len: 12,
+            include_triggers: false,
+            include_actions: false,
+            string_mode: DialogGraphStringMode::Both,
+        };
+        let mermaid = dialog_json_to_mermaid(&dialog, &options);
+
+        assert!(mermaid.contains("graph LR"));
+        assert!(mermaid.contains("S0[\"S0: Hello the...\"]"));
+        assert!(mermaid.contains("S0 -->|\"Continue ...\"| S1"));
+        assert!(mermaid.contains("S0 -->|\"Leave (#20)\"| END"));
+        assert!(mermaid.contains("S1 -->|\"Ask about...<br/>[journal]\"| EXT_OTHER_2"));
+        assert!(!mermaid.contains("Global("));
+        assert!(!mermaid.contains("cutscene"));
+    }
+
+    fn graph_test_dialog() -> DialogJson {
+        DialogJson {
+            resource_type: "DLG".to_string(),
+            resource_name: "TEST.DLG".to_string(),
+            version: "V1.0".to_string(),
+            header: DialogHeaderJson {
+                num_states: 2,
+                offset_states: 0,
+                num_transitions: 3,
+                offset_transitions: 0,
+                offset_state_triggers: 0,
+                num_state_triggers: 1,
+                offset_transition_triggers: 0,
+                num_transition_triggers: 1,
+                offset_actions: 0,
+                num_actions: 1,
+                flags: None,
+            },
+            states: vec![
+                DialogStateJson {
+                    index: 0,
+                    response_text: resolved(10, "Hello there"),
+                    first_transition_index: 0,
+                    num_transitions: 2,
+                    trigger_index: Some(0),
+                    trigger_text: Some("StateCheck()".to_string()),
+                    transitions: vec![
+                        DialogTransitionJson {
+                            index: 0,
+                            flags: flags(0x0003),
+                            terminates_dialog: false,
+                            player_text: Some(resolved(11, "Continue")),
+                            journal_text: None,
+                            trigger_index: Some(0),
+                            trigger_text: Some("Global(\"X\",\"GLOBAL\",0)".to_string()),
+                            action_index: None,
+                            action_text: None,
+                            next_dialog: None,
+                            next_state_index: Some(1),
+                        },
+                        DialogTransitionJson {
+                            index: 1,
+                            flags: flags(0x0009),
+                            terminates_dialog: true,
+                            player_text: Some(resolved(20, "Leave")),
+                            journal_text: None,
+                            trigger_index: None,
+                            trigger_text: None,
+                            action_index: None,
+                            action_text: None,
+                            next_dialog: None,
+                            next_state_index: None,
+                        },
+                    ],
+                },
+                DialogStateJson {
+                    index: 1,
+                    response_text: resolved(12, "Second state"),
+                    first_transition_index: 2,
+                    num_transitions: 1,
+                    trigger_index: None,
+                    trigger_text: None,
+                    transitions: vec![DialogTransitionJson {
+                        index: 2,
+                        flags: flags(0x0005),
+                        terminates_dialog: false,
+                        player_text: Some(resolved(21, "Ask about cutscene")),
+                        journal_text: Some(resolved(22, "Journal note")),
+                        trigger_index: None,
+                        trigger_text: None,
+                        action_index: Some(0),
+                        action_text: Some(
+                            "ClearAllActions()StartCutSceneMode()StartCutSceneEx(\"CUT01\",FALSE)"
+                                .to_string(),
+                        ),
+                        next_dialog: Some(ResRef::new("OTHER").expect("valid resref")),
+                        next_state_index: Some(2),
+                    }],
+                },
+            ],
+            state_triggers: Vec::new(),
+            transition_triggers: Vec::new(),
+            actions: Vec::new(),
+        }
+    }
+
+    fn resolved(strref: u32, text: &str) -> ResolvedStrRef {
+        ResolvedStrRef {
+            strref: StrRef(strref),
+            text: Some(text.to_string()),
+        }
+    }
+
+    fn flags(raw: u32) -> RawDecodedFlags {
+        RawDecodedFlags {
+            raw,
+            decoded: Vec::new(),
+        }
     }
 
     #[allow(clippy::too_many_arguments)]

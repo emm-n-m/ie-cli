@@ -162,10 +162,9 @@ pub fn parse_gam(
 
     let version = parse_ascii_string(bytes, 4, 4)?;
     if !matches!(version.as_str(), "V2.0" | "V2.1" | "V2.2") {
-        return Err(SaveParseError::InvalidHeader(format!(
-            "unsupported GAM version {version}"
-        ))
-        .into());
+        return Err(
+            SaveParseError::InvalidHeader(format!("unsupported GAM version {version}")).into(),
+        );
     }
 
     let party_members_offset = parse_u32(bytes, 0x20)?;
@@ -222,10 +221,9 @@ pub fn parse_sav(bytes: &[u8], resource_name: &str) -> Result<SaveArchiveJson, c
 
     let version = parse_ascii_string(bytes, 4, 4)?;
     if version != "V1.0" {
-        return Err(SaveParseError::InvalidHeader(format!(
-            "unsupported SAV version {version}"
-        ))
-        .into());
+        return Err(
+            SaveParseError::InvalidHeader(format!("unsupported SAV version {version}")).into(),
+        );
     }
 
     let mut offset = SAV_HEADER_SIZE;
@@ -251,8 +249,12 @@ pub fn parse_sav(bytes: &[u8], resource_name: &str) -> Result<SaveArchiveJson, c
         offset = offset
             .checked_add(8)
             .ok_or_else(|| SaveParseError::InvalidField("SAV offset overflow".to_string()))?;
-        let compressed_end =
-            checked_end(offset, compressed_size as usize, bytes.len(), "SAV compressed data")?;
+        let compressed_end = checked_end(
+            offset,
+            compressed_size as usize,
+            bytes.len(),
+            "SAV compressed data",
+        )?;
         let inflated = inflate_sav_entry(&filename, &bytes[offset..compressed_end])?;
         if inflated.len() != uncompressed_size as usize {
             return Err(SaveParseError::InvalidField(format!(
@@ -265,7 +267,12 @@ pub fn parse_sav(bytes: &[u8], resource_name: &str) -> Result<SaveArchiveJson, c
 
         let (resource_name, resource_type) = filename
             .rsplit_once('.')
-            .map(|(_, ext)| (Some(filename.to_ascii_uppercase()), Some(ext.to_ascii_uppercase())))
+            .map(|(_, ext)| {
+                (
+                    Some(filename.to_ascii_uppercase()),
+                    Some(ext.to_ascii_uppercase()),
+                )
+            })
             .unwrap_or((None, None));
 
         entries.push(SaveArchiveEntryJson {
@@ -604,7 +611,9 @@ mod tests {
 
     fn zlib(bytes: &[u8]) -> Vec<u8> {
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(bytes).expect("test payload should compress");
+        encoder
+            .write_all(bytes)
+            .expect("test payload should compress");
         encoder.finish().expect("test payload should finish")
     }
 

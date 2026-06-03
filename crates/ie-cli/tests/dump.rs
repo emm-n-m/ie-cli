@@ -1,6 +1,9 @@
 use serde_json::Value;
 use std::ffi::OsString;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
 fn dump_confusion_matches_validated_bg2ee_spell_fields_when_ie_game_path_is_set() {
@@ -247,6 +250,60 @@ fn dump_pstee_mortuary_parses_without_error_when_pstee_game_path_is_set() {
     );
 }
 
+#[test]
+fn dump_dot_renders_override_dlg_graph() {
+    let fixture = GraphTestInstallation::new("dump-dot-dlg");
+    fixture.write_override("TEST.DLG", &build_test_dlg());
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("dump")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--resource")
+        .arg("TEST.DLG")
+        .arg("--format")
+        .arg("dot")
+        .arg("--strings")
+        .arg("strref")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("digraph DLG"));
+    assert!(stdout.contains("S0 [shape=box,label=\"S0: #10\"]"));
+    assert!(stdout.contains("S0 -> END [label=\"#20\"]"));
+}
+
+#[test]
+fn dump_dot_rejects_non_dlg_resources() {
+    let fixture = GraphTestInstallation::new("dump-dot-non-dlg");
+    fixture.write_override("TEST.ITM", b"not an item");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("dump")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--resource")
+        .arg("TEST.ITM")
+        .arg("--format")
+        .arg("dot")
+        .output()
+        .expect("iecli should run");
+
+    assert!(!output.status.success(), "dump should fail");
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("--format dot is only supported for DLG"),
+        "stderr was: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
 fn pstee_game_path() -> Option<OsString> {
     std::env::var_os("IE_PSTEE_PATH").or_else(|| std::env::var_os("IE_PSTEE_GAME_PATH"))
 }
@@ -270,4 +327,89 @@ fn dump_json(game_path: &OsString, resource_name: &str) -> Value {
     );
 
     serde_json::from_slice(&output.stdout).expect("dump should emit JSON")
+}
+
+struct GraphTestInstallation {
+    root: PathBuf,
+}
+
+impl GraphTestInstallation {
+    fn new(label: &str) -> Self {
+        let mut root = std::env::temp_dir();
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock should be monotonic")
+            .as_nanos();
+        root.push(format!("iecli-{label}-{unique}-{}", std::process::id()));
+        fs::create_dir_all(&root).expect("temporary installation root should be creatable");
+        fs::write(root.join("dialog.tlk"), build_minimal_tlk()).expect("dialog.tlk should exist");
+        fs::write(root.join("chitin.key"), build_empty_key()).expect("chitin.key should exist");
+        Self { root }
+    }
+
+    fn root(&self) -> &Path {
+        &self.root
+    }
+
+    fn write_override(&self, resource_name: &str, bytes: &[u8]) {
+        let override_dir = self.root.join("override");
+        fs::create_dir_all(&override_dir).expect("override directory should be creatable");
+        fs::write(override_dir.join(resource_name), bytes)
+            .expect("override resource should be writable");
+    }
+}
+
+impl Drop for GraphTestInstallation {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.root);
+    }
+}
+
+fn build_test_dlg() -> Vec<u8> {
+    let offset_states = 0x34u32;
+    let offset_transitions = offset_states + 16;
+    let mut bytes = vec![0u8; offset_transitions as usize + 32];
+
+    bytes[0..4].copy_from_slice(b"DLG ");
+    bytes[4..8].copy_from_slice(b"V1.0");
+    bytes[0x08..0x0C].copy_from_slice(&1u32.to_le_bytes());
+    bytes[0x0C..0x10].copy_from_slice(&offset_states.to_le_bytes());
+    bytes[0x10..0x14].copy_from_slice(&1u32.to_le_bytes());
+    bytes[0x14..0x18].copy_from_slice(&offset_transitions.to_le_bytes());
+    bytes[0x30..0x34].copy_from_slice(&0u32.to_le_bytes());
+
+    let state = offset_states as usize;
+    bytes[state..state + 4].copy_from_slice(&10u32.to_le_bytes());
+    bytes[state + 4..state + 8].copy_from_slice(&0u32.to_le_bytes());
+    bytes[state + 8..state + 12].copy_from_slice(&1u32.to_le_bytes());
+    bytes[state + 12..state + 16].copy_from_slice(&u32::MAX.to_le_bytes());
+
+    let transition = offset_transitions as usize;
+    bytes[transition..transition + 4].copy_from_slice(&0x0009u32.to_le_bytes());
+    bytes[transition + 4..transition + 8].copy_from_slice(&20u32.to_le_bytes());
+    bytes[transition + 8..transition + 12].copy_from_slice(&u32::MAX.to_le_bytes());
+    bytes[transition + 12..transition + 16].copy_from_slice(&u32::MAX.to_le_bytes());
+    bytes[transition + 16..transition + 20].copy_from_slice(&u32::MAX.to_le_bytes());
+    bytes[transition + 28..transition + 32].copy_from_slice(&u32::MAX.to_le_bytes());
+
+    bytes
+}
+
+fn build_empty_key() -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"KEY V1  ");
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+    bytes.extend_from_slice(&24u32.to_le_bytes());
+    bytes.extend_from_slice(&24u32.to_le_bytes());
+    bytes
+}
+
+fn build_minimal_tlk() -> Vec<u8> {
+    let mut bytes = Vec::new();
+    bytes.extend_from_slice(b"TLK V1  ");
+    bytes.extend_from_slice(&[0, 0]);
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+    bytes.extend_from_slice(&18u32.to_le_bytes());
+    bytes
 }

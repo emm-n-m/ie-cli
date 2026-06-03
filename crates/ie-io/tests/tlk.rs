@@ -71,13 +71,19 @@ fn appends_tlk_string_in_place_and_returns_new_strref() {
         GameInstallation::discover(fixture.root()).expect("synthetic installation should be valid");
     let resolver = TlkResolver::new(&installation).expect("appended dialog.tlk should load");
 
-    assert_eq!(resolver.resolve(0).expect("old strref should resolve").text, "First");
+    assert_eq!(
+        resolver.resolve(0).expect("old strref should resolve").text,
+        "First"
+    );
     assert_eq!(
         resolver.resolve(1).expect("old strref should resolve").text,
         "Second"
     );
     assert_eq!(
-        resolver.resolve(result.strref).expect("new strref should resolve").text,
+        resolver
+            .resolve(result.strref)
+            .expect("new strref should resolve")
+            .text,
         "Third"
     );
 }
@@ -101,8 +107,14 @@ fn appends_tlk_string_to_copy_without_touching_original() {
     let installation =
         GameInstallation::discover(fixture.root()).expect("synthetic installation should be valid");
     let resolver = TlkResolver::new(&installation).expect("patched dialog.tlk should load");
-    assert_eq!(resolver.resolve(0).expect("old strref should resolve").text, "Original");
-    assert_eq!(resolver.resolve(1).expect("new strref should resolve").text, "Added");
+    assert_eq!(
+        resolver.resolve(0).expect("old strref should resolve").text,
+        "Original"
+    );
+    assert_eq!(
+        resolver.resolve(1).expect("new strref should resolve").text,
+        "Added"
+    );
 }
 
 #[test]
