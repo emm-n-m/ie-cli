@@ -230,6 +230,212 @@ pub fn dialog_json_to_mermaid(dialog: &DialogJson, options: &DialogGraphOptions)
     output
 }
 
+pub fn dialog_jsons_to_dot(dialogs: &[DialogJson], options: &DialogGraphOptions) -> String {
+    let mut output = String::new();
+    output.push_str("digraph DLG {\n");
+    output.push_str("  rankdir=LR;\n");
+    output.push_str("  compound=true;\n");
+    output.push_str("  node [fontname=\"Arial\"];\n");
+    output.push_str("  edge [fontname=\"Arial\"];\n");
+    output.push_str("  END [shape=doublecircle,label=\"END\"];\n");
+
+    let loaded_dialogs = dialogs
+        .iter()
+        .map(|dialog| dialog_resref(dialog).to_ascii_uppercase())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    for dialog in dialogs {
+        let dialog_id = graph_id_component(dialog_resref(dialog));
+        output.push_str(&format!("  subgraph cluster_{dialog_id} {{\n"));
+        output.push_str(&format!(
+            "    label=\"{}\";\n",
+            escape_dot_label(dialog_resref(dialog))
+        ));
+        for state in &dialog.states {
+            output.push_str(&format!(
+                "    {} [shape=box,label=\"{}\"];\n",
+                prefixed_state_id(dialog, state.index),
+                escape_dot_label(&state_label(state, options))
+            ));
+        }
+        output.push_str("  }\n");
+    }
+
+    for node in multi_external_nodes(dialogs, &loaded_dialogs) {
+        output.push_str(&format!(
+            "  {node} [shape=box,style=\"dashed,filled\",fillcolor=\"#fff2cc\",label=\"{}\"];\n",
+            escape_dot_label(&external_node_label(&node))
+        ));
+    }
+
+    for dialog in dialogs {
+        for state in &dialog.states {
+            for transition in &state.transitions {
+                let target = multi_transition_target(dialog, transition, &loaded_dialogs)
+                    .unwrap_or_else(|| "END".to_string());
+                let mut attrs = vec![format!(
+                    "label=\"{}\"",
+                    escape_dot_label(&transition_label(transition, options))
+                )];
+                if options.include_triggers
+                    && non_empty(transition.trigger_text.as_deref()).is_some()
+                {
+                    attrs.push("color=\"#b00020\"".to_string());
+                    attrs.push("fontcolor=\"#b00020\"".to_string());
+                }
+                output.push_str(&format!(
+                    "  {} -> {} [{}];\n",
+                    prefixed_state_id(dialog, state.index),
+                    target,
+                    attrs.join(",")
+                ));
+            }
+        }
+    }
+
+    output.push_str("}\n");
+    output
+}
+
+pub fn dialog_jsons_to_mermaid(dialogs: &[DialogJson], options: &DialogGraphOptions) -> String {
+    let mut output = String::new();
+    output.push_str("graph LR\n");
+    output.push_str("  END((END))\n");
+
+    let loaded_dialogs = dialogs
+        .iter()
+        .map(|dialog| dialog_resref(dialog).to_ascii_uppercase())
+        .collect::<std::collections::BTreeSet<_>>();
+
+    for dialog in dialogs {
+        let dialog_id = graph_id_component(dialog_resref(dialog));
+        output.push_str(&format!(
+            "  subgraph cluster_{dialog_id}[{}]\n",
+            escape_mermaid_label(dialog_resref(dialog))
+        ));
+        for state in &dialog.states {
+            output.push_str(&format!(
+                "    {}[\"{}\"]\n",
+                prefixed_state_id(dialog, state.index),
+                escape_mermaid_label(&state_label(state, options))
+            ));
+        }
+        output.push_str("  end\n");
+    }
+
+    let external_nodes = multi_external_nodes(dialogs, &loaded_dialogs);
+    for node in &external_nodes {
+        output.push_str(&format!(
+            "  {node}[\"{}\"]\n",
+            escape_mermaid_label(&external_node_label(node))
+        ));
+    }
+
+    for dialog in dialogs {
+        for state in &dialog.states {
+            for transition in &state.transitions {
+                let target = multi_transition_target(dialog, transition, &loaded_dialogs)
+                    .unwrap_or_else(|| "END".to_string());
+                let label = transition_label(transition, options);
+                if label.is_empty() {
+                    output.push_str(&format!(
+                        "  {} --> {}\n",
+                        prefixed_state_id(dialog, state.index),
+                        target
+                    ));
+                } else {
+                    output.push_str(&format!(
+                        "  {} -->|\"{}\"| {}\n",
+                        prefixed_state_id(dialog, state.index),
+                        escape_mermaid_label(&label),
+                        target
+                    ));
+                }
+            }
+        }
+    }
+
+    if !external_nodes.is_empty() {
+        output.push_str("  classDef external fill:#fff2cc,stroke-dasharray: 5 5\n");
+        output.push_str(&format!("  class {} external\n", external_nodes.join(",")));
+    }
+
+    output
+}
+
+fn multi_external_nodes(
+    dialogs: &[DialogJson],
+    loaded_dialogs: &std::collections::BTreeSet<String>,
+) -> Vec<String> {
+    let mut external_nodes = Vec::new();
+    for dialog in dialogs {
+        for state in &dialog.states {
+            for transition in &state.transitions {
+                let Some(next_dialog) = transition.next_dialog.as_ref() else {
+                    continue;
+                };
+                if next_dialog
+                    .as_str()
+                    .eq_ignore_ascii_case(dialog_resref(dialog))
+                    || loaded_dialogs.contains(&next_dialog.as_str().to_ascii_uppercase())
+                {
+                    continue;
+                }
+                if let Some(external) = external_node_id(dialog, transition)
+                    && !external_nodes.contains(&external)
+                {
+                    external_nodes.push(external);
+                }
+            }
+        }
+    }
+    external_nodes.sort();
+    external_nodes
+}
+
+fn multi_transition_target(
+    dialog: &DialogJson,
+    transition: &DialogTransitionJson,
+    loaded_dialogs: &std::collections::BTreeSet<String>,
+) -> Option<String> {
+    if transition.terminates_dialog {
+        return Some("END".to_string());
+    }
+
+    if let Some(next_dialog) = transition.next_dialog.as_ref() {
+        if next_dialog
+            .as_str()
+            .eq_ignore_ascii_case(dialog_resref(dialog))
+        {
+            return transition
+                .next_state_index
+                .map(|state_index| prefixed_state_id(dialog, state_index));
+        }
+
+        if loaded_dialogs.contains(&next_dialog.as_str().to_ascii_uppercase()) {
+            return transition.next_state_index.map(|state_index| {
+                format!(
+                    "{}_S{state_index}",
+                    graph_id_component(next_dialog.as_str())
+                )
+            });
+        }
+
+        return external_node_id(dialog, transition);
+    }
+
+    transition
+        .next_state_index
+        .map(|state_index| prefixed_state_id(dialog, state_index))
+}
+
+fn prefixed_state_id(dialog: &DialogJson, state_index: u32) -> String {
+    format!(
+        "{}_S{state_index}",
+        graph_id_component(dialog_resref(dialog))
+    )
+}
+
 fn state_label(state: &DialogStateJson, options: &DialogGraphOptions) -> String {
     let mut parts = vec![format!(
         "S{}: {}",
@@ -437,9 +643,13 @@ fn escape_dot_label(value: &str) -> String {
 }
 
 fn escape_mermaid_label(value: &str) -> String {
+    // Mermaid reads '#' as the start of an entity code (e.g. #quot;), so a literal
+    // '#' — common in modded resrefs like RH#IS25J — must be escaped first, before we
+    // introduce our own entity codes, or it corrupts them.
     value
+        .replace('#', "#35;")
         .replace('"', "#quot;")
-        .replace('|', "&#124;")
+        .replace('|', "#124;")
         .replace('\n', "<br/>")
 }
 
@@ -1135,10 +1345,30 @@ mod tests {
         assert!(mermaid.contains("graph LR"));
         assert!(mermaid.contains("S0[\"S0: Hello the...\"]"));
         assert!(mermaid.contains("S0 -->|\"Continue ...\"| S1"));
-        assert!(mermaid.contains("S0 -->|\"Leave (#20)\"| END"));
+        // '#' in the strref display is escaped to mermaid's entity code (#35; -> "#")
+        // by the same rule that protects '#'-bearing resrefs like RH#IS25J.
+        assert!(mermaid.contains("S0 -->|\"Leave (#35;20)\"| END"));
         assert!(mermaid.contains("S1 -->|\"Ask about...<br/>[journal]\"| EXT_OTHER_2"));
         assert!(!mermaid.contains("Global("));
         assert!(!mermaid.contains("cutscene"));
+    }
+
+    #[test]
+    fn renders_multi_dlg_dot_with_clusters_and_cross_dialog_edges() {
+        let mut root = graph_test_dialog();
+        root.resource_name = "ROOT.DLG".to_string();
+        root.states[1].transitions[0].next_dialog =
+            Some(ResRef::new("OTHER").expect("valid resref"));
+        root.states[1].transitions[0].next_state_index = Some(0);
+
+        let mut other = graph_test_dialog();
+        other.resource_name = "OTHER.DLG".to_string();
+        let dot = dialog_jsons_to_dot(&[root, other], &DialogGraphOptions::default());
+
+        assert!(dot.contains("subgraph cluster_ROOT"));
+        assert!(dot.contains("subgraph cluster_OTHER"));
+        assert!(dot.contains("ROOT_S1 -> OTHER_S0"));
+        assert!(!dot.contains("EXT_OTHER_0"));
     }
 
     fn graph_test_dialog() -> DialogJson {

@@ -5,18 +5,19 @@ use ie_core::{
 };
 use ie_formats::{
     AreaJson, AreaScalarPatch, CreatureScalarPatch, DialogGraphOptions, DialogGraphStringMode,
-    EntranceRegistry, VerifyCategory, VerifyIssue, VerifyOptions, VerifySeverity, decode_to_json,
-    dialog_json_to_dot, dialog_json_to_mermaid, filter_issues, parse_are, parse_dlg, parse_gam,
-    parse_sav, patch_are_scalars, patch_cre_scalars, verify_are,
+    DialogJson, EntranceRegistry, VerifyCategory, VerifyIssue, VerifyOptions, VerifySeverity,
+    decode_to_json, dialog_json_to_dot, dialog_json_to_mermaid, dialog_jsons_to_dot,
+    dialog_jsons_to_mermaid, filter_issues, parse_are, parse_dlg, parse_gam, parse_sav,
+    patch_are_scalars, patch_cre_scalars, verify_are,
 };
 use ie_io::{
     FileBackedIdsResolver, GameInstallation, ListedResource, ListedSave, ResourceListOptions,
     ResourceLocator, ResourceReader, ResourceSource, TlkResolver, append_tlk_string, list_saves,
     read_save_member, resolve_save_folder,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Parser)]
 #[command(name = "iecli")]
@@ -74,6 +75,8 @@ struct DumpArgs {
     no_actions: bool,
     #[arg(long, value_enum, default_value_t = GraphStringModeArg::Resolved)]
     strings: GraphStringModeArg,
+    #[arg(long, num_args = 0..=1, default_missing_value = "1")]
+    follow_extern: Option<usize>,
 }
 
 #[derive(Debug, Args)]
@@ -108,6 +111,10 @@ struct OverrideDiffArgs {
     game: PathBuf,
     #[arg(long = "type")]
     resource_type: Option<String>,
+    #[arg(long)]
+    resource: Option<String>,
+    #[arg(long)]
+    against: Option<PathBuf>,
     #[arg(long, value_enum, default_value_t = OverrideDiffFormat::Text)]
     format: OverrideDiffFormat,
 }
@@ -385,14 +392,34 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         string_mode: args.strings.into(),
                     };
 
-                    match args.format {
-                        OutputFormat::Dot => {
-                            println!("{}", dialog_json_to_dot(&dialog, &graph_options))
+                    if let Some(max_depth) = args.follow_extern {
+                        let dialogs = collect_followed_dialogs(
+                            &locator,
+                            &reader,
+                            &dialog,
+                            max_depth,
+                            source,
+                            tlk_resolver.as_ref(),
+                        )?;
+                        match args.format {
+                            OutputFormat::Dot => {
+                                println!("{}", dialog_jsons_to_dot(&dialogs, &graph_options))
+                            }
+                            OutputFormat::Mermaid => {
+                                println!("{}", dialog_jsons_to_mermaid(&dialogs, &graph_options))
+                            }
+                            OutputFormat::Json => unreachable!(),
                         }
-                        OutputFormat::Mermaid => {
-                            println!("{}", dialog_json_to_mermaid(&dialog, &graph_options))
+                    } else {
+                        match args.format {
+                            OutputFormat::Dot => {
+                                println!("{}", dialog_json_to_dot(&dialog, &graph_options))
+                            }
+                            OutputFormat::Mermaid => {
+                                println!("{}", dialog_json_to_mermaid(&dialog, &graph_options))
+                            }
+                            OutputFormat::Json => unreachable!(),
                         }
-                        OutputFormat::Json => unreachable!(),
                     }
                 }
             }
@@ -474,20 +501,42 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Command::OverrideDiff(args) => {
             let installation = GameInstallation::discover(args.game)?;
             let locator = ResourceLocator::new(installation)?;
-            let report = build_override_shadow_report(
-                &locator,
-                args.resource_type
-                    .as_deref()
-                    .map(|value| value.trim().to_ascii_uppercase()),
-            )?;
+            let resource_type = args
+                .resource_type
+                .as_deref()
+                .map(|value| value.trim().to_ascii_uppercase());
 
-            match args.format {
-                OverrideDiffFormat::Text => print_override_shadow_report_text(&report),
-                OverrideDiffFormat::Json => {
-                    println!(
-                        "{}",
-                        serde_json::to_string_pretty(&override_shadow_report_json(&report))?
-                    );
+            if let Some(against) = args.against.as_ref() {
+                let report = build_override_reference_report(
+                    &locator,
+                    resource_type,
+                    args.resource.as_deref(),
+                    against,
+                )?;
+                match args.format {
+                    OverrideDiffFormat::Text => print_override_reference_report_text(&report),
+                    OverrideDiffFormat::Json => {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&override_reference_report_json(&report))?
+                        );
+                    }
+                }
+            } else {
+                let report = build_override_shadow_report(
+                    &locator,
+                    resource_type,
+                    args.resource.as_deref(),
+                )?;
+
+                match args.format {
+                    OverrideDiffFormat::Text => print_override_shadow_report_text(&report),
+                    OverrideDiffFormat::Json => {
+                        println!(
+                            "{}",
+                            serde_json::to_string_pretty(&override_shadow_report_json(&report))?
+                        );
+                    }
                 }
             }
         }
@@ -714,6 +763,74 @@ fn parse_are_resources(
     Ok(areas)
 }
 
+fn collect_followed_dialogs(
+    locator: &ResourceLocator,
+    reader: &ResourceReader,
+    root: &DialogJson,
+    max_depth: usize,
+    source: ResourceSource,
+    tlk_resolver: Option<&TlkResolver>,
+) -> Result<Vec<DialogJson>, Box<dyn std::error::Error>> {
+    let mut dialogs = vec![root.clone()];
+    let mut depths = vec![0usize];
+    let mut visited = BTreeSet::from([root.resource_name.to_ascii_uppercase()]);
+    let mut cursor = 0usize;
+
+    while cursor < dialogs.len() {
+        let depth = depths[cursor];
+        let dialog = dialogs[cursor].clone();
+        cursor += 1;
+
+        if depth >= max_depth {
+            continue;
+        }
+
+        for state in &dialog.states {
+            for transition in &state.transitions {
+                let Some(next_dialog) = transition.next_dialog.as_ref() else {
+                    continue;
+                };
+                let resource_name = format!("{}.DLG", next_dialog.as_str());
+                if resource_name.eq_ignore_ascii_case(&dialog.resource_name) {
+                    continue;
+                }
+                let normalized = resource_name.to_ascii_uppercase();
+                if visited.contains(&normalized) {
+                    continue;
+                }
+
+                let parsed = ResourceName::parse(&resource_name)?;
+                let Ok(bytes) = reader.read_with_source(locator, &parsed, source) else {
+                    continue;
+                };
+                // A present-but-corrupt extern degrades to a dashed external node
+                // (like a read miss) rather than aborting the whole graph — this tool
+                // is for inspecting possibly-broken installs.
+                let parsed_dialog = match parse_dlg(
+                    &bytes.bytes,
+                    &bytes.metadata.resource_name,
+                    tlk_resolver.map(|resolver| resolver as _),
+                ) {
+                    Ok(parsed_dialog) => parsed_dialog,
+                    Err(err) => {
+                        eprintln!(
+                            "warning: skipping unparseable extern DLG {resource_name}: {err}"
+                        );
+                        continue;
+                    }
+                };
+
+                visited.insert(normalized);
+                dialogs.push(parsed_dialog);
+                depths.push(depth + 1);
+            }
+        }
+    }
+
+    dialogs.sort_by(|left, right| left.resource_name.cmp(&right.resource_name));
+    Ok(dialogs)
+}
+
 fn parse_error_issue(resource_name: String, message: String) -> VerifyIssue {
     VerifyIssue {
         resource: resource_name,
@@ -887,15 +1004,20 @@ struct OverrideShadowCounts {
 fn build_override_shadow_report(
     locator: &ResourceLocator,
     resource_type: Option<String>,
+    resource: Option<&str>,
 ) -> Result<OverrideShadowReport, Box<dyn std::error::Error>> {
+    let resource_filter = resource
+        .map(ResourceName::parse)
+        .transpose()?
+        .map(|resource| resource.file_name());
     let overrides = locator.list(ResourceListOptions {
         resource_type: resource_type.clone(),
-        name_glob: None,
+        name_glob: resource_filter.clone(),
         source: Some(ResourceSource::Override),
     })?;
     let bifs = locator.list(ResourceListOptions {
         resource_type,
-        name_glob: None,
+        name_glob: resource_filter,
         source: Some(ResourceSource::Bif),
     })?;
     let bif_by_name = bifs
@@ -979,6 +1101,318 @@ fn override_shadow_report_json(report: &OverrideShadowReport) -> serde_json::Val
             "override_only": report.counts.override_only,
         },
     })
+}
+
+#[derive(Debug, Clone)]
+enum OverrideReferenceReport {
+    Single(OverrideReferenceSingle),
+    Set(OverrideReferenceSet),
+}
+
+#[derive(Debug, Clone)]
+struct OverrideReferenceSingle {
+    resource: String,
+    status: OverrideReferenceStatus,
+    override_sha1: String,
+    reference_sha1: String,
+}
+
+#[derive(Debug, Clone)]
+struct OverrideReferenceSet {
+    added: Vec<OverrideReferenceHashEntry>,
+    removed: Vec<OverrideReferenceHashEntry>,
+    changed: Vec<OverrideReferenceChangedEntry>,
+    counts: OverrideReferenceCounts,
+}
+
+#[derive(Debug, Clone)]
+struct OverrideReferenceHashEntry {
+    resource: String,
+    sha1: String,
+}
+
+#[derive(Debug, Clone)]
+struct OverrideReferenceChangedEntry {
+    resource: String,
+    override_sha1: String,
+    reference_sha1: String,
+}
+
+#[derive(Debug, Clone)]
+struct OverrideReferenceCounts {
+    override_total: usize,
+    reference_total: usize,
+    added: usize,
+    removed: usize,
+    changed: usize,
+    unchanged: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum OverrideReferenceStatus {
+    Match,
+    Differ,
+}
+
+impl OverrideReferenceStatus {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Match => "match",
+            Self::Differ => "differ",
+        }
+    }
+}
+
+fn build_override_reference_report(
+    locator: &ResourceLocator,
+    resource_type: Option<String>,
+    resource: Option<&str>,
+    against: &Path,
+) -> Result<OverrideReferenceReport, Box<dyn std::error::Error>> {
+    if against.is_file() {
+        let resource = resource
+            .ok_or_else(|| "--resource is required when --against points to a file".to_string())?;
+        return build_single_override_reference_report(locator, resource, against)
+            .map(OverrideReferenceReport::Single);
+    }
+
+    if !against.is_dir() {
+        return Err(format!("--against path does not exist: {}", against.display()).into());
+    }
+
+    build_set_override_reference_report(locator, resource_type, resource, against)
+        .map(OverrideReferenceReport::Set)
+}
+
+fn build_single_override_reference_report(
+    locator: &ResourceLocator,
+    resource: &str,
+    against: &Path,
+) -> Result<OverrideReferenceSingle, Box<dyn std::error::Error>> {
+    let resource_name = ResourceName::parse(resource)?;
+    let reader = ResourceReader;
+    let override_bytes =
+        reader.read_with_source(locator, &resource_name, ResourceSource::Override)?;
+    let reference_bytes = fs::read(against)?;
+    let override_sha1 = sha1_hex(&override_bytes.bytes);
+    let reference_sha1 = sha1_hex(&reference_bytes);
+
+    Ok(OverrideReferenceSingle {
+        resource: resource_name.file_name(),
+        status: if override_sha1 == reference_sha1 {
+            OverrideReferenceStatus::Match
+        } else {
+            OverrideReferenceStatus::Differ
+        },
+        override_sha1,
+        reference_sha1,
+    })
+}
+
+fn build_set_override_reference_report(
+    locator: &ResourceLocator,
+    resource_type: Option<String>,
+    resource: Option<&str>,
+    against: &Path,
+) -> Result<OverrideReferenceSet, Box<dyn std::error::Error>> {
+    let resource_filter = resource
+        .map(ResourceName::parse)
+        .transpose()?
+        .map(|resource| resource.file_name());
+    let overrides = locator.list(ResourceListOptions {
+        resource_type: resource_type.clone(),
+        name_glob: resource_filter.clone(),
+        source: Some(ResourceSource::Override),
+    })?;
+
+    let override_hashes = override_hashes(locator, &overrides)?;
+    let reference_hashes = reference_hashes(against, resource_type.as_deref(), resource_filter)?;
+    let all_resources = override_hashes
+        .keys()
+        .chain(reference_hashes.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>();
+
+    let mut added = Vec::new();
+    let mut removed = Vec::new();
+    let mut changed = Vec::new();
+    let mut unchanged = 0usize;
+
+    for resource in all_resources {
+        match (
+            override_hashes.get(&resource),
+            reference_hashes.get(&resource),
+        ) {
+            (Some(override_sha1), Some(reference_sha1)) if override_sha1 == reference_sha1 => {
+                unchanged += 1;
+            }
+            (Some(override_sha1), Some(reference_sha1)) => {
+                changed.push(OverrideReferenceChangedEntry {
+                    resource,
+                    override_sha1: override_sha1.clone(),
+                    reference_sha1: reference_sha1.clone(),
+                });
+            }
+            (Some(override_sha1), None) => {
+                added.push(OverrideReferenceHashEntry {
+                    resource,
+                    sha1: override_sha1.clone(),
+                });
+            }
+            (None, Some(reference_sha1)) => {
+                removed.push(OverrideReferenceHashEntry {
+                    resource,
+                    sha1: reference_sha1.clone(),
+                });
+            }
+            (None, None) => {}
+        }
+    }
+
+    Ok(OverrideReferenceSet {
+        counts: OverrideReferenceCounts {
+            override_total: override_hashes.len(),
+            reference_total: reference_hashes.len(),
+            added: added.len(),
+            removed: removed.len(),
+            changed: changed.len(),
+            unchanged,
+        },
+        added,
+        removed,
+        changed,
+    })
+}
+
+fn override_hashes(
+    locator: &ResourceLocator,
+    resources: &[ListedResource],
+) -> Result<BTreeMap<String, String>, Box<dyn std::error::Error>> {
+    let reader = ResourceReader;
+    let mut hashes = BTreeMap::new();
+    for resource in resources {
+        let resource_name = ResourceName::parse(&resource.resource_name)?;
+        let bytes = reader.read_with_source(locator, &resource_name, ResourceSource::Override)?;
+        hashes.insert(resource_name.file_name(), sha1_hex(&bytes.bytes));
+    }
+    Ok(hashes)
+}
+
+fn reference_hashes(
+    against: &Path,
+    resource_type: Option<&str>,
+    resource_filter: Option<String>,
+) -> Result<BTreeMap<String, String>, Box<dyn std::error::Error>> {
+    let mut hashes = BTreeMap::new();
+    for entry in fs::read_dir(against)? {
+        let entry = entry?;
+        let path = entry.path();
+        if !path.is_file() {
+            continue;
+        }
+
+        let Some(file_name) = path.file_name().and_then(|name| name.to_str()) else {
+            continue;
+        };
+        let Ok(resource_name) = ResourceName::parse(file_name) else {
+            continue;
+        };
+        if let Some(resource_type) = resource_type
+            && !resource_name
+                .extension()
+                .eq_ignore_ascii_case(resource_type)
+        {
+            continue;
+        }
+        if let Some(resource_filter) = resource_filter.as_deref()
+            && !resource_name
+                .file_name()
+                .eq_ignore_ascii_case(resource_filter)
+        {
+            continue;
+        }
+
+        hashes.insert(resource_name.file_name(), sha1_hex(&fs::read(path)?));
+    }
+    Ok(hashes)
+}
+
+fn print_override_reference_report_text(report: &OverrideReferenceReport) {
+    match report {
+        OverrideReferenceReport::Single(single) => {
+            println!(
+                "resource\tstatus\toverride_sha1\treference_sha1\n{}\t{}\t{}\t{}",
+                single.resource,
+                single.status.as_str(),
+                single.override_sha1,
+                single.reference_sha1
+            );
+        }
+        OverrideReferenceReport::Set(set) => {
+            println!("resource\tstatus\toverride_sha1\treference_sha1");
+            for entry in &set.added {
+                println!("{}\tadded\t{}\t", entry.resource, entry.sha1);
+            }
+            for entry in &set.removed {
+                println!("{}\tremoved\t\t{}", entry.resource, entry.sha1);
+            }
+            for entry in &set.changed {
+                println!(
+                    "{}\tchanged\t{}\t{}",
+                    entry.resource, entry.override_sha1, entry.reference_sha1
+                );
+            }
+            println!(
+                "counts\toverride_total={}\treference_total={}\tadded={}\tremoved={}\tchanged={}\tunchanged={}",
+                set.counts.override_total,
+                set.counts.reference_total,
+                set.counts.added,
+                set.counts.removed,
+                set.counts.changed,
+                set.counts.unchanged
+            );
+        }
+    }
+}
+
+fn override_reference_report_json(report: &OverrideReferenceReport) -> serde_json::Value {
+    match report {
+        OverrideReferenceReport::Single(single) => serde_json::json!({
+            "resource": single.resource,
+            "status": single.status.as_str(),
+            "override_sha1": single.override_sha1,
+            "reference_sha1": single.reference_sha1,
+        }),
+        OverrideReferenceReport::Set(set) => serde_json::json!({
+            "added": set.added.iter().map(|entry| {
+                serde_json::json!({
+                    "resource": entry.resource,
+                    "override_sha1": entry.sha1,
+                })
+            }).collect::<Vec<_>>(),
+            "removed": set.removed.iter().map(|entry| {
+                serde_json::json!({
+                    "resource": entry.resource,
+                    "reference_sha1": entry.sha1,
+                })
+            }).collect::<Vec<_>>(),
+            "changed": set.changed.iter().map(|entry| {
+                serde_json::json!({
+                    "resource": entry.resource,
+                    "override_sha1": entry.override_sha1,
+                    "reference_sha1": entry.reference_sha1,
+                })
+            }).collect::<Vec<_>>(),
+            "counts": {
+                "override_total": set.counts.override_total,
+                "reference_total": set.counts.reference_total,
+                "added": set.counts.added,
+                "removed": set.counts.removed,
+                "changed": set.counts.changed,
+                "unchanged": set.counts.unchanged,
+            },
+        }),
+    }
 }
 
 fn sha1_hex(bytes: &[u8]) -> String {

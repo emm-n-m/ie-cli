@@ -17,7 +17,7 @@ pub use are::{AreaScalarPatch, patch_are_scalars};
 pub use cre::{CreatureScalarPatch, patch_cre_scalars};
 pub use dlg::{
     DialogGraphOptions, DialogGraphStringMode, DialogJson, dialog_json_to_dot,
-    dialog_json_to_mermaid, parse_dlg,
+    dialog_json_to_mermaid, dialog_jsons_to_dot, dialog_jsons_to_mermaid, parse_dlg,
 };
 pub use save::{GameStateJson, SaveArchiveJson, parse_gam, parse_sav};
 pub use verify::{

@@ -304,6 +304,38 @@ fn dump_dot_rejects_non_dlg_resources() {
     );
 }
 
+#[test]
+fn dump_dot_follow_extern_renders_referenced_override_dlg() {
+    let fixture = GraphTestInstallation::new("dump-dot-follow-extern");
+    fixture.write_override("TEST.DLG", &build_external_jump_dlg("OTHER"));
+    fixture.write_override("OTHER.DLG", &build_test_dlg());
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("dump")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--resource")
+        .arg("TEST.DLG")
+        .arg("--format")
+        .arg("dot")
+        .arg("--strings")
+        .arg("strref")
+        .arg("--follow-extern")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("subgraph cluster_TEST"));
+    assert!(stdout.contains("subgraph cluster_OTHER"));
+    assert!(stdout.contains("TEST_S0 -> OTHER_S0 [label=\"#20\"]"));
+}
+
 fn pstee_game_path() -> Option<OsString> {
     std::env::var_os("IE_PSTEE_PATH").or_else(|| std::env::var_os("IE_PSTEE_GAME_PATH"))
 }
@@ -391,6 +423,39 @@ fn build_test_dlg() -> Vec<u8> {
     bytes[transition + 12..transition + 16].copy_from_slice(&u32::MAX.to_le_bytes());
     bytes[transition + 16..transition + 20].copy_from_slice(&u32::MAX.to_le_bytes());
     bytes[transition + 28..transition + 32].copy_from_slice(&u32::MAX.to_le_bytes());
+
+    bytes
+}
+
+fn build_external_jump_dlg(next_dialog: &str) -> Vec<u8> {
+    let offset_states = 0x34u32;
+    let offset_transitions = offset_states + 16;
+    let mut bytes = vec![0u8; offset_transitions as usize + 32];
+
+    bytes[0..4].copy_from_slice(b"DLG ");
+    bytes[4..8].copy_from_slice(b"V1.0");
+    bytes[0x08..0x0C].copy_from_slice(&1u32.to_le_bytes());
+    bytes[0x0C..0x10].copy_from_slice(&offset_states.to_le_bytes());
+    bytes[0x10..0x14].copy_from_slice(&1u32.to_le_bytes());
+    bytes[0x14..0x18].copy_from_slice(&offset_transitions.to_le_bytes());
+    bytes[0x30..0x34].copy_from_slice(&0u32.to_le_bytes());
+
+    let state = offset_states as usize;
+    bytes[state..state + 4].copy_from_slice(&10u32.to_le_bytes());
+    bytes[state + 4..state + 8].copy_from_slice(&0u32.to_le_bytes());
+    bytes[state + 8..state + 12].copy_from_slice(&1u32.to_le_bytes());
+    bytes[state + 12..state + 16].copy_from_slice(&u32::MAX.to_le_bytes());
+
+    let transition = offset_transitions as usize;
+    bytes[transition..transition + 4].copy_from_slice(&0x0001u32.to_le_bytes());
+    bytes[transition + 4..transition + 8].copy_from_slice(&20u32.to_le_bytes());
+    bytes[transition + 8..transition + 12].copy_from_slice(&u32::MAX.to_le_bytes());
+    bytes[transition + 12..transition + 16].copy_from_slice(&u32::MAX.to_le_bytes());
+    bytes[transition + 16..transition + 20].copy_from_slice(&u32::MAX.to_le_bytes());
+    let mut resref = [0u8; 8];
+    resref[..next_dialog.len()].copy_from_slice(next_dialog.as_bytes());
+    bytes[transition + 20..transition + 28].copy_from_slice(&resref);
+    bytes[transition + 28..transition + 32].copy_from_slice(&0u32.to_le_bytes());
 
     bytes
 }

@@ -213,6 +213,128 @@ fn override_diff_text_prints_sorted_report_and_counts() {
     assert!(stdout.contains("counts\toverride_total=2\tshadowing_bif=1\toverride_only=1"));
 }
 
+#[test]
+fn override_diff_against_directory_reports_added_removed_changed_and_unchanged_counts() {
+    let fixture = TestInstallation::new("override-diff-against-dir");
+    fixture.write_archive_install(
+        "data/resources.bif",
+        &[TestResourceSpec::new(
+            "KIRINH.CRE",
+            CRE_TYPE_CODE,
+            b"CRE BASE",
+        )],
+    );
+    fixture.write_override("CHANGED.CRE", b"override changed");
+    fixture.write_override("ADDED.CRE", b"override added");
+    fixture.write_override("SAME.CRE", b"same bytes");
+    fixture.write_override("IGNORED.ITM", b"ignored item");
+    let reference_dir = fixture.root().join("reference");
+    fs::create_dir_all(&reference_dir).expect("reference dir should be creatable");
+    fs::write(reference_dir.join("CHANGED.CRE"), b"reference changed")
+        .expect("reference file should be writable");
+    fs::write(reference_dir.join("REMOVED.CRE"), b"reference removed")
+        .expect("reference file should be writable");
+    fs::write(reference_dir.join("SAME.CRE"), b"same bytes").expect("reference file should exist");
+    fs::write(reference_dir.join("IGNORED.ITM"), b"ignored item")
+        .expect("reference file should exist");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("override-diff")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--type")
+        .arg("CRE")
+        .arg("--against")
+        .arg(&reference_dir)
+        .arg("--format")
+        .arg("json")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout: Value =
+        serde_json::from_slice(&output.stdout).expect("override-diff should emit JSON");
+    assert_eq!(stdout["counts"]["override_total"], 3);
+    assert_eq!(stdout["counts"]["reference_total"], 3);
+    assert_eq!(stdout["counts"]["added"], 1);
+    assert_eq!(stdout["counts"]["removed"], 1);
+    assert_eq!(stdout["counts"]["changed"], 1);
+    assert_eq!(stdout["counts"]["unchanged"], 1);
+    assert_eq!(stdout["added"][0]["resource"], "ADDED.CRE");
+    assert_eq!(stdout["removed"][0]["resource"], "REMOVED.CRE");
+    assert_eq!(stdout["changed"][0]["resource"], "CHANGED.CRE");
+}
+
+#[test]
+fn override_diff_against_file_reports_single_resource_status() {
+    let fixture = TestInstallation::new("override-diff-against-file");
+    fixture.write_archive_install(
+        "data/resources.bif",
+        &[TestResourceSpec::new(
+            "KIRINH.CRE",
+            CRE_TYPE_CODE,
+            b"CRE BASE",
+        )],
+    );
+    fixture.write_override("KIRINH.CRE", b"CRE OVERRIDE");
+    let reference_path = fixture.root().join("reference.cre");
+    fs::write(&reference_path, b"CRE OVERRIDE").expect("reference file should be writable");
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("override-diff")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--resource")
+        .arg("KIRINH.CRE")
+        .arg("--against")
+        .arg(&reference_path)
+        .arg("--format")
+        .arg("json")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout: Value =
+        serde_json::from_slice(&output.stdout).expect("override-diff should emit JSON");
+    assert_eq!(stdout["resource"], "KIRINH.CRE");
+    assert_eq!(stdout["status"], "match");
+    assert_eq!(stdout["override_sha1"], stdout["reference_sha1"]);
+
+    fs::write(&reference_path, b"CRE DIFFERENT").expect("reference file should be writable");
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("override-diff")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--resource")
+        .arg("KIRINH.CRE")
+        .arg("--against")
+        .arg(&reference_path)
+        .arg("--format")
+        .arg("json")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout: Value =
+        serde_json::from_slice(&output.stdout).expect("override-diff should emit JSON");
+    assert_eq!(stdout["status"], "differ");
+    assert_ne!(stdout["override_sha1"], stdout["reference_sha1"]);
+}
+
 #[derive(Clone, Copy)]
 struct TestResourceSpec<'a> {
     resource_name: &'a str,
