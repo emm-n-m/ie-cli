@@ -239,14 +239,16 @@ fn dump_pstee_mortuary_parses_without_error_when_pstee_game_path_is_set() {
         stdout["actors"].is_array(),
         "AR0500.ARE actors field must be a JSON array"
     );
-    let deferred = &stdout["deferred_sections"];
+    // Regions (travel/trigger) parse eagerly into a top-level `regions` array (consumed by
+    // explore-dungeon), not a deferred count/offset. The Mortuary has several, so assert they
+    // actually parsed rather than checking a metadata field that no longer exists.
     assert!(
-        deferred["regions_count"].is_number(),
-        "deferred_sections.regions_count must be present"
+        stdout["regions"].is_array(),
+        "AR0500.ARE regions field must be a JSON array"
     );
     assert!(
-        deferred["regions_offset"].is_number(),
-        "deferred_sections.regions_offset must be present"
+        !stdout["regions"].as_array().unwrap().is_empty(),
+        "AR0500.ARE (Mortuary) must expose at least one region"
     );
 }
 
