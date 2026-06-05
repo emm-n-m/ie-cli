@@ -25,7 +25,7 @@ Near Infinity remains the right tool for last-mile manual sanity checks and for 
 
 ## Status Snapshot
 
-Current as of 2026-04-25.
+Current as of 2026-06-05.
 
 ### Done
 
@@ -37,8 +37,10 @@ Current as of 2026-04-25.
 - Resource enumeration: `list --type <T> --name <glob> --source <S> --format <text|json>`.
 - `TLK` string resolution.
 - Typed decoders + JSON export for: `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`.
+- DLG graph export via `dump --format dot|mermaid`, with `--max-label-len`, `--no-triggers`, `--no-actions`, `--strings`, and `--follow-extern[=DEPTH]`.
 - Minimum viable `ARE` decoder + JSON export for header, deferred-section offsets/counts, and actor placement/link data.
 - Lazy IDS loading and opcode/name resolution for BCS decoding.
+- Override trust workflow via `override-diff`: shadow reports against BIFF and hash-based comparison against reference directories/files.
 - Real-install smoke coverage for `ITM` and `SPL`; selected Near Infinity comparisons for `SPL`.
 - Env-gated CLI smoke coverage for `BCS` and PSTEE `ARE`.
 - Initial CRE scalar patch support for fixed-offset fields, with byte-exact copy-only behavior.
@@ -78,14 +80,30 @@ Priorities below are ordered against this use case.
 
 ### Recently Completed
 
-#### DLG Read + JSON Export
+#### DLG Read + Graph Export
 
-Implemented. `iecli dump --resource FOO.DLG` now exports structured dialogue graphs with states, transitions, script tables, and inline `strref` resolution.
+Implemented. `iecli dump --resource FOO.DLG` now exports structured dialogue JSON with states, transitions, script tables, and inline `strref` resolution, plus graph views via `--format dot` and `--format mermaid`.
+
+Current graph slice includes:
+
+- single-file graph rendering for DLG resources
+- optional multi-file extern following via `--follow-extern[=DEPTH]`
+- label controls via `--max-label-len`, `--no-triggers`, `--no-actions`, and `--strings <resolved|strref|both>`
+- explicit rejection for non-DLG graph export requests
 
 Remaining follow-up:
 
 - verify more real PSTEE dialogues against Near Infinity
 - expand regression coverage for external-dialog references and edge cases
+
+#### Override Diff
+
+Implemented. `iecli override-diff` now reports which override resources shadow BIFF content, distinguishes byte-identical shadows from real overrides, and can hash-compare the live override set against a reference directory or a single reference file.
+
+Remaining follow-up:
+
+- validate the workflow on more real modded installs beyond the Kirinhale session
+- decide whether later documentation should grow a dedicated WeiDU-attribution note, without promising component-level provenance in the command itself
 
 #### BCS Read + JSON Export
 

@@ -41,6 +41,8 @@ The Rust rewrite is in progress. The current workspace already supports:
   - `DLG`
   - `BCS`
   - `ARE`
+- DLG graph export via `dump --format dot|mermaid`, with optional extern following
+- override shadow/reference comparison via `override-diff`
 - Tier 1 CRE scalar patching with byte-exact copy behavior outside requested fixed-offset fields
 
 Not implemented yet:
@@ -107,11 +109,16 @@ iecli dump --game /path/to/game --resource ACIDBL.ITM --format json
 iecli dump --game /path/to/game --resource SPWI112.SPL --format json
 iecli dump --game /path/to/game --resource BALDUR.BCS --format json
 iecli dump --game /path/to/game --resource AR0202.ARE --format json
+iecli dump --game /path/to/game --resource FINMEL01.DLG --format dot --strings both
+iecli dump --game /path/to/game --resource FINMEL01.DLG --format mermaid --follow-extern=2
 iecli verify --game /path/to/game --source override --format json
 iecli patch --game /path/to/game --resource KIRINH.CRE --set morale=9 --set morale_break=3 --output ./KIRINH.CRE
 iecli patch --game /path/to/game --resource ARR019.ARE --set "regions.Door1900.destination_entrance=Exit1903" --output ./ARR019.ARE
 iecli list --game /path/to/game --type CRE --name "kirin*"
 iecli list --game /path/to/game --type ITM --source override --format json
+iecli override-diff --game /path/to/game --type DLG --format json
+iecli override-diff --game /path/to/game --against ./reference-override
+iecli override-diff --game /path/to/game --resource KIRINH.CRE --against ./KIRINH-stock.CRE --format json
 iecli tlk --game /path/to/game --strref 1
 iecli tlk-append --game /path/to/game --text "New line" --tlk-out ./dialog-patched.tlk --output-strref-to ./new-strref.txt
 ```
@@ -122,6 +129,7 @@ iecli tlk-append --game /path/to/game --text "New line" --tlk-out ./dialog-patch
 - [Todo priorities](./TODO_PRIORITIES.md)
 - [Regression plan](./docs/REGRESSION_PLAN.md)
 - [Format references](./docs/NEAR_INFINITY_REFERENCE.md)
+- [DLG graph export + override diff](./docs/PROPOSED_DLG_GRAPH_AND_OVERRIDE_DIFF.md)
 - [Project skills](./docs/SKILLS.md) — Claude Code skills shipped with the repo (`diagnose-dialog`, `explore-dungeon`)
 
 ## Notes
