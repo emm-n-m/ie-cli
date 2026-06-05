@@ -4,7 +4,8 @@ mod ids;
 
 use crate::bytes::{read_u16_le, read_u32_le};
 use ie_core::{
-    ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind, StrRef, StrRefResolver,
+    GameVariant, ResourceBytes, ResourceMetadata, ResourceName, ResourceType, SourceKind, StrRef,
+    StrRefResolver,
 };
 use std::collections::HashMap;
 use std::fs;
@@ -17,6 +18,7 @@ pub use ids::{FileBackedIdsResolver, parse_ids, parse_ids_text};
 pub struct GameInstallation {
     pub root: PathBuf,
     pub chitin_key: PathBuf,
+    pub game_variant: GameVariant,
     pub language: Option<String>,
     pub language_dir: Option<PathBuf>,
     pub dialog_tlk: Option<PathBuf>,
@@ -36,12 +38,14 @@ impl GameInstallation {
             return Err(IoError::MissingChitinKey(chitin_key));
         }
 
+        let game_variant = detect_game_variant(&root);
         let (language, language_dir, dialog_tlk) = discover_dialog_tlk(&root)?;
         let override_dirs = discover_override_dirs(&root, language_dir.as_deref());
 
         Ok(Self {
             root,
             chitin_key,
+            game_variant,
             language,
             language_dir,
             dialog_tlk,
@@ -194,6 +198,7 @@ impl ResourceLocator {
                         source_kind: SourceKind::Override,
                         resource_type: resource.resource_type(),
                         resource_name,
+                        game_variant: self.installation.game_variant,
                     },
                     locator: None,
                 });
@@ -229,6 +234,7 @@ impl ResourceLocator {
                 source_kind: SourceKind::Bif,
                 resource_type: entry.resource_type,
                 resource_name: key,
+                game_variant: self.installation.game_variant,
             },
             locator: Some(entry.locator),
         })
@@ -1033,6 +1039,27 @@ fn discover_override_dirs(root: &Path, language_dir: Option<&Path>) -> Vec<PathB
     }
 
     dirs
+}
+
+fn detect_game_variant(root: &Path) -> GameVariant {
+    // Install directories are often user-renamed (`Project P` in local use), so
+    // prefer stable game-specific root files over folder names.
+    for file_name in ["torment.lua", "torment.exe", "torment64.exe"] {
+        if resolve_child_file_case_insensitive(root, file_name).is_some() {
+            return GameVariant::Pst;
+        }
+    }
+
+    if let Some(root_name) = root.file_name().and_then(|name| name.to_str()) {
+        match root_name.to_ascii_lowercase().as_str() {
+            "planescape torment enhanced edition" | "planescape torment - enhanced edition" => {
+                return GameVariant::Pst;
+            }
+            _ => {}
+        }
+    }
+
+    GameVariant::Standard
 }
 
 fn resolve_child_dir_case_insensitive(parent: &Path, child_name: &str) -> Option<PathBuf> {

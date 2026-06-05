@@ -1,4 +1,5 @@
-use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
+use crate::effects::{EffectOpcodeFamily, decode_effect_opcode};
+use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -138,10 +139,11 @@ impl From<ItemParseError> for crate::FormatError {
     }
 }
 
-pub fn parse_itm(
+pub(crate) fn parse_itm_with_variant(
     bytes: &[u8],
     resource_name: &str,
     resolver: Option<&dyn StrRefResolver>,
+    game_variant: GameVariant,
 ) -> Result<ItemJson, crate::FormatError> {
     if bytes.len() < ITM_HEADER_SIZE {
         return Err(ItemParseError::UnexpectedEof(format!(
@@ -258,6 +260,7 @@ pub fn parse_itm(
             effects_offset,
             ability.first_effect_index,
             ability.num_effects,
+            game_variant,
         )?;
     }
 
@@ -266,6 +269,7 @@ pub fn parse_itm(
         effects_offset,
         first_effect_index,
         global_effect_count,
+        game_variant,
     )?;
 
     Ok(ItemJson {
@@ -283,6 +287,7 @@ fn parse_effects(
     offset: u32,
     first_index: u16,
     count: u16,
+    game_variant: GameVariant,
 ) -> Result<Vec<ItemEffectJson>, ItemParseError> {
     if count == 0 {
         return Ok(Vec::new());
@@ -308,13 +313,17 @@ fn parse_effects(
     let mut effects = Vec::with_capacity(count as usize);
     for index in first..range_end {
         let position = start + index * ITEM_EFFECT_SIZE;
-        let effect = parse_effect(bytes, position)?;
+        let effect = parse_effect(bytes, position, game_variant)?;
         effects.push(effect);
     }
     Ok(effects)
 }
 
-fn parse_effect(bytes: &[u8], offset: usize) -> Result<ItemEffectJson, ItemParseError> {
+fn parse_effect(
+    bytes: &[u8],
+    offset: usize,
+    game_variant: GameVariant,
+) -> Result<ItemEffectJson, ItemParseError> {
     if offset + ITEM_EFFECT_SIZE > bytes.len() {
         return Err(ItemParseError::UnexpectedEof(format!(
             "effect record at {} is truncated",
@@ -337,7 +346,8 @@ fn parse_effect(bytes: &[u8], offset: usize) -> Result<ItemEffectJson, ItemParse
     Ok(ItemEffectJson {
         opcode: RawDecoded {
             raw: opcode,
-            decoded: decode_effect_opcode(opcode).map(str::to_string),
+            decoded: decode_effect_opcode(opcode, EffectOpcodeFamily::Item, game_variant)
+                .map(str::to_string),
         },
         target_type: RawDecoded {
             raw: target_type,
@@ -721,64 +731,6 @@ fn decode_ability_flags(value: u32) -> Vec<String> {
     labels
 }
 
-fn decode_effect_opcode(value: u16) -> Option<&'static str> {
-    match value {
-        0 => Some("Cure Condition"),
-        1 => Some("Cure Poison"),
-        2 => Some("Cure Disease"),
-        3 => Some("Heal"),
-        4 => Some("Drain Level"),
-        5 => Some("Drain HP"),
-        6 => Some("Drain Magic"),
-        7 => Some("Drain Item Charges"),
-        8 => Some("Cure Fatigue"),
-        9 => Some("Cure Intoxication"),
-        16 => Some("Poison"),
-        17 => Some("Disease"),
-        18 => Some("Fatigue"),
-        19 => Some("Intoxication"),
-        20 => Some("Sleep"),
-        21 => Some("Confusion"),
-        22 => Some("Charm"),
-        23 => Some("Fear"),
-        24 => Some("Power Word: Stun"),
-        25 => Some("Hold Monster"),
-        26 => Some("Paralyze"),
-        27 => Some("Haste"),
-        28 => Some("Slow"),
-        29 => Some("Protection: Fire"),
-        30 => Some("Protection: Cold"),
-        31 => Some("Protection: Lightning"),
-        32 => Some("Protection: Acid"),
-        33 => Some("Protection: Magic"),
-        34 => Some("Protection: Magic Fire"),
-        35 => Some("Protection: Magic Cold"),
-        36 => Some("Invisibility 10' Radius"),
-        37 => Some("Invisibility"),
-        38 => Some("Detect Invisible"),
-        39 => Some("Invisibility Purge"),
-        40 => Some("Protection: Cold (Lesser)"),
-        41 => Some("Protection: Fire (Lesser)"),
-        42 => Some("Protection: Lightning (Lesser)"),
-        43 => Some("Protection: Magic Damage (Lesser)"),
-        44 => Some("Protection: Acid (Lesser)"),
-        45 => Some("Strength"),
-        46 => Some("Dexterity"),
-        47 => Some("Constitution"),
-        48 => Some("Intelligence"),
-        49 => Some("Wisdom"),
-        50 => Some("Charisma"),
-        51 => Some("Damage"),
-        52 => Some("Thac0 Bonus"),
-        53 => Some("Saving Throw: Death"),
-        54 => Some("Saving Throw: Wands"),
-        55 => Some("Saving Throw: Polymorph"),
-        56 => Some("Saving Throw: Breath"),
-        57 => Some("Saving Throw: Spells"),
-        _ => None,
-    }
-}
-
 fn decode_effect_target_type(value: u8) -> Option<&'static str> {
     match value {
         0 => Some("Self"),
@@ -843,7 +795,13 @@ mod tests {
         bytes[0x6E..0x70].copy_from_slice(&0u16.to_le_bytes());
         bytes[0x70..0x72].copy_from_slice(&0u16.to_le_bytes());
 
-        let item = parse_itm(&bytes, "FOO.ITM", Some(&NullResolver)).expect("should parse ITM");
+        let item = parse_itm_with_variant(
+            &bytes,
+            "FOO.ITM",
+            Some(&NullResolver),
+            GameVariant::Standard,
+        )
+        .expect("should parse ITM");
         assert_eq!(item.resource_name, "FOO.ITM");
         assert_eq!(item.version, "V1  ");
         assert_eq!(item.header.price, 123);
@@ -882,7 +840,13 @@ mod tests {
         bytes[second_effect + 2] = 2;
         bytes[second_effect + 0x14..second_effect + 0x1C].copy_from_slice(b"DISCIPLE");
 
-        let item = parse_itm(&bytes, "FOO.ITM", Some(&NullResolver)).expect("should parse ITM");
+        let item = parse_itm_with_variant(
+            &bytes,
+            "FOO.ITM",
+            Some(&NullResolver),
+            GameVariant::Standard,
+        )
+        .expect("should parse ITM");
 
         assert_eq!(item.abilities.len(), 1);
         assert_eq!(item.global_effects.len(), 0);

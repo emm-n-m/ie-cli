@@ -1,4 +1,4 @@
-use ie_core::{ResourceName, ResourceType, SourceKind};
+use ie_core::{GameVariant, ResourceName, ResourceType, SourceKind};
 use ie_io::{GameInstallation, KeyFile, ResourceLocator, ResourceReader};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -45,6 +45,22 @@ fn parses_key_file_into_typed_model() {
     assert_eq!(spell.resource_type, ResourceType::Spl);
     assert_eq!(spell.biff_index, 0);
     assert_eq!(spell.resource_index, 0x0000_0002);
+    assert_eq!(installation.game_variant, GameVariant::Standard);
+}
+
+#[test]
+fn detects_pstee_install_from_torment_root_marker_file() {
+    let fixture = TestInstallation::new("pstee-variant");
+    fixture.write_archive(
+        "data/mixed.bif",
+        &[("FOO", ITM_TYPE_CODE, 0x0000_0001, b"ITM")],
+    );
+    fs::write(fixture.root().join("torment.lua"), b"// marker")
+        .expect("torment root marker should be writable");
+
+    let installation =
+        GameInstallation::discover(fixture.root()).expect("synthetic installation should be valid");
+    assert_eq!(installation.game_variant, GameVariant::Pst);
 }
 
 #[test]

@@ -128,6 +128,23 @@ impl ResourceType {
     }
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum GameVariant {
+    #[default]
+    Standard,
+    Pst,
+}
+
+impl GameVariant {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Standard => "standard",
+            Self::Pst => "pst",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SourceKind {
@@ -152,6 +169,7 @@ pub struct ResourceMetadata {
     pub source_kind: SourceKind,
     pub resource_type: ResourceType,
     pub resource_name: String,
+    pub game_variant: GameVariant,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

@@ -2,6 +2,7 @@ mod are;
 mod bcs;
 mod cre;
 mod dlg;
+mod effects;
 mod itm;
 mod save;
 mod spl;
@@ -41,26 +42,29 @@ pub fn decode_to_json(
             serde_json::to_value(&area).map_err(|err| FormatError::Serialization(err.to_string()))
         }
         ResourceType::Itm => {
-            let item = itm::parse_itm(
+            let item = itm::parse_itm_with_variant(
                 &resource.bytes,
                 &resource.metadata.resource_name,
                 resolvers.strref,
+                resource.metadata.game_variant,
             )?;
             serde_json::to_value(&item).map_err(|err| FormatError::Serialization(err.to_string()))
         }
         ResourceType::Spl => {
-            let spell = spl::parse_spl(
+            let spell = spl::parse_spl_with_variant(
                 &resource.bytes,
                 &resource.metadata.resource_name,
                 resolvers.strref,
+                resource.metadata.game_variant,
             )?;
             serde_json::to_value(&spell).map_err(|err| FormatError::Serialization(err.to_string()))
         }
         ResourceType::Cre => {
-            let creature = cre::parse_cre(
+            let creature = cre::parse_cre_with_variant(
                 &resource.bytes,
                 &resource.metadata.resource_name,
                 resolvers.strref,
+                resource.metadata.game_variant,
             )?;
             serde_json::to_value(&creature)
                 .map_err(|err| FormatError::Serialization(err.to_string()))

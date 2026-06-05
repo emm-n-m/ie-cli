@@ -1,4 +1,5 @@
-use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
+use crate::effects::{EffectOpcodeFamily, decode_effect_opcode};
+use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -104,10 +105,11 @@ impl From<SpellParseError> for crate::FormatError {
     }
 }
 
-pub fn parse_spl(
+pub(crate) fn parse_spl_with_variant(
     bytes: &[u8],
     resource_name: &str,
     resolver: Option<&dyn StrRefResolver>,
+    game_variant: GameVariant,
 ) -> Result<SpellJson, crate::FormatError> {
     if bytes.len() < SPL_HEADER_SIZE {
         return Err(SpellParseError::UnexpectedEof(format!(
@@ -181,6 +183,7 @@ pub fn parse_spl(
         &extended_headers,
         first_feature_block_index,
         global_feature_block_count,
+        game_variant,
     )?;
 
     Ok(SpellJson {
@@ -282,6 +285,7 @@ fn parse_feature_blocks(
     headers: &[SpellExtendedHeaderJson],
     first_feature_block_index: u16,
     global_feature_block_count: u16,
+    game_variant: GameVariant,
 ) -> Result<Vec<SpellFeatureBlockJson>, SpellParseError> {
     let mut total_blocks = first_feature_block_index.saturating_add(global_feature_block_count);
     for header in headers {
@@ -315,7 +319,7 @@ fn parse_feature_blocks(
     let mut blocks = Vec::with_capacity(total_blocks as usize);
     for index in 0..total_blocks as usize {
         let position = start + index * SPL_FEATURE_BLOCK_SIZE;
-        let block = parse_feature_block(bytes, position)?;
+        let block = parse_feature_block(bytes, position, game_variant)?;
         blocks.push(block);
     }
     Ok(blocks)
@@ -324,6 +328,7 @@ fn parse_feature_blocks(
 fn parse_feature_block(
     bytes: &[u8],
     offset: usize,
+    game_variant: GameVariant,
 ) -> Result<SpellFeatureBlockJson, SpellParseError> {
     if offset + SPL_FEATURE_BLOCK_SIZE > bytes.len() {
         return Err(SpellParseError::UnexpectedEof(format!(
@@ -352,7 +357,8 @@ fn parse_feature_block(
     Ok(SpellFeatureBlockJson {
         opcode: RawDecoded {
             raw: opcode,
-            decoded: decode_effect_opcode(opcode).map(str::to_string),
+            decoded: decode_effect_opcode(opcode, EffectOpcodeFamily::Spell, game_variant)
+                .map(str::to_string),
         },
         target_type: RawDecoded {
             raw: target_type,
@@ -582,31 +588,6 @@ fn decode_secondary_type(value: u8) -> Option<&'static str> {
     }
 }
 
-fn decode_effect_opcode(value: u16) -> Option<&'static str> {
-    match value {
-        0 => Some("Cure Condition"),
-        1 => Some("Cure Poison"),
-        2 => Some("Cure Disease"),
-        3 => Some("Berserk"),
-        4 => Some("Drain Level"),
-        5 => Some("Drain HP"),
-        12 => Some("Damage"),
-        38 => Some("Silence"),
-        55 => Some("Slay"),
-        61 => Some("Creature RGB Color Fade"),
-        70 => Some("Projectile"),
-        101 => Some("Immunity to effect"),
-        128 => Some("Confusion"),
-        139 => Some("Display String"),
-        141 => Some("Lighting Effects"),
-        142 => Some("Display Special Effect Icon"),
-        174 => Some("Play Sound Effect"),
-        215 => Some("Play 3D Effect"),
-        318 => Some("Protection from Resource"),
-        _ => None,
-    }
-}
-
 fn decode_effect_target_type(value: u8) -> Option<&'static str> {
     match value {
         0 => Some("None"),
@@ -672,8 +653,13 @@ mod tests {
         bytes[0x6E..0x70].copy_from_slice(&0u16.to_le_bytes());
         bytes[0x70..0x72].copy_from_slice(&0u16.to_le_bytes());
 
-        let spell =
-            parse_spl(&bytes, "MAGMSSL.SPL", Some(&NullResolver)).expect("should parse SPL");
+        let spell = parse_spl_with_variant(
+            &bytes,
+            "MAGMSSL.SPL",
+            Some(&NullResolver),
+            GameVariant::Standard,
+        )
+        .expect("should parse SPL");
         assert_eq!(spell.resource_name, "MAGMSSL.SPL");
         assert_eq!(spell.version, "V1  ");
         assert_eq!(spell.header.spell_type.decoded.as_deref(), Some("Wizard"));
@@ -716,7 +702,8 @@ mod tests {
         bytes[0x28..0x2C].copy_from_slice(&0i32.to_le_bytes());
         bytes[0x2C..0x30].copy_from_slice(&0u32.to_le_bytes());
 
-        let effect = parse_feature_block(&bytes, 0).expect("feature block should parse");
+        let effect = parse_feature_block(&bytes, 0, GameVariant::Standard)
+            .expect("feature block should parse");
         assert_eq!(effect.opcode.raw, 12);
         assert_eq!(effect.opcode.decoded.as_deref(), Some("Damage"));
         assert_eq!(effect.target_type.raw, 2);
@@ -744,7 +731,13 @@ mod tests {
             vec!["Druid/Ranger/Shaman"]
         );
         assert_eq!(decode_effect_timing(10), Some("Instant/Limited (Ticks)"));
-        assert_eq!(decode_effect_opcode(101), Some("Immunity to effect"));
-        assert_eq!(decode_effect_opcode(318), Some("Protection from Resource"));
+        assert_eq!(
+            decode_effect_opcode(101, EffectOpcodeFamily::Spell, GameVariant::Standard),
+            Some("Immunity to effect")
+        );
+        assert_eq!(
+            decode_effect_opcode(318, EffectOpcodeFamily::Spell, GameVariant::Standard),
+            Some("Protection from Resource")
+        );
     }
 }

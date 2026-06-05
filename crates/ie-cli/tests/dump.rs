@@ -336,6 +336,33 @@ fn dump_dot_follow_extern_renders_referenced_override_dlg() {
     assert!(stdout.contains("TEST_S0 -> OTHER_S0 [label=\"#20\"]"));
 }
 
+#[test]
+fn dump_pstee_tattoos_use_pst_opcode_labels_when_pstee_game_path_is_set() {
+    let Some(game_path) = pstee_game_path() else {
+        return;
+    };
+
+    let cases = [
+        ("TTSTR2.ITM", 44, "Strength"),
+        ("TTDEX2.ITM", 15, "Dexterity"),
+        ("TTCON2.ITM", 10, "Constitution"),
+        ("TTINT2.ITM", 19, "Intelligence"),
+        ("TTWIS2.ITM", 49, "Wisdom"),
+        ("TTCHR2.ITM", 6, "Charisma"),
+        ("TTAC2.ITM", 0, "AC"),
+        ("TTMAXHP2.ITM", 18, "Max HP"),
+    ];
+
+    for (resource_name, raw_opcode, expected_label) in cases {
+        let stdout = dump_json(&game_path, resource_name);
+        assert_eq!(stdout["resource_name"], resource_name);
+        assert!(
+            item_has_effect_opcode(&stdout, raw_opcode, expected_label),
+            "{resource_name} should contain opcode {raw_opcode} decoded as {expected_label}; stdout={stdout}"
+        );
+    }
+}
+
 fn pstee_game_path() -> Option<OsString> {
     std::env::var_os("IE_PSTEE_PATH").or_else(|| std::env::var_os("IE_PSTEE_GAME_PATH"))
 }
@@ -359,6 +386,24 @@ fn dump_json(game_path: &OsString, resource_name: &str) -> Value {
     );
 
     serde_json::from_slice(&output.stdout).expect("dump should emit JSON")
+}
+
+fn item_has_effect_opcode(stdout: &Value, raw_opcode: u64, expected_label: &str) -> bool {
+    stdout["global_effects"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .chain(
+            stdout["abilities"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .flat_map(|ability| ability["effects"].as_array().into_iter().flatten()),
+        )
+        .any(|effect| {
+            effect["opcode"]["raw"].as_u64() == Some(raw_opcode)
+                && effect["opcode"]["decoded"].as_str() == Some(expected_label)
+        })
 }
 
 struct GraphTestInstallation {

@@ -1,4 +1,5 @@
-use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
+use crate::effects::{EffectOpcodeFamily, decode_effect_opcode};
+use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
 
@@ -458,10 +459,11 @@ fn parse_u64_value(field: &str, value: &str) -> Result<u64, CreaturePatchError> 
         })
 }
 
-pub fn parse_cre(
+pub(crate) fn parse_cre_with_variant(
     bytes: &[u8],
     resource_name: &str,
     resolver: Option<&dyn StrRefResolver>,
+    game_variant: GameVariant,
 ) -> Result<CreatureJson, crate::FormatError> {
     if bytes.len() < CRE_HEADER_SIZE {
         return Err(CreatureParseError::UnexpectedEof(format!(
@@ -660,6 +662,7 @@ pub fn parse_cre(
         effects_offset,
         effects_count,
         effect_structure_version,
+        game_variant,
     )?;
     let items = parse_items(bytes, items_offset, items_count)?;
     let item_slots = parse_item_slots(bytes, item_slots_offset, items_offset)?;
@@ -782,6 +785,7 @@ fn parse_effects(
     offset: u32,
     count: u32,
     effect_structure_version: u8,
+    game_variant: GameVariant,
 ) -> Result<Vec<CreatureEffectJson>, CreatureParseError> {
     let record_size = match effect_structure_version {
         0 => CRE_EFFECT_V1_SIZE,
@@ -799,14 +803,23 @@ fn parse_effects(
         count,
         record_size,
         |bytes, position| match effect_structure_version {
-            0 => parse_effect_v1(&bytes[position..position + CRE_EFFECT_V1_SIZE]),
-            1 => parse_effect_v2(&bytes[position..position + CRE_EFFECT_V2_SIZE]),
+            0 => parse_effect_v1(
+                &bytes[position..position + CRE_EFFECT_V1_SIZE],
+                game_variant,
+            ),
+            1 => parse_effect_v2(
+                &bytes[position..position + CRE_EFFECT_V2_SIZE],
+                game_variant,
+            ),
             _ => unreachable!(),
         },
     )
 }
 
-fn parse_effect_v1(bytes: &[u8]) -> Result<CreatureEffectJson, CreatureParseError> {
+fn parse_effect_v1(
+    bytes: &[u8],
+    game_variant: GameVariant,
+) -> Result<CreatureEffectJson, CreatureParseError> {
     let opcode = parse_u16(bytes, 0)? as u32;
     let target_type = parse_u8(bytes, 2)? as u32;
     let timing = parse_u8(bytes, 12)? as u32;
@@ -815,7 +828,12 @@ fn parse_effect_v1(bytes: &[u8]) -> Result<CreatureEffectJson, CreatureParseErro
         version: "V1".to_string(),
         opcode: RawDecoded {
             raw: opcode,
-            decoded: decode_effect_opcode(opcode as u16).map(str::to_string),
+            decoded: decode_effect_opcode(
+                opcode as u16,
+                EffectOpcodeFamily::Creature,
+                game_variant,
+            )
+            .map(str::to_string),
         },
         target_type: RawDecoded {
             raw: target_type,
@@ -845,7 +863,10 @@ fn parse_effect_v1(bytes: &[u8]) -> Result<CreatureEffectJson, CreatureParseErro
     })
 }
 
-fn parse_effect_v2(bytes: &[u8]) -> Result<CreatureEffectJson, CreatureParseError> {
+fn parse_effect_v2(
+    bytes: &[u8],
+    game_variant: GameVariant,
+) -> Result<CreatureEffectJson, CreatureParseError> {
     let opcode = parse_u32(bytes, 0x08)?;
     let target_type = parse_u32(bytes, 0x0C)?;
     let timing = parse_u32(bytes, 0x1C)?;
@@ -856,7 +877,9 @@ fn parse_effect_v2(bytes: &[u8]) -> Result<CreatureEffectJson, CreatureParseErro
             raw: opcode,
             decoded: u16::try_from(opcode)
                 .ok()
-                .and_then(decode_effect_opcode)
+                .and_then(|value| {
+                    decode_effect_opcode(value, EffectOpcodeFamily::Creature, game_variant)
+                })
                 .map(str::to_string),
         },
         target_type: RawDecoded {
@@ -1239,33 +1262,6 @@ fn decode_kit(value: u32) -> Option<&'static str> {
     }
 }
 
-fn decode_effect_opcode(value: u16) -> Option<&'static str> {
-    match value {
-        0 => Some("Cure Condition"),
-        1 => Some("Cure Poison"),
-        2 => Some("Cure Disease"),
-        3 => Some("Berserk"),
-        12 => Some("Damage"),
-        16 => Some("Poison"),
-        25 => Some("Hold Monster"),
-        38 => Some("Silence"),
-        45 => Some("Strength"),
-        46 => Some("Dexterity"),
-        47 => Some("Constitution"),
-        48 => Some("Intelligence"),
-        49 => Some("Wisdom"),
-        50 => Some("Charisma"),
-        55 => Some("Slay"),
-        128 => Some("Confusion"),
-        139 => Some("Display String"),
-        142 => Some("Display Special Effect Icon"),
-        174 => Some("Play Sound Effect"),
-        215 => Some("Play 3D Effect"),
-        318 => Some("Protection from Resource"),
-        _ => None,
-    }
-}
-
 fn decode_effect_target_type(value: u8) -> Option<&'static str> {
     match value {
         0 => Some("None"),
@@ -1373,8 +1369,13 @@ mod tests {
         bytes[0x280..0x286].copy_from_slice(b"IMOEN\0");
         bytes[0x2CC..0x2D4].copy_from_slice(b"IMOENJ\0\0");
 
-        let creature =
-            parse_cre(&bytes, "IMOEN2.CRE", Some(&NullResolver)).expect("CRE should parse");
+        let creature = parse_cre_with_variant(
+            &bytes,
+            "IMOEN2.CRE",
+            Some(&NullResolver),
+            GameVariant::Standard,
+        )
+        .expect("CRE should parse");
         assert_eq!(creature.resource_name, "IMOEN2.CRE");
         assert_eq!(creature.version, "V1.0");
         assert_eq!(creature.header.current_hit_points, 12);
@@ -1421,7 +1422,8 @@ mod tests {
         bytes[0x50..0x54].copy_from_slice(&10u32.to_le_bytes());
         bytes[0x54..0x58].copy_from_slice(&3u32.to_le_bytes());
 
-        let effect = parse_effect_v2(&bytes).expect("V2 effect should parse");
+        let effect =
+            parse_effect_v2(&bytes, GameVariant::Standard).expect("V2 effect should parse");
         assert_eq!(effect.opcode.raw, 12);
         assert_eq!(effect.opcode.decoded.as_deref(), Some("Damage"));
         assert_eq!(effect.target_type.raw, 1);
