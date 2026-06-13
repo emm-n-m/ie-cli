@@ -31,11 +31,16 @@ Know what the mod changed before planning against it. Run the `mod-diff` skill (
 `iecli override-diff`) and note any stat-granting DLG/ITM that differs from stock — those grants may
 not behave as community guides describe.
 
-## Step 1 — content map (which thresholds unlock the most)
+## Step 1 — content map (what the gates are *worth*, then how much)
 
 ```bash
-python .claude/skills/map-stat-gates/gate_histogram.py --game "<game-path>" --protagonist Protagonist
+python .claude/skills/map-stat-gates/gate_payoffs.py   --game "<game-path>" --protagonist Protagonist  # value: lead here
+python .claude/skills/map-stat-gates/gate_histogram.py --game "<game-path>" --protagonist Protagonist  # volume: secondary
 ```
+
+Lead with payoffs — a stat that gates hundreds of *flavor* lines is still a dump (modded CON gated 20
+replies, 0 of value). Note the **early-firing high-value gates** (e.g. a CHA/INT-gated Ravel payout):
+those must be covered by *base* stat at creation, since you can't buff in time — they set creation floors.
 
 ## Step 2 — permanent stat economy (what you can gain, and where)
 

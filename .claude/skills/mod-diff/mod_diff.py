@@ -88,7 +88,9 @@ def main() -> int:
         cmd += ["--against", args.against]
     if args.type:
         cmd += ["--type", args.type]
-    out = subprocess.run(cmd, capture_output=True, text=True)
+    out = subprocess.run(
+        cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
     if out.returncode != 0:
         print(out.stderr or "override-diff failed", file=sys.stderr)
         return 1

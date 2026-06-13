@@ -1,15 +1,22 @@
 ---
 name: map-stat-gates
-description: Histogram an Infinity Engine game's dialogue stat-checks (CheckStat) by required value, per stat, to reveal which attribute thresholds unlock the most content. Use when the user asks which stats/values matter for dialogue, what stat checks a game or mod has, where a stat gates content, or wants the content-map half of a character build. Works for BG / IWD / PST.
+description: Map an Infinity Engine game's dialogue stat-checks (CheckStat) — both which thresholds gate the most content AND, more importantly, what those gated replies actually DO (stat boosts, items, quests, big XP vs. flavor). Use when the user asks which stats/values matter for dialogue, what stat checks a game or mod has, where a stat gates content, which stat gates the most *valuable* content, or wants the content-map half of a character build. Works for BG / IWD / PST.
 ---
 
 # Map Stat Gates
 
-Scan every dialogue in an IE install for `CheckStat*` checks on the protagonist and report,
-per stat, **how many gated branches require each value** — i.e. which attribute thresholds open
-the most content. This is the deterministic content-map; the agent interprets which breakpoints
-are worth hitting. (For the full build pipeline — permanent stat gains, gear, synthesis — use the
-`plan-stat-build` skill, which calls this script as its first step.)
+Scan every dialogue in an IE install for `CheckStat*` checks on the protagonist. Two views:
+
+1. **Payoffs (the one that matters)** — *what* each stat-gated reply does (a permanent stat boost,
+   an item, a quest step, big XP — vs. flavor). **Counts mislead**: a stat can gate hundreds of lines
+   that are almost all "snap the zombie's neck" flavor (e.g. modded CON gated 20 replies, *0* of value),
+   while one WIS-gated line hands you 120k XP. Always lead with this.
+2. **Volume** — how many gated branches sit at each threshold (the histogram). Useful for "how much
+   content exists behind value N", but a weak proxy for value — read it *after* the payoffs.
+
+Both are deterministic extraction; the agent judges value from the raw `action_text`/`journal_text`
+the payoff view surfaces. (For the full build pipeline — permanent stat gains, gear, synthesis — use
+the `plan-stat-build` skill, which calls these as its first step.)
 
 ## Inputs
 
@@ -21,37 +28,51 @@ are worth hitting. (For the full build pipeline — permanent stat gains, gear, 
 iecli must be built: `cargo build --release` from the repo root (the script auto-prefers the
 release binary; the DLG sweep is ~hundreds of dumps, so release is much faster than debug).
 
-## Step — run the histogram
+## Step 1 — payoffs (lead with this)
 
 ```bash
-python .claude/skills/map-stat-gates/gate_histogram.py \
-    --game "<game-path>" \
-    --protagonist Protagonist          # or Player1 / any
-# add --json for machine-readable output
+python .claude/skills/map-stat-gates/gate_payoffs.py \
+    --game "<game-path>" --protagonist Protagonist     # or Player1 / any
+# --high-only to drop flavor; --json for the full records (agent reasons on these)
 ```
 
-Per stat it prints the up-gated (`CheckStatGT`) histogram — `need >= V : N branches` — sorted by
-required value, plus a low-stat (`CheckStatLT`) summary.
+Joins each `CheckStatGT`-gated reply to its `action_text` + `journal_text`, dedups, and tags a
+**coarse** category as a sort key: `STAT_CORE` (PermanentStatChange to a core stat), `SKILL`
+(PermanentStatChange to a thief skill), `COMPANION`, `ITEM`, `XP_BIG`/`XP_small`, `QUEST` (has a
+journal entry), `STORY`, `TRAVEL`, `STATE` (sets a global — could be quest progress or trivial),
+`FLAVOR` (nothing). Each record also carries the **full trigger** (so co-conditions / rough timing
+are visible) and the **raw action** — *you* judge value from those, the category is only a sort.
 
-## Interpreting the output
+## Step 2 — volume (secondary)
 
-- **Breakpoints are the big jumps.** A row like `need >= 15 : 229` means 229 gated branches open at
-  that value — a wall worth hitting. Small tail rows (`need >= 21 : 6`) are low-yield.
-- **The count is *distinct gated trigger conditions*, not every player reply** — a good proxy for
-  "how much content sits behind this threshold," not an exact branch count.
-- **High-stat and low-stat checks are usually mutually exclusive** — a line often has a `CheckStatGT`
-  variant *and* a `CheckStatLT` variant of the same beat; you only ever trigger one. So "see
-  everything" means hitting the **up-gated** thresholds (the GT histogram); the low-stat branches are
-  mostly the flavor you forgo, not extra content to chase.
-- **`CheckStat` reads the *current* (item-modified) stat** — equipment/buffs let you clear a gate
-  above your base value. So a threshold isn't strictly a base-stat requirement (the `plan-stat-build`
-  skill leans on this).
+```bash
+python .claude/skills/map-stat-gates/gate_histogram.py --game "<game-path>" --protagonist Protagonist
+```
+
+Per stat: the `CheckStatGT` histogram (`need >= V : N branches`) + a `CheckStatLT` summary. Tells you
+*how much* content sits behind a value — interpret only after the payoffs.
+
+## Interpreting
+
+- **Lead with the high-value counts, not the totals.** "INT 794 gated / 57 high-value" and
+  "CON 20 gated / 0 high-value" tell very different stories than the raw counts. A stat that gates
+  thousands of flavor lines is still a dump stat.
+- **Read the raw actions for the top hits** — a `GiveExperience(...,120000)` or a
+  `PermanentStatChange` is a jackpot; a `SetGlobal("X_talked",1)` is nothing. The `STATE` bucket
+  especially needs your eyes (quest-progress globals vs trivial flags).
+- **Timing matters as much as value.** The full trigger often shows co-conditions (a chapter/quest
+  global) that hint *when* a gate fires. A high-value gate that fires **early** (before you can boost
+  the stat) must be covered by **base** stat at creation — see `plan-stat-build`.
+- **`CheckStat` reads the *current* (item-modified) stat** — equipment/buffs clear a gate above base,
+  so a threshold isn't strictly a base-stat requirement (except for early gates you can't yet buff).
+- **High/low variants are usually mutually exclusive** — "see everything" means the up-gated (`GT`)
+  side; the `LT` branches are flavor you forgo.
 
 ## Reporting back
 
-Summarize: the top breakpoint per stat, which stats gate the most total content (sum of branches),
-and which stats barely gate anything (dump candidates). Flag any stat whose checks cluster at one
-value (a single must-hit threshold) vs. spread across many (escalating investment).
+Lead with: per stat, **how many gated replies actually pay off** and what the biggest payoffs *are*
+(name them). Then which stats are dumps *by payoff* (not just low count). Flag the early-firing
+high-value gates that force a creation floor.
 
 ## When NOT to use
 

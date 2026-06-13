@@ -56,12 +56,16 @@ def parse_args() -> argparse.Namespace:
 
 
 def run_json(iecli: str, args: list[str]):
-    out = subprocess.run([iecli, *args], capture_output=True, text=True)
-    if out.returncode != 0:
+    # iecli emits UTF-8; force it (Windows would otherwise decode as cp1252 and
+    # crash on stray bytes in modded resource strings).
+    out = subprocess.run(
+        [iecli, *args], capture_output=True, text=True, encoding="utf-8", errors="replace"
+    )
+    if out.returncode != 0 or out.stdout is None:
         return None
     try:
         return json.loads(out.stdout)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, TypeError):
         return None
 
 

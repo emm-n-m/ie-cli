@@ -56,6 +56,8 @@ def dump_are(iecli: str, game: str, resref: str) -> dict | None:
         [iecli, "dump", "--game", game, "--resource", f"{resref}.ARE"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if out.returncode != 0:
         return None
