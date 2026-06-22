@@ -298,17 +298,17 @@ the **first** class to reach each milestone:
   and a *low-stat* variant of the same line — you'll only ever trigger one. "Completionist" here
   means catching the *up-gated* branches, which carry the rewards/lore; the low-stat versions are
   mostly flavor.
-- **What's still out of reach — and why it doesn't matter:** the **CHA 21/24/25** checks. There are
-  only three sources, all late: **the Transcendent One** (`DTRANS`, the finale — CHA 24), **Nordom**
-  (`DNORDOM` — CHA 25, a companion-reaction line), and **Vhailor** (`DVHAIL` — CHA 21). CHA tops out
-  ~16 base + 2 tattoo = 18 here. **Crucially, the finale is not CHA-locked:** the Transcendent One
-  offers *parallel* routes — WIS>20/>23, INT>20, **or** CHA>23 — to the same resolution, and this
-  build hits **WIS 25** and **INT ~22**, clearing the WIS and INT routes outright. So the CHA-24 path
-  is a redundant alternative, not exclusive content; what you actually forgo is a handful of flavor
-  lines (a Nordom reaction, a Vhailor persuasion alt). Nothing in the ending is lost.
-- The **CHA 18** checks (Kesai-Serris, the Pillar of Skulls) *are* reachable: base 16 + a Greater
-  Presence tattoo = 18. And **INT 21** is reachable (Mage double-spec → ~20, +tattoo/level-up → 22).
-  WIS's 21/24 tiers are covered (you hit 25).
+- **Nothing CHA-gated is actually out of reach** (corrected — an earlier version claimed the
+  CHA 21/24/25 checks were unreachable; that predated finding the **Friends** spell). **Friends**
+  (`SPWI114`, a *level-1* Wizard spell available from the start) grants a temporary **+2–8 CHA**
+  (re-rollable — recast before a key line until it rolls high). Base 16 + Friends (up to +8) = effective
+  24 on demand, +a CHA tattoo/earring caps at 25. So a Mage clears the **entire** CHA ladder —
+  Kesai-Serris/Pillar (18), and even the legendary **Transcendent One** (`DTRANS`, CHA 24), **Nordom**
+  (`DNORDOM`, 25), and **Vhailor** (`DVHAIL`, 21). This is *why* base CHA 16 suffices: you open the high
+  paths dynamically with a spell, not with base stat. (The finale is also not CHA-locked anyway — it
+  offers parallel WIS>23 / INT>20 routes this build already clears — but with Friends you get the CHA
+  line too.) Note: classic Friends has a *comedown* (−2d4 after the buff); do your CHA checks inside the
+  18-round window. **INT 21** is likewise reachable (Mage double-spec → ~20, +tattoo/level-up → 22).
 - **Alignment nudges:** Vhailor's +3 STR needs **Lawful** (Law ≥ 35); Sarossa's WIS needs
   **Godsmen** membership. Mild role-play steering, not hard requirements.
 
