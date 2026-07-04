@@ -60,6 +60,55 @@ fn save_list_and_info_read_folder_save() {
     assert_eq!(info["sav"]["entries"][0]["resource_type"], "ARE");
 }
 
+#[test]
+fn save_add_item_copies_folder_and_edits_gam() {
+    let fixture = TestInstallation::new("save-add-item");
+    fs::write(fixture.root().join("torment.lua"), b"// marker")
+        .expect("PST marker should be writable");
+    let save_dir = fixture.root().join("save");
+    let save = save_dir.join("000000001-Quick-Save-4");
+    fs::create_dir_all(&save).expect("save folder should be creatable");
+    fs::write(
+        save.join("BALDUR.gam"),
+        build_gam_with_creatures(&build_cre(0, 42), &build_cre(0, 42)),
+    )
+    .expect("GAM should be writable");
+    fs::write(save.join("BALDUR.SAV"), build_minimal_sav()).expect("SAV should be writable");
+
+    let output_save = fixture.root().join("edited-save");
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("save-add-item")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--save")
+        .arg("Quick-Save-4")
+        .arg("--item")
+        .arg("CUBE")
+        .arg("--charges")
+        .arg("1")
+        .arg("--output")
+        .arg(&output_save)
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "save-add-item failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let summary: Value = serde_json::from_slice(&output.stdout).expect("JSON should parse");
+    assert_eq!(summary["slot_index"], 20);
+    assert_eq!(summary["new_items_count"], 1);
+    assert_eq!(summary["in_place"], false);
+    assert!(output_save.join("BALDUR.SAV").is_file());
+
+    let edited = fs::read(output_save.join("BALDUR.gam")).expect("edited GAM should exist");
+    assert_eq!(
+        read_u32(&edited, 0xB4 + 0x08),
+        (build_cre(0, 42).len() + 20) as u32
+    );
+}
+
 struct TestInstallation {
     root: PathBuf,
 }
@@ -136,6 +185,74 @@ fn build_minimal_sav() -> Vec<u8> {
     bytes.extend_from_slice(&(compressed.len() as u32).to_le_bytes());
     bytes.extend_from_slice(&compressed);
     bytes
+}
+
+fn build_cre(items_count: u32, slot_count: usize) -> Vec<u8> {
+    let header_size = 0x2D4;
+    let item_size = 20;
+    let items_offset = header_size;
+    let item_slots_offset = items_offset + items_count as usize * item_size;
+    let mut bytes = vec![0u8; item_slots_offset + slot_count * 2];
+    bytes[0..8].copy_from_slice(b"CRE V1.0");
+    bytes[0x33] = 1;
+    write_u32(&mut bytes, 0x02A0, item_slots_offset as u32);
+    write_u32(&mut bytes, 0x02A8, item_slots_offset as u32);
+    write_u32(&mut bytes, 0x02B0, item_slots_offset as u32);
+    write_u32(&mut bytes, 0x02B8, item_slots_offset as u32);
+    write_u32(&mut bytes, 0x02BC, items_offset as u32);
+    write_u32(&mut bytes, 0x02C0, items_count);
+    write_u32(&mut bytes, 0x02C4, item_slots_offset as u32);
+    for slot in 0..slot_count {
+        write_u16(&mut bytes, item_slots_offset + slot * 2, u16::MAX);
+    }
+    bytes
+}
+
+fn build_gam_with_creatures(cre1: &[u8], cre2: &[u8]) -> Vec<u8> {
+    let npc_size = 0x160;
+    let variable_size = 0x54;
+    let party_offset = 0xB4;
+    let cre1_offset = party_offset + 2 * npc_size;
+    let cre2_offset = cre1_offset + cre1.len();
+    let globals_offset = cre2_offset + cre2.len();
+    let mut bytes = vec![0u8; globals_offset + variable_size];
+    bytes[0..8].copy_from_slice(b"GAMEV2.0");
+    write_u32(&mut bytes, 0x20, party_offset as u32);
+    write_u32(&mut bytes, 0x24, 2);
+    write_u32(&mut bytes, 0x30, globals_offset as u32);
+    write_u32(&mut bytes, 0x38, globals_offset as u32);
+    write_u32(&mut bytes, 0x3C, 1);
+    write_u32(&mut bytes, 0x50, globals_offset as u32);
+    write_u32(&mut bytes, party_offset + 0x04, cre1_offset as u32);
+    write_u32(&mut bytes, party_offset + 0x08, cre1.len() as u32);
+    bytes[party_offset + 0x0C..party_offset + 0x0F].copy_from_slice(b"TNO");
+    write_u32(
+        &mut bytes,
+        party_offset + npc_size + 0x04,
+        cre2_offset as u32,
+    );
+    write_u32(
+        &mut bytes,
+        party_offset + npc_size + 0x08,
+        cre2.len() as u32,
+    );
+    bytes[party_offset + npc_size + 0x0C..party_offset + npc_size + 0x12]
+        .copy_from_slice(b"DAKKON");
+    bytes[cre1_offset..cre1_offset + cre1.len()].copy_from_slice(cre1);
+    bytes[cre2_offset..cre2_offset + cre2.len()].copy_from_slice(cre2);
+    bytes[globals_offset..globals_offset + 7].copy_from_slice(b"CHAPTER");
+    write_u16(&mut bytes, globals_offset + 0x20, 1);
+    write_u32(&mut bytes, globals_offset + 0x28, 1);
+    bytes
+}
+
+fn read_u32(bytes: &[u8], offset: usize) -> u32 {
+    u32::from_le_bytes([
+        bytes[offset],
+        bytes[offset + 1],
+        bytes[offset + 2],
+        bytes[offset + 3],
+    ])
 }
 
 fn zlib(bytes: &[u8]) -> Vec<u8> {

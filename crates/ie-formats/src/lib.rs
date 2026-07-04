@@ -20,7 +20,10 @@ pub use dlg::{
     DialogGraphOptions, DialogGraphStringMode, DialogJson, dialog_json_to_dot,
     dialog_json_to_mermaid, dialog_jsons_to_dot, dialog_jsons_to_mermaid, parse_dlg,
 };
-pub use save::{GameStateJson, SaveArchiveJson, parse_gam, parse_sav};
+pub use save::{
+    AddItemResult, GameStateJson, MemberSelector, NewItem, SaveArchiveJson, SlotChoice,
+    add_item_to_cre, add_item_to_save_gam, parse_gam, parse_sav,
+};
 pub use verify::{
     AreaSource, AreaSourceEntry, AreaSourceError, EntranceRegistry, VerifyCategory, VerifyIssue,
     VerifyOptions, VerifySeverity, build_entrance_registry, filter_issues, verify_are,

@@ -5,10 +5,10 @@ use ie_core::{
 };
 use ie_formats::{
     AreaJson, AreaScalarPatch, CreatureScalarPatch, DialogGraphOptions, DialogGraphStringMode,
-    DialogJson, EntranceRegistry, VerifyCategory, VerifyIssue, VerifyOptions, VerifySeverity,
-    decode_to_json, dialog_json_to_dot, dialog_json_to_mermaid, dialog_jsons_to_dot,
-    dialog_jsons_to_mermaid, filter_issues, parse_are, parse_dlg, parse_gam, parse_sav,
-    patch_are_scalars, patch_cre_scalars, verify_are,
+    DialogJson, EntranceRegistry, MemberSelector, NewItem, SlotChoice, VerifyCategory, VerifyIssue,
+    VerifyOptions, VerifySeverity, add_item_to_save_gam, decode_to_json, dialog_json_to_dot,
+    dialog_json_to_mermaid, dialog_jsons_to_dot, dialog_jsons_to_mermaid, filter_issues, parse_are,
+    parse_dlg, parse_gam, parse_sav, patch_are_scalars, patch_cre_scalars, verify_are,
 };
 use ie_io::{
     FileBackedIdsResolver, GameInstallation, ListedResource, ListedSave, ResourceListOptions,
@@ -41,6 +41,7 @@ enum Command {
     Verify(VerifyArgs),
     SaveList(SaveListArgs),
     SaveInfo(SaveInfoArgs),
+    SaveAddItem(SaveAddItemArgs),
 }
 
 #[derive(Debug, Args)]
@@ -157,6 +158,36 @@ struct SaveInfoArgs {
     part: SaveInfoPart,
     #[arg(long, value_enum, default_value_t = SaveInfoFormat::Json)]
     format: SaveInfoFormat,
+}
+
+#[derive(Debug, Args)]
+struct SaveAddItemArgs {
+    #[arg(long)]
+    game: PathBuf,
+    #[arg(long)]
+    save: String,
+    #[arg(long)]
+    saves_dir: Option<PathBuf>,
+    #[arg(long)]
+    item: String,
+    #[arg(long)]
+    member: Option<String>,
+    #[arg(long, default_value = "auto")]
+    slot: String,
+    #[arg(long, default_value_t = 0)]
+    charges: u16,
+    #[arg(long, default_value_t = 0)]
+    charges2: u16,
+    #[arg(long, default_value_t = 0)]
+    charges3: u16,
+    #[arg(long, default_value = "identified")]
+    flags: String,
+    #[arg(long, conflicts_with = "output")]
+    in_place: bool,
+    #[arg(long, conflicts_with = "in_place")]
+    output: Option<PathBuf>,
+    #[arg(long, default_value_t = true, action = clap::ArgAction::Set)]
+    backup: bool,
 }
 
 #[derive(Debug, Args, Default)]
@@ -686,6 +717,71 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
         }
+        Command::SaveAddItem(args) => {
+            let installation = GameInstallation::discover(&args.game)?;
+            let save = resolve_save_folder(&installation, args.saves_dir.as_deref(), &args.save)?;
+            let item_resref = ResRef::new(&args.item)?;
+            let member = parse_member_selector(args.member.as_deref())?;
+            let slot = parse_slot_choice(&args.slot)?;
+            let flags = parse_item_flags(&args.flags)?;
+            let item = NewItem {
+                resref: item_resref.clone(),
+                expiration_time_days: 0,
+                charges_1: args.charges,
+                charges_2: args.charges2,
+                charges_3: args.charges3,
+                flags,
+            };
+
+            warn_if_item_missing(&installation, &item_resref);
+
+            let target_save = if args.in_place {
+                save.path.clone()
+            } else {
+                let output = args
+                    .output
+                    .as_ref()
+                    .ok_or("--output <DIR> is required unless --in-place is passed")?;
+                copy_save_folder(&save.path, output)?;
+                output.clone()
+            };
+            let gam_path = resolve_child_file_case_insensitive(&target_save, "BALDUR.gam")
+                .ok_or_else(|| format!("BALDUR.gam not found in {}", target_save.display()))?;
+
+            if args.in_place && args.backup {
+                let backup_path = gam_path.with_file_name(format!(
+                    "{}.bak",
+                    gam_path
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                        .unwrap_or("BALDUR.gam")
+                ));
+                fs::copy(&gam_path, &backup_path)?;
+            }
+
+            let gam = fs::read(&gam_path)?;
+            let result =
+                add_item_to_save_gam(&gam, installation.game_variant, member, &item, slot)?;
+            fs::write(&gam_path, &result.bytes)?;
+
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&serde_json::json!({
+                    "save_folder": target_save,
+                    "gam_path": gam_path,
+                    "member_index": result.member_index,
+                    "member_name": result.member_name,
+                    "item_resref": result.item_resref,
+                    "slot_index": result.slot_index,
+                    "new_item_index": result.new_item_index,
+                    "old_items_count": result.old_items_count,
+                    "new_items_count": result.new_items_count,
+                    "byte_delta": result.byte_delta,
+                    "in_place": args.in_place,
+                    "backup_written": args.in_place && args.backup,
+                }))?
+            );
+        }
     }
 
     Ok(())
@@ -967,6 +1063,91 @@ fn scalar_json_value_to_string(value: &serde_json::Value) -> String {
         serde_json::Value::Null => String::new(),
         other => other.to_string(),
     }
+}
+
+fn parse_member_selector(
+    value: Option<&str>,
+) -> Result<MemberSelector, Box<dyn std::error::Error>> {
+    let Some(value) = value else {
+        return Ok(MemberSelector::Index(0));
+    };
+    if let Ok(index) = value.parse::<usize>() {
+        return Ok(MemberSelector::Index(index));
+    }
+    Ok(MemberSelector::CreResRef(
+        ResRef::new(value)?.as_str().to_string(),
+    ))
+}
+
+fn parse_slot_choice(value: &str) -> Result<SlotChoice, Box<dyn std::error::Error>> {
+    if value.eq_ignore_ascii_case("auto") {
+        return Ok(SlotChoice::AutoInventory);
+    }
+    Ok(SlotChoice::Index(value.parse::<usize>()?))
+}
+
+fn parse_item_flags(value: &str) -> Result<u32, Box<dyn std::error::Error>> {
+    if value.eq_ignore_ascii_case("identified") {
+        return Ok(0x0000_0001);
+    }
+    if value.eq_ignore_ascii_case("none") {
+        return Ok(0);
+    }
+    if let Some(hex) = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))
+    {
+        return Ok(u32::from_str_radix(hex, 16)?);
+    }
+    Ok(value.parse::<u32>()?)
+}
+
+fn warn_if_item_missing(installation: &GameInstallation, item: &ResRef) {
+    let Ok(locator) = ResourceLocator::new(installation.clone()) else {
+        return;
+    };
+    let Ok(resource) = ResourceName::parse(format!("{}.ITM", item.as_str())) else {
+        return;
+    };
+    if locator.locate(&resource).is_err() {
+        eprintln!(
+            "warning: item {}.ITM was not found in the installation; writing resref anyway",
+            item.as_str()
+        );
+    }
+}
+
+fn copy_save_folder(source: &Path, target: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    if target.exists() {
+        return Err(format!("--output already exists: {}", target.display()).into());
+    }
+    fs::create_dir_all(target)?;
+    for entry in fs::read_dir(source)? {
+        let entry = entry?;
+        let source_path = entry.path();
+        let target_path = target.join(entry.file_name());
+        if source_path.is_dir() {
+            copy_save_folder(&source_path, &target_path)?;
+        } else {
+            fs::copy(&source_path, &target_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn resolve_child_file_case_insensitive(parent: &Path, file_name: &str) -> Option<PathBuf> {
+    let entries = fs::read_dir(parent).ok()?;
+    for entry in entries.filter_map(Result::ok) {
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .eq_ignore_ascii_case(file_name)
+            && entry.path().is_file()
+        {
+            return Some(entry.path());
+        }
+    }
+    None
 }
 
 fn listed_resource_json(resource: &ListedResource) -> serde_json::Value {
