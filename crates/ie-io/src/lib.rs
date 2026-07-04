@@ -1049,11 +1049,19 @@ fn detect_game_variant(root: &Path) -> GameVariant {
             return GameVariant::Pst;
         }
     }
+    for file_name in ["icewind.lua", "icewind.exe", "icewind64.exe"] {
+        if resolve_child_file_case_insensitive(root, file_name).is_some() {
+            return GameVariant::Iwd;
+        }
+    }
 
     if let Some(root_name) = root.file_name().and_then(|name| name.to_str()) {
         match root_name.to_ascii_lowercase().as_str() {
             "planescape torment enhanced edition" | "planescape torment - enhanced edition" => {
                 return GameVariant::Pst;
+            }
+            "icewind dale enhanced edition" | "icewind dale - enhanced edition" => {
+                return GameVariant::Iwd;
             }
             _ => {}
         }

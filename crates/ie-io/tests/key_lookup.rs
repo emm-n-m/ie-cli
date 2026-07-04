@@ -64,6 +64,21 @@ fn detects_pstee_install_from_torment_root_marker_file() {
 }
 
 #[test]
+fn detects_iwdee_install_from_icewind_root_marker_file() {
+    let fixture = TestInstallation::new("iwdee-variant");
+    fixture.write_archive(
+        "data/mixed.bif",
+        &[("FOO", ITM_TYPE_CODE, 0x0000_0001, b"ITM")],
+    );
+    fs::write(fixture.root().join("icewind.lua"), b"// marker")
+        .expect("icewind root marker should be writable");
+
+    let installation =
+        GameInstallation::discover(fixture.root()).expect("synthetic installation should be valid");
+    assert_eq!(installation.game_variant, GameVariant::Iwd);
+}
+
+#[test]
 fn locates_and_reads_multiple_resource_families_from_key() {
     let fixture = TestInstallation::new("multi-family-key");
     fixture.write_archive(

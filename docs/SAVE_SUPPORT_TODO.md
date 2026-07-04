@@ -42,6 +42,9 @@ saves on a real install. See "Pitfalls" — they're documented so they don't rec
   `Quick-Save-4` protagonist slot table where slot 33 is the first empty cell. Regression
   coverage asserts byte-exactness outside the inserted item and declared offset fields,
   including the PSTEE tail offsets that sit near EOF.
+- **Write safety gate**: `save-add-item` hard-refuses BG/BG2/IWD saves until their
+  `GamLayout` descriptor and inventory slot map are validated. Explicit `--slot INDEX`
+  no longer bypasses this gate.
 - Bounds-checked reads (`checked_end`/`checked_table_end`), typed `SaveParseError`,
   unit + integration tests with valid fixtures, clippy-clean.
 
@@ -64,7 +67,8 @@ saves on a real install. See "Pitfalls" — they're documented so they don't rec
   **[judgment]**
 - **BG/IWD inventory slot maps** — `save-add-item --slot auto` intentionally rejects
   non-PST variants until their general-inventory cell ranges are verified against real
-  CREs/Near Infinity. Explicit `--slot INDEX` remains available. **[judgment]**
+  CREs/Near Infinity. The whole save write is now gated for BG/IWD, including explicit
+  slot indices, until the GAM layouts and slot maps are validated. **[judgment]**
 - **Field naming** — `GameNpcJson.character_name` is actually the CRE *resref*; the display
   name is `character_name_long`. Consider renaming to `cre_resref` / `character_name` for
   JSON consumers. **[mechanical]**

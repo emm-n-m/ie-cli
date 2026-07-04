@@ -13,7 +13,7 @@ pub(crate) fn decode_effect_opcode(
     variant: GameVariant,
 ) -> Option<&'static str> {
     match variant {
-        GameVariant::Standard => match family {
+        GameVariant::Standard | GameVariant::Iwd => match family {
             EffectOpcodeFamily::Item => decode_item_standard_effect_opcode(value),
             EffectOpcodeFamily::Spell => decode_spell_standard_effect_opcode(value),
             EffectOpcodeFamily::Creature => decode_creature_standard_effect_opcode(value),

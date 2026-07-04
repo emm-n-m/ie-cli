@@ -7,7 +7,8 @@ use thiserror::Error;
 const GAM_V2_HEADER_SIZE: usize = 0xB4;
 const GAM_V2_NPC_SIZE: usize = 0x160;
 const GAM_V2_VARIABLE_SIZE: usize = 0x54;
-const GAM_V2_HEADER_OFFSET_FIELDS: [usize; 8] = [0x20, 0x28, 0x30, 0x38, 0x50, 0x68, 0x6C, 0x78];
+const GAM_V2_PST_HEADER_OFFSET_FIELDS: [usize; 9] =
+    [0x20, 0x28, 0x30, 0x38, 0x48, 0x50, 0x68, 0x6C, 0x78];
 const SAV_HEADER_SIZE: usize = 0x08;
 const CRE_HEADER_SIZE: usize = 0x2D4;
 const CRE_ITEM_SIZE: usize = 20;
@@ -15,6 +16,18 @@ const CRE_ITEMS_COUNT_OFFSET: usize = 0x02C0;
 const CRE_ITEM_IDENTIFIED_FLAG: u32 = 0x0000_0001;
 const PST_INVENTORY_SLOT_START: usize = 20;
 const PST_INVENTORY_SLOT_END_EXCLUSIVE: usize = 40;
+
+struct GamLayout {
+    section_offset_fields: &'static [usize],
+    inventory_slots: &'static [(usize, usize)],
+}
+
+const PST_INVENTORY_SLOTS: [(usize, usize); 1] =
+    [(PST_INVENTORY_SLOT_START, PST_INVENTORY_SLOT_END_EXCLUSIVE)];
+const PST_GAM_LAYOUT: GamLayout = GamLayout {
+    section_offset_fields: &GAM_V2_PST_HEADER_OFFSET_FIELDS,
+    inventory_slots: &PST_INVENTORY_SLOTS,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GameStateJson {
@@ -35,6 +48,7 @@ pub struct GameStateHeaderJson {
     pub party_reputation: f32,
     pub active_area_party_member: i16,
     pub main_area: Option<ResRef>,
+    pub familiar_extra_offset: u32,
     pub current_area: Option<ResRef>,
     pub party_members_offset: u32,
     pub party_members_count: u32,
@@ -274,6 +288,7 @@ pub fn parse_gam(
             party_reputation: parse_u32(bytes, 0x54)? as f32 / 10.0,
             active_area_party_member: parse_i16(bytes, 0x1C)?,
             main_area: parse_resref_option(bytes, 0x40, 8)?,
+            familiar_extra_offset: parse_u32(bytes, 0x48)?,
             current_area: parse_resref_option(bytes, 0x58, 8)?,
             party_members_offset,
             party_members_count,
@@ -438,6 +453,7 @@ pub fn add_item_to_save_gam(
     slot: SlotChoice,
 ) -> Result<AddItemResult, SaveWriteError> {
     let before = parse_gam(gam, "BALDUR.GAM", None)?;
+    let layout = gam_layout(&before.version, game_variant)?;
     let member_index = resolve_member_index(&before, &member)?;
     let npc_base = (before.header.party_members_offset as usize)
         .checked_add(member_index * GAM_V2_NPC_SIZE)
@@ -465,7 +481,7 @@ pub fn add_item_to_save_gam(
         npc_base + 0x08,
         (embedded_cre_size + CRE_ITEM_SIZE) as u32,
     )?;
-    shift_gam_offsets(&mut output, embedded_cre_end, CRE_ITEM_SIZE as u32)?;
+    shift_gam_offsets(&mut output, layout, embedded_cre_end, CRE_ITEM_SIZE as u32)?;
 
     let after = parse_gam(&output, "BALDUR.GAM", None)?;
     let edited_after = &after.party_members[member_index];
@@ -509,11 +525,26 @@ pub fn add_item_to_save_gam(
     Ok(cre_result)
 }
 
-fn assert_embedded_cres_parse(
-    gam: &[u8],
+fn gam_layout(
+    version: &str,
     game_variant: GameVariant,
-) -> Result<(), SaveWriteError> {
-    for (table_field, count_field, label) in [(0x20usize, 0x24usize, "party"), (0x30, 0x34, "non-party")]
+) -> Result<&'static GamLayout, SaveWriteError> {
+    match (version, game_variant) {
+        ("V2.0" | "V2.1" | "V2.2", GameVariant::Pst) => Ok(&PST_GAM_LAYOUT),
+        ("V2.0" | "V2.1" | "V2.2", GameVariant::Standard | GameVariant::Iwd) => {
+            Err(SaveWriteError::InvalidWrite(
+                "save item write is validated for PSTEE only; BG/IWD support is not yet verified (see SPEC_SAVE_ITEM_WRITE_COMPLETE.md)".to_string(),
+            ))
+        }
+        (version, _) => Err(SaveWriteError::InvalidWrite(format!(
+            "save item write does not support GAM version {version}"
+        ))),
+    }
+}
+
+fn assert_embedded_cres_parse(gam: &[u8], game_variant: GameVariant) -> Result<(), SaveWriteError> {
+    for (table_field, count_field, label) in
+        [(0x20usize, 0x24usize, "party"), (0x30, 0x34, "non-party")]
     {
         let table = parse_u32(gam, table_field)? as usize;
         let count = parse_u32(gam, count_field)? as usize;
@@ -614,10 +645,11 @@ fn inventory_slot_range(
     game_variant: GameVariant,
 ) -> Result<std::ops::Range<usize>, SaveWriteError> {
     match game_variant {
-        // PST/PSTEE CREs use slots 20..39 for backpack inventory cells; trailing
-        // selected_weapon markers are never auto-targeted by resolve_slot.
-        GameVariant::Pst => Ok(PST_INVENTORY_SLOT_START..PST_INVENTORY_SLOT_END_EXCLUSIVE),
-        GameVariant::Standard => Err(SaveWriteError::InvalidWrite(
+        GameVariant::Pst => {
+            let (start, end) = PST_GAM_LAYOUT.inventory_slots[0];
+            Ok(start..end)
+        }
+        GameVariant::Standard | GameVariant::Iwd => Err(SaveWriteError::InvalidWrite(
             "auto inventory slot selection is verified for PST saves only; pass --slot INDEX"
                 .to_string(),
         )),
@@ -631,8 +663,13 @@ fn shift_cre_offsets(bytes: &mut [u8], insertion: usize, delta: u32) -> Result<(
     Ok(())
 }
 
-fn shift_gam_offsets(output: &mut [u8], insertion: usize, delta: u32) -> Result<(), SaveWriteError> {
-    for offset_field in GAM_V2_HEADER_OFFSET_FIELDS {
+fn shift_gam_offsets(
+    output: &mut [u8],
+    layout: &GamLayout,
+    insertion: usize,
+    delta: u32,
+) -> Result<(), SaveWriteError> {
+    for &offset_field in layout.section_offset_fields {
         add_to_offset_if_at_or_after(output, offset_field, insertion, delta)?;
     }
 
@@ -686,6 +723,9 @@ fn add_to_offset_if_at_or_after(
     delta: u32,
 ) -> Result<(), SaveWriteError> {
     let value = parse_u32(bytes, field_offset)?;
+    if value == 0 || value == u32::MAX {
+        return Ok(());
+    }
     if value as usize >= insertion {
         write_u32(
             bytes,
@@ -1191,6 +1231,10 @@ mod tests {
             (globals_offset + 20) as u32
         );
         assert_eq!(
+            parse_u32(&result.bytes, 0x48).unwrap(),
+            (tail_offset + 28) as u32
+        );
+        assert_eq!(
             parse_u32(&result.bytes, 0x30).unwrap(),
             (nonparty_offset + 20) as u32
         );
@@ -1226,6 +1270,7 @@ mod tests {
                 0x28..0x2C,
                 0x30..0x34,
                 0x38..0x3C,
+                0x48..0x4C,
                 0x50..0x54,
                 0x68..0x6C,
                 0x6C..0x70,
@@ -1247,6 +1292,32 @@ mod tests {
         let parsed = parse_gam(&result.bytes, "BALDUR.GAM", None).expect("GAM should reparse");
         assert_eq!(parsed.party_members.len(), 2);
         assert_eq!(parsed.globals.len(), 1);
+    }
+
+    #[test]
+    fn add_item_to_save_gam_rejects_unvalidated_standard_and_iwd_variants() {
+        let cre1 = build_test_cre(0, 42);
+        let cre2 = build_test_cre(0, 42);
+        let cre3 = build_test_cre(0, 42);
+        let gam = build_test_gam_with_creatures(&cre1, &cre2, &cre3);
+        let item = NewItem::identified(ResRef::new("CUBE").expect("resref should be valid"));
+
+        for variant in [GameVariant::Standard, GameVariant::Iwd] {
+            let error = add_item_to_save_gam(
+                &gam,
+                variant,
+                MemberSelector::Index(0),
+                &item,
+                SlotChoice::Index(20),
+            )
+            .expect_err("unvalidated variants should be hard-gated");
+            assert!(
+                error
+                    .to_string()
+                    .contains("validated for PSTEE only; BG/IWD support is not yet verified"),
+                "unexpected error: {error}"
+            );
+        }
     }
 
     #[test]
@@ -1372,6 +1443,7 @@ mod tests {
         write_u32(&mut bytes, 0x34, 1);
         write_u32(&mut bytes, 0x38, globals_offset as u32);
         write_u32(&mut bytes, 0x3C, 1);
+        write_u32(&mut bytes, 0x48, (tail_offset + 8) as u32);
         write_u32(&mut bytes, 0x50, globals_offset as u32);
         write_u32(&mut bytes, 0x4C, 0);
         write_u32(&mut bytes, 0x68, tail_offset as u32);

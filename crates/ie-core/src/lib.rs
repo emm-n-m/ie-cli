@@ -133,6 +133,7 @@ impl ResourceType {
 pub enum GameVariant {
     #[default]
     Standard,
+    Iwd,
     Pst,
 }
 
@@ -140,6 +141,7 @@ impl GameVariant {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Standard => "standard",
+            Self::Iwd => "iwd",
             Self::Pst => "pst",
         }
     }
