@@ -47,7 +47,7 @@ permanent stat change, gated at WIS ≥ 15** (free for a WIS-max build).
 
 | Dialogue | Grant | Notes |
 |---|---|---|
-| `G-BBD010` | **+1 to ALL six** | 3 grant-states ("Rise from the bloodied stone"); a 3-step ritual or revisit-repeatable — **possibly +3 to all**. ⚠ verify in play |
+| `G-BBD010` | **+1 to ALL six** (+20 HP, 100k XP) | **Resolved: +1 once.** The 3 grant-states all fire the same block and set `G-kuotoagod=1` — not a 3-step ritual, not repeatable. See [BLIZZARD_IN_BAATOR_NPC_REWARDS.md](BLIZZARD_IN_BAATOR_NPC_REWARDS.md). |
 | `G-BBD008` | **+2 to one chosen stat** (CON/INT/STR/WIS/CHR) | wish-style pick-one; one branch costs −1 CON |
 | `G-BBD157`, `G-BBD016` | +1 CON | |
 | `G-BBD042` | +2 CHR | |
@@ -99,7 +99,9 @@ the original plan missed: **Gordian Knot +2 CHA / −1 WIS**, **Tear of Salieru-
    boosters/gear are mid-late, so they relax the *ceiling*, not the *floor* — same as vanilla tattoos.
 
 ## Verify in play
-- `G-BBD010`: is "+1 all" once, a 3-step ritual (+3 all), or revisit-repeatable? Big if it stacks.
+- ~~`G-BBD010`: is "+1 all" once, a 3-step ritual (+3 all), or revisit-repeatable?~~ **Resolved from
+  source: +1 to all six, once** (all three routes converge on `G-kuotoagod=1`). See
+  [BLIZZARD_IN_BAATOR_NPC_REWARDS.md](BLIZZARD_IN_BAATOR_NPC_REWARDS.md).
 - TNO usability of the new earrings/tattoo (Mint, Cerebral Parasite, `QDTTPR2`).
 - Exclusivity of the companion CON grants (the 8 guarded branches per companion).
 
