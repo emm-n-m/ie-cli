@@ -1,4 +1,5 @@
-use crate::effects::{EffectOpcodeFamily, decode_effect_opcode};
+use crate::effects::{decode_effect_opcode, decode_effect_target_type, decode_effect_timing};
+use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
@@ -72,21 +73,6 @@ pub struct SpellFeatureBlockJson {
     pub saving_throw_type: u32,
     pub saving_throw_bonus: i32,
     pub special: u32,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecoded<T>
-where
-    T: Serialize,
-{
-    pub raw: T,
-    pub decoded: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecodedFlags {
-    pub raw: u32,
-    pub decoded: Vec<String>,
 }
 
 #[derive(Debug, Error)]
@@ -357,8 +343,7 @@ fn parse_feature_block(
     Ok(SpellFeatureBlockJson {
         opcode: RawDecoded {
             raw: opcode,
-            decoded: decode_effect_opcode(opcode, EffectOpcodeFamily::Spell, game_variant)
-                .map(str::to_string),
+            decoded: decode_effect_opcode(opcode, game_variant).map(str::to_string),
         },
         target_type: RawDecoded {
             raw: target_type,
@@ -588,39 +573,6 @@ fn decode_secondary_type(value: u8) -> Option<&'static str> {
     }
 }
 
-fn decode_effect_target_type(value: u8) -> Option<&'static str> {
-    match value {
-        0 => Some("None"),
-        1 => Some("Self"),
-        2 => Some("Projectile Target"),
-        3 => Some("Party"),
-        4 => Some("Everyone"),
-        5 => Some("Everyone Except Party"),
-        6 => Some("Caster Group"),
-        7 => Some("Target Group"),
-        8 => Some("Everyone Except Self"),
-        9 => Some("Original Caster"),
-        _ => None,
-    }
-}
-
-fn decode_effect_timing(value: u8) -> Option<&'static str> {
-    match value {
-        0 => Some("Instant/Limited"),
-        1 => Some("Instant/Permanent"),
-        2 => Some("Instant/While Equipped"),
-        3 => Some("Delay/Limited"),
-        4 => Some("Delay/Permanent"),
-        5 => Some("Delay/While Equipped"),
-        6 => Some("Limited After Duration"),
-        7 => Some("Permanent After Duration"),
-        8 => Some("Equipped After Duration"),
-        9 => Some("Instant/Permanent (After Death)"),
-        10 => Some("Instant/Limited (Ticks)"),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -732,11 +684,11 @@ mod tests {
         );
         assert_eq!(decode_effect_timing(10), Some("Instant/Limited (Ticks)"));
         assert_eq!(
-            decode_effect_opcode(101, EffectOpcodeFamily::Spell, GameVariant::Standard),
+            decode_effect_opcode(101, GameVariant::Standard),
             Some("Immunity to effect")
         );
         assert_eq!(
-            decode_effect_opcode(318, EffectOpcodeFamily::Spell, GameVariant::Standard),
+            decode_effect_opcode(318, GameVariant::Standard),
             Some("Protection from Resource")
         );
     }

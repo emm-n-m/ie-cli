@@ -1,3 +1,4 @@
+use crate::RawDecodedFlags;
 use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
@@ -66,12 +67,6 @@ pub struct DialogScriptJson {
     pub offset: u32,
     pub length: u32,
     pub text: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecodedFlags {
-    pub raw: u32,
-    pub decoded: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

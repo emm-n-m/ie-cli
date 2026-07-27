@@ -1,3 +1,8 @@
+use crate::cre::{
+    CreatureItemWriteError, NewItem, SlotChoice, add_item_to_cre_with_inventory_slots,
+    validate_added_item,
+};
+use crate::{RawDecoded, RawDecodedFlags};
 use flate2::read::ZlibDecoder;
 use ie_core::{GameVariant, ResRef, ResolvedStrRef, StrRef, StrRefResolver};
 use serde::Serialize;
@@ -10,23 +15,16 @@ const GAM_V2_VARIABLE_SIZE: usize = 0x54;
 const GAM_V2_PST_HEADER_OFFSET_FIELDS: [usize; 9] =
     [0x20, 0x28, 0x30, 0x38, 0x48, 0x50, 0x68, 0x6C, 0x78];
 const SAV_HEADER_SIZE: usize = 0x08;
-const CRE_HEADER_SIZE: usize = 0x2D4;
 const CRE_ITEM_SIZE: usize = 20;
-const CRE_ITEMS_COUNT_OFFSET: usize = 0x02C0;
-const CRE_ITEM_IDENTIFIED_FLAG: u32 = 0x0000_0001;
-const PST_INVENTORY_SLOT_START: usize = 20;
-const PST_INVENTORY_SLOT_END_EXCLUSIVE: usize = 40;
 
 struct GamLayout {
     section_offset_fields: &'static [usize],
     inventory_slots: &'static [(usize, usize)],
 }
 
-const PST_INVENTORY_SLOTS: [(usize, usize); 1] =
-    [(PST_INVENTORY_SLOT_START, PST_INVENTORY_SLOT_END_EXCLUSIVE)];
 const PST_GAM_LAYOUT: GamLayout = GamLayout {
     section_offset_fields: &GAM_V2_PST_HEADER_OFFSET_FIELDS,
-    inventory_slots: &PST_INVENTORY_SLOTS,
+    inventory_slots: &crate::cre::PST_INVENTORY_SLOTS,
 };
 
 #[derive(Debug, Clone, Serialize)]
@@ -109,7 +107,7 @@ pub struct GamePointJson {
 pub struct GameVariableJson {
     pub index: usize,
     pub name: String,
-    pub type_flags: RawDecodedFlags,
+    pub type_flags: RawDecodedFlags<u16>,
     pub ref_value: u16,
     pub dword_value: u32,
     pub int_value: i32,
@@ -134,35 +132,6 @@ pub struct SaveArchiveEntryJson {
     pub uncompressed_size: u32,
     pub compressed_size: u32,
     pub inflated_size: usize,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewItem {
-    pub resref: ResRef,
-    pub expiration_time_days: u16,
-    pub charges_1: u16,
-    pub charges_2: u16,
-    pub charges_3: u16,
-    pub flags: u32,
-}
-
-impl NewItem {
-    pub fn identified(resref: ResRef) -> Self {
-        Self {
-            resref,
-            expiration_time_days: 0,
-            charges_1: 0,
-            charges_2: 0,
-            charges_3: 0,
-            flags: CRE_ITEM_IDENTIFIED_FLAG,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SlotChoice {
-    AutoInventory,
-    Index(usize),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -191,6 +160,8 @@ pub enum SaveWriteError {
     InvalidWrite(String),
     #[error(transparent)]
     Parse(#[from] SaveParseError),
+    #[error(transparent)]
+    Creature(#[from] CreatureItemWriteError),
     #[error("resource parsing failure: {0}")]
     Format(String),
 }
@@ -205,21 +176,6 @@ impl From<SaveWriteError> for crate::FormatError {
     fn from(err: SaveWriteError) -> Self {
         crate::FormatError::Parse(err.to_string())
     }
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecoded<T>
-where
-    T: Serialize,
-{
-    pub raw: T,
-    pub decoded: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecodedFlags {
-    pub raw: u16,
-    pub decoded: Vec<String>,
 }
 
 #[derive(Debug, Error)]
@@ -397,54 +353,6 @@ pub fn parse_sav(bytes: &[u8], resource_name: &str) -> Result<SaveArchiveJson, c
     })
 }
 
-pub fn add_item_to_cre(
-    cre: &[u8],
-    game_variant: GameVariant,
-    item: &NewItem,
-    slot: SlotChoice,
-) -> Result<AddItemResult, SaveWriteError> {
-    validate_cre_for_item_write(cre)?;
-
-    let before = crate::cre::parse_cre_with_variant(cre, "EMBEDDED.CRE", None, game_variant)?;
-    let items_offset = parse_u32(cre, 0x02BC)? as usize;
-    let old_items_count = parse_u32(cre, CRE_ITEMS_COUNT_OFFSET)?;
-    let insertion = items_offset
-        .checked_add(old_items_count as usize * CRE_ITEM_SIZE)
-        .ok_or_else(|| SaveWriteError::InvalidWrite("CRE item insertion offset overflow".into()))?;
-    checked_end(insertion, 0, cre.len(), "CRE item insertion")?;
-
-    let slot_index = resolve_slot(&before.item_slots, game_variant, slot)?;
-    let new_item_index = old_items_count;
-    let mut output = Vec::with_capacity(cre.len() + CRE_ITEM_SIZE);
-    output.extend_from_slice(&cre[..insertion]);
-    output.extend_from_slice(&encode_cre_item(item));
-    output.extend_from_slice(&cre[insertion..]);
-
-    write_u32(&mut output, CRE_ITEMS_COUNT_OFFSET, old_items_count + 1)?;
-    shift_cre_offsets(&mut output, insertion, CRE_ITEM_SIZE as u32)?;
-
-    let new_item_slots_offset = parse_u32(&output, 0x02B8)? as usize;
-    let slot_offset = new_item_slots_offset
-        .checked_add(slot_index * 2)
-        .ok_or_else(|| SaveWriteError::InvalidWrite("CRE slot offset overflow".into()))?;
-    write_u16(&mut output, slot_offset, new_item_index as u16)?;
-
-    let after = crate::cre::parse_cre_with_variant(&output, "EMBEDDED.CRE", None, game_variant)?;
-    assert_added_item(&after, item, slot_index, new_item_index, old_items_count)?;
-
-    Ok(AddItemResult {
-        item_resref: item.resref.as_str().to_string(),
-        member_index: None,
-        member_name: None,
-        slot_index,
-        new_item_index,
-        old_items_count,
-        new_items_count: old_items_count + 1,
-        byte_delta: CRE_ITEM_SIZE,
-        bytes: output,
-    })
-}
-
 pub fn add_item_to_save_gam(
     gam: &[u8],
     game_variant: GameVariant,
@@ -469,7 +377,13 @@ pub fn add_item_to_save_gam(
         "embedded CRE",
     )?;
     let cre_before = &gam[embedded_cre_offset..embedded_cre_end];
-    let mut cre_result = add_item_to_cre(cre_before, game_variant, item, slot)?;
+    let cre_result = add_item_to_cre_with_inventory_slots(
+        cre_before,
+        game_variant,
+        item,
+        slot,
+        layout.inventory_slots,
+    )?;
 
     let mut output = Vec::with_capacity(gam.len() + CRE_ITEM_SIZE);
     output.extend_from_slice(&gam[..embedded_cre_offset]);
@@ -499,30 +413,39 @@ pub fn add_item_to_save_gam(
         None,
         game_variant,
     )?;
-    assert_added_item(
+    validate_added_item(
         &parsed_cre,
         item,
         cre_result.slot_index,
         cre_result.new_item_index,
         cre_result.old_items_count,
     )?;
-    assert_eq!(
-        before.header.globals_count, after.header.globals_count,
-        "globals count changed during save item write"
-    );
-    assert_eq!(
-        before.header.journal_entries_count, after.header.journal_entries_count,
-        "journal count changed during save item write"
-    );
+    if before.header.globals_count != after.header.globals_count {
+        return Err(SaveWriteError::InvalidWrite(
+            "post-write validation: globals count changed".to_string(),
+        ));
+    }
+    if before.header.journal_entries_count != after.header.journal_entries_count {
+        return Err(SaveWriteError::InvalidWrite(
+            "post-write validation: journal count changed".to_string(),
+        ));
+    }
     // Every embedded CRE offset (party AND non-party) must still point at parseable CRE
     // data after the edit. A stale/unshifted offset lands on non-CRE bytes and fails here,
     // catching offset-fixup mistakes that a header-only re-parse would miss.
     assert_embedded_cres_parse(&output, game_variant)?;
 
-    cre_result.member_index = Some(member_index);
-    cre_result.member_name = Some(before.party_members[member_index].character_name.clone());
-    cre_result.bytes = output;
-    Ok(cre_result)
+    Ok(AddItemResult {
+        item_resref: cre_result.item_resref,
+        member_index: Some(member_index),
+        member_name: Some(before.party_members[member_index].character_name.clone()),
+        slot_index: cre_result.slot_index,
+        new_item_index: cre_result.new_item_index,
+        old_items_count: cre_result.old_items_count,
+        new_items_count: cre_result.new_items_count,
+        byte_delta: cre_result.byte_delta,
+        bytes: output,
+    })
 }
 
 fn gam_layout(
@@ -570,95 +493,6 @@ fn assert_embedded_cres_parse(gam: &[u8], game_variant: GameVariant) -> Result<(
                 ))
             })?;
         }
-    }
-    Ok(())
-}
-
-fn validate_cre_for_item_write(cre: &[u8]) -> Result<(), SaveWriteError> {
-    if cre.len() < CRE_HEADER_SIZE {
-        return Err(SaveWriteError::InvalidWrite(format!(
-            "CRE resource must contain at least {CRE_HEADER_SIZE} bytes"
-        )));
-    }
-    if &cre[0..4] != b"CRE " {
-        return Err(SaveWriteError::InvalidWrite(
-            "embedded creature is missing CRE signature".to_string(),
-        ));
-    }
-    let version = parse_ascii_string(cre, 4, 4)?;
-    if version != "V1.0" {
-        return Err(SaveWriteError::InvalidWrite(format!(
-            "save item write supports embedded CRE V1.0 only, got {version}"
-        )));
-    }
-    Ok(())
-}
-
-fn encode_cre_item(item: &NewItem) -> [u8; CRE_ITEM_SIZE] {
-    let mut bytes = [0u8; CRE_ITEM_SIZE];
-    let resref = item.resref.as_str().as_bytes();
-    bytes[..resref.len()].copy_from_slice(resref);
-    bytes[8..10].copy_from_slice(&item.expiration_time_days.to_le_bytes());
-    bytes[10..12].copy_from_slice(&item.charges_1.to_le_bytes());
-    bytes[12..14].copy_from_slice(&item.charges_2.to_le_bytes());
-    bytes[14..16].copy_from_slice(&item.charges_3.to_le_bytes());
-    bytes[16..20].copy_from_slice(&item.flags.to_le_bytes());
-    bytes
-}
-
-fn resolve_slot(
-    slots: &[crate::cre::CreatureItemSlotJson],
-    game_variant: GameVariant,
-    choice: SlotChoice,
-) -> Result<usize, SaveWriteError> {
-    match choice {
-        SlotChoice::Index(index) => {
-            let slot = slots.get(index).ok_or_else(|| {
-                SaveWriteError::InvalidWrite(format!("slot index {index} is outside slot table"))
-            })?;
-            if slot.item_index.is_some() {
-                return Err(SaveWriteError::InvalidWrite(format!(
-                    "slot index {index} is not empty"
-                )));
-            }
-            Ok(index)
-        }
-        SlotChoice::AutoInventory => {
-            let range = inventory_slot_range(game_variant)?;
-            let end = range.end.min(slots.len().saturating_sub(2));
-            (range.start..end)
-                .find(|index| {
-                    slots
-                        .get(*index)
-                        .is_some_and(|slot| slot.item_index.is_none())
-                })
-                .ok_or_else(|| {
-                    SaveWriteError::InvalidWrite(
-                        "no empty general-inventory slot is available".to_string(),
-                    )
-                })
-        }
-    }
-}
-
-fn inventory_slot_range(
-    game_variant: GameVariant,
-) -> Result<std::ops::Range<usize>, SaveWriteError> {
-    match game_variant {
-        GameVariant::Pst => {
-            let (start, end) = PST_GAM_LAYOUT.inventory_slots[0];
-            Ok(start..end)
-        }
-        GameVariant::Standard | GameVariant::Iwd => Err(SaveWriteError::InvalidWrite(
-            "auto inventory slot selection is verified for PST saves only; pass --slot INDEX"
-                .to_string(),
-        )),
-    }
-}
-
-fn shift_cre_offsets(bytes: &mut [u8], insertion: usize, delta: u32) -> Result<(), SaveWriteError> {
-    for offset_field in [0x02A0, 0x02A8, 0x02B0, 0x02B8, 0x02C4] {
-        add_to_offset_if_at_or_after(bytes, offset_field, insertion, delta)?;
     }
     Ok(())
 }
@@ -761,45 +595,6 @@ fn resolve_member_index(
                 SaveWriteError::InvalidWrite(format!("party member {resref} was not found"))
             }),
     }
-}
-
-fn assert_added_item(
-    creature: &crate::cre::CreatureJson,
-    item: &NewItem,
-    slot_index: usize,
-    item_index: u32,
-    old_items_count: u32,
-) -> Result<(), SaveWriteError> {
-    if creature.header.items_count != old_items_count + 1 {
-        return Err(SaveWriteError::InvalidWrite(
-            "round-trip check failed: items_count did not increment by one".to_string(),
-        ));
-    }
-    let parsed_item = creature.items.get(item_index as usize).ok_or_else(|| {
-        SaveWriteError::InvalidWrite(
-            "round-trip check failed: inserted item index is missing".to_string(),
-        )
-    })?;
-    if parsed_item.resource.as_ref().map(ResRef::as_str) != Some(item.resref.as_str())
-        || parsed_item.expiration_time_days != item.expiration_time_days
-        || parsed_item.charges_1 != item.charges_1
-        || parsed_item.charges_2 != item.charges_2
-        || parsed_item.charges_3 != item.charges_3
-        || parsed_item.flags.raw != item.flags
-    {
-        return Err(SaveWriteError::InvalidWrite(
-            "round-trip check failed: inserted item fields differ".to_string(),
-        ));
-    }
-    let slot = creature.item_slots.get(slot_index).ok_or_else(|| {
-        SaveWriteError::InvalidWrite("round-trip check failed: chosen slot is missing".to_string())
-    })?;
-    if slot.item_index != Some(item_index as u16) {
-        return Err(SaveWriteError::InvalidWrite(
-            "round-trip check failed: chosen slot does not point at inserted item".to_string(),
-        ));
-    }
-    Ok(())
 }
 
 fn parse_npcs(
@@ -1017,12 +812,6 @@ fn parse_f64(bytes: &[u8], offset: usize) -> Result<f64, SaveParseError> {
     ]))
 }
 
-fn write_u16(bytes: &mut [u8], offset: usize, value: u16) -> Result<(), SaveWriteError> {
-    let end = checked_end(offset, 2, bytes.len(), "u16")?;
-    bytes[offset..end].copy_from_slice(&value.to_le_bytes());
-    Ok(())
-}
-
 fn write_u32(bytes: &mut [u8], offset: usize, value: u32) -> Result<(), SaveWriteError> {
     let end = checked_end(offset, 4, bytes.len(), "u32")?;
     bytes[offset..end].copy_from_slice(&value.to_le_bytes());
@@ -1062,10 +851,15 @@ fn checked_end(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::cre::add_item_to_cre;
     use flate2::Compression;
     use flate2::write::ZlibEncoder;
     use std::io::Write;
     use std::path::PathBuf;
+
+    const CRE_HEADER_SIZE: usize = 0x2D4;
+    const PST_INVENTORY_SLOT_START: usize = crate::cre::PST_INVENTORY_SLOTS[0].0;
+    const PST_INVENTORY_SLOT_END_EXCLUSIVE: usize = crate::cre::PST_INVENTORY_SLOTS[0].1;
 
     #[test]
     fn parses_gam_v2_header_party_and_globals() {

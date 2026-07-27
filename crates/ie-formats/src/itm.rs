@@ -1,4 +1,5 @@
-use crate::effects::{EffectOpcodeFamily, decode_effect_opcode};
+use crate::effects::{decode_effect_opcode, decode_effect_target_type, decode_effect_timing};
+use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
@@ -107,21 +108,6 @@ pub struct ItemEffectJson {
 }
 
 const ITEM_EFFECT_SIZE: usize = 48;
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecoded<T>
-where
-    T: Serialize,
-{
-    pub raw: T,
-    pub decoded: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecodedFlags {
-    pub raw: u32,
-    pub decoded: Vec<String>,
-}
 
 #[derive(Debug, Error)]
 pub enum ItemParseError {
@@ -346,8 +332,7 @@ fn parse_effect(
     Ok(ItemEffectJson {
         opcode: RawDecoded {
             raw: opcode,
-            decoded: decode_effect_opcode(opcode, EffectOpcodeFamily::Item, game_variant)
-                .map(str::to_string),
+            decoded: decode_effect_opcode(opcode, game_variant).map(str::to_string),
         },
         target_type: RawDecoded {
             raw: target_type,
@@ -731,36 +716,6 @@ fn decode_ability_flags(value: u32) -> Vec<String> {
     labels
 }
 
-fn decode_effect_target_type(value: u8) -> Option<&'static str> {
-    match value {
-        0 => Some("Self"),
-        1 => Some("Single Target"),
-        2 => Some("Area (friendly)"),
-        3 => Some("Area (hostile)"),
-        4 => Some("Area (all)"),
-        5 => Some("Caster Group"),
-        6 => Some("Single Target (dispellable)"),
-        7 => Some("Party"),
-        _ => None,
-    }
-}
-
-fn decode_effect_timing(value: u8) -> Option<&'static str> {
-    match value {
-        0 => Some("Instant (duration)"),
-        1 => Some("Instant (permanent)"),
-        2 => Some("Delayed (duration)"),
-        3 => Some("Delayed (permanent)"),
-        4 => Some("Instant (while equipped)"),
-        5 => Some("Instant (permanent, unless removed)"),
-        6 => Some("Delayed (until end of combat)"),
-        7 => Some("Instant (permanently until death)"),
-        8 => Some("Instant (semi-permanent)"),
-        9 => Some("Instant (permanent after resting)"),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -857,5 +812,59 @@ mod tests {
         assert_eq!(effects[0].resource.as_ref().unwrap().as_str(), "DLIGHT");
         assert_eq!(effects[1].opcode.raw, 123);
         assert_eq!(effects[1].resource.as_ref().unwrap().as_str(), "DISCIPLE");
+    }
+
+    #[test]
+    fn parse_itm_wires_shared_effect_opcode_target_and_timing_decoders() {
+        let effects_offset = ITM_HEADER_SIZE;
+        let mut bytes = vec![0u8; effects_offset + ITEM_EFFECT_SIZE * 2];
+        bytes[0..4].copy_from_slice(b"ITM ");
+        bytes[4..8].copy_from_slice(b"V1  ");
+        bytes[0x64..0x68].copy_from_slice(&(ITM_HEADER_SIZE as u32).to_le_bytes());
+        bytes[0x6A..0x6E].copy_from_slice(&(effects_offset as u32).to_le_bytes());
+        bytes[0x70..0x72].copy_from_slice(&2u16.to_le_bytes());
+
+        bytes[effects_offset..effects_offset + 2].copy_from_slice(&3u16.to_le_bytes());
+        bytes[effects_offset + 2] = 0;
+        bytes[effects_offset + 0x0C] = 2;
+
+        let second_effect = effects_offset + ITEM_EFFECT_SIZE;
+        bytes[second_effect..second_effect + 2].copy_from_slice(&12u16.to_le_bytes());
+        bytes[second_effect + 2] = 1;
+        bytes[second_effect + 0x0C] = 2;
+
+        let item = parse_itm_with_variant(
+            &bytes,
+            "EFFECTS.ITM",
+            Some(&NullResolver),
+            GameVariant::Standard,
+        )
+        .expect("ITM with global effects should parse");
+
+        assert_eq!(item.global_effects.len(), 2);
+        assert_eq!(
+            item.global_effects[0].opcode.decoded.as_deref(),
+            Some("Berserk")
+        );
+        assert_eq!(
+            item.global_effects[0].target_type.decoded.as_deref(),
+            Some("None")
+        );
+        assert_eq!(
+            item.global_effects[0].timing.decoded.as_deref(),
+            Some("Instant/While Equipped")
+        );
+        assert_eq!(
+            item.global_effects[1].opcode.decoded.as_deref(),
+            Some("Damage")
+        );
+        assert_eq!(
+            item.global_effects[1].target_type.decoded.as_deref(),
+            Some("Self")
+        );
+        assert_eq!(
+            item.global_effects[1].timing.decoded.as_deref(),
+            Some("Instant/While Equipped")
+        );
     }
 }

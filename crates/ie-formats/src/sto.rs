@@ -1,3 +1,4 @@
+use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
@@ -86,21 +87,6 @@ pub struct StoreCureJson {
 pub struct StorePurchasedCategoryJson {
     pub raw: u32,
     pub decoded: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecoded<T>
-where
-    T: Serialize,
-{
-    pub raw: T,
-    pub decoded: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecodedFlags {
-    pub raw: u32,
-    pub decoded: Vec<String>,
 }
 
 #[derive(Debug, Error)]

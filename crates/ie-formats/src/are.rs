@@ -1,3 +1,4 @@
+use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{
     CreatureResourceLink, ResRef, ResourceLink, ResourceLinkResolver, ResourceType, ScriptSlots,
     SourceKind,
@@ -132,21 +133,6 @@ pub struct AreaRegionJson {
     pub key_item: Option<ResourceLink>,
     pub region_script: Option<ResourceLink>,
     pub activation_point: AreaPointJson,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecoded<T>
-where
-    T: Serialize,
-{
-    pub raw: T,
-    pub decoded: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecodedFlags {
-    pub raw: u32,
-    pub decoded: Vec<String>,
 }
 
 #[derive(Debug, Error)]

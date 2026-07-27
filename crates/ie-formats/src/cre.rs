@@ -1,15 +1,19 @@
-use crate::effects::{EffectOpcodeFamily, decode_effect_opcode};
+use crate::effects::{decode_effect_opcode, decode_effect_target_type, decode_effect_timing};
+use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
 
 const CRE_HEADER_SIZE: usize = 0x2D4;
+const CRE_ITEM_SIZE: usize = 20;
+const CRE_ITEMS_COUNT_OFFSET: usize = 0x02C0;
+const CRE_ITEM_IDENTIFIED_FLAG: u32 = 0x0000_0001;
+pub(crate) const PST_INVENTORY_SLOTS: [(usize, usize); 1] = [(20, 40)];
 const CRE_KNOWN_SPELL_SIZE: usize = 12;
 const CRE_MEMORIZATION_INFO_SIZE: usize = 16;
 const CRE_MEMORIZED_SPELL_SIZE: usize = 12;
 const CRE_EFFECT_V1_SIZE: usize = 48;
 const CRE_EFFECT_V2_SIZE: usize = 0x108;
-const CRE_ITEM_SIZE: usize = 20;
 const CRE_SOUNDSET_COUNT: usize = 100;
 
 #[derive(Debug, Clone, Serialize)]
@@ -259,21 +263,6 @@ pub struct CreatureItemSlotJson {
     pub item_index: Option<u16>,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecoded<T>
-where
-    T: Serialize,
-{
-    pub raw: T,
-    pub decoded: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct RawDecodedFlags {
-    pub raw: u32,
-    pub decoded: Vec<String>,
-}
-
 #[derive(Debug, Error)]
 pub enum CreatureParseError {
     #[error("invalid CRE header: {0}")]
@@ -312,6 +301,316 @@ impl From<CreaturePatchError> for crate::FormatError {
     fn from(err: CreaturePatchError) -> Self {
         crate::FormatError::Parse(err.to_string())
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct NewItem {
+    pub resref: ResRef,
+    pub expiration_time_days: u16,
+    pub charges_1: u16,
+    pub charges_2: u16,
+    pub charges_3: u16,
+    pub flags: u32,
+}
+
+impl NewItem {
+    pub fn identified(resref: ResRef) -> Self {
+        Self {
+            resref,
+            expiration_time_days: 0,
+            charges_1: 0,
+            charges_2: 0,
+            charges_3: 0,
+            flags: CRE_ITEM_IDENTIFIED_FLAG,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SlotChoice {
+    AutoInventory,
+    Index(usize),
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CreatureItemInsertResult {
+    pub item_resref: String,
+    pub slot_index: usize,
+    pub new_item_index: u32,
+    pub old_items_count: u32,
+    pub new_items_count: u32,
+    pub byte_delta: usize,
+    #[serde(skip)]
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Error)]
+pub enum CreatureItemWriteError {
+    #[error("invalid CRE item write: {0}")]
+    InvalidWrite(String),
+    #[error("resource parsing failure: {0}")]
+    Format(String),
+}
+
+impl From<crate::FormatError> for CreatureItemWriteError {
+    fn from(err: crate::FormatError) -> Self {
+        Self::Format(err.to_string())
+    }
+}
+
+pub fn add_item_to_cre(
+    cre: &[u8],
+    game_variant: GameVariant,
+    item: &NewItem,
+    slot: SlotChoice,
+) -> Result<CreatureItemInsertResult, CreatureItemWriteError> {
+    let inventory_slots: &[(usize, usize)] = match game_variant {
+        GameVariant::Pst => &PST_INVENTORY_SLOTS,
+        GameVariant::Standard | GameVariant::Iwd => &[],
+    };
+    add_item_to_cre_with_inventory_slots(cre, game_variant, item, slot, inventory_slots)
+}
+
+pub(crate) fn add_item_to_cre_with_inventory_slots(
+    cre: &[u8],
+    game_variant: GameVariant,
+    item: &NewItem,
+    slot: SlotChoice,
+    inventory_slots: &[(usize, usize)],
+) -> Result<CreatureItemInsertResult, CreatureItemWriteError> {
+    validate_cre_for_item_write(cre)?;
+
+    let before = parse_cre_with_variant(cre, "EMBEDDED.CRE", None, game_variant)?;
+    let items_offset = read_u32_for_item_write(cre, 0x02BC)? as usize;
+    let old_items_count = read_u32_for_item_write(cre, CRE_ITEMS_COUNT_OFFSET)?;
+    let items_size = (old_items_count as usize)
+        .checked_mul(CRE_ITEM_SIZE)
+        .ok_or_else(|| CreatureItemWriteError::InvalidWrite("item table size overflow".into()))?;
+    let insertion = items_offset.checked_add(items_size).ok_or_else(|| {
+        CreatureItemWriteError::InvalidWrite("item insertion offset overflow".into())
+    })?;
+    checked_item_write_end(insertion, 0, cre.len(), "item insertion")?;
+
+    let slot_index = resolve_item_slot(&before.item_slots, slot, inventory_slots)?;
+    let new_item_index = old_items_count;
+    let slot_item_index = u16::try_from(new_item_index).map_err(|_| {
+        CreatureItemWriteError::InvalidWrite("CRE item index exceeds u16 slot capacity".into())
+    })?;
+    let new_items_count = old_items_count
+        .checked_add(1)
+        .ok_or_else(|| CreatureItemWriteError::InvalidWrite("CRE item count overflow".into()))?;
+
+    let mut output = Vec::with_capacity(cre.len() + CRE_ITEM_SIZE);
+    output.extend_from_slice(&cre[..insertion]);
+    output.extend_from_slice(&encode_cre_item(item));
+    output.extend_from_slice(&cre[insertion..]);
+
+    write_u32_for_item_write(&mut output, CRE_ITEMS_COUNT_OFFSET, new_items_count)?;
+    shift_cre_item_offsets(&mut output, insertion, CRE_ITEM_SIZE as u32)?;
+
+    let new_item_slots_offset = read_u32_for_item_write(&output, 0x02B8)? as usize;
+    let slot_offset = new_item_slots_offset
+        .checked_add(slot_index.checked_mul(2).ok_or_else(|| {
+            CreatureItemWriteError::InvalidWrite("CRE slot offset overflow".into())
+        })?)
+        .ok_or_else(|| CreatureItemWriteError::InvalidWrite("CRE slot offset overflow".into()))?;
+    write_u16_for_item_write(&mut output, slot_offset, slot_item_index)?;
+
+    let after = parse_cre_with_variant(&output, "EMBEDDED.CRE", None, game_variant)?;
+    validate_added_item(&after, item, slot_index, new_item_index, old_items_count)?;
+
+    Ok(CreatureItemInsertResult {
+        item_resref: item.resref.as_str().to_string(),
+        slot_index,
+        new_item_index,
+        old_items_count,
+        new_items_count,
+        byte_delta: CRE_ITEM_SIZE,
+        bytes: output,
+    })
+}
+
+fn validate_cre_for_item_write(cre: &[u8]) -> Result<(), CreatureItemWriteError> {
+    if cre.len() < CRE_HEADER_SIZE {
+        return Err(CreatureItemWriteError::InvalidWrite(format!(
+            "CRE resource must contain at least {CRE_HEADER_SIZE} bytes"
+        )));
+    }
+    if &cre[0..4] != b"CRE " {
+        return Err(CreatureItemWriteError::InvalidWrite(
+            "creature is missing CRE signature".to_string(),
+        ));
+    }
+    let version = String::from_utf8_lossy(&cre[4..8]);
+    if version != "V1.0" {
+        return Err(CreatureItemWriteError::InvalidWrite(format!(
+            "item write supports CRE V1.0 only, got {version}"
+        )));
+    }
+    Ok(())
+}
+
+fn encode_cre_item(item: &NewItem) -> [u8; CRE_ITEM_SIZE] {
+    let mut bytes = [0u8; CRE_ITEM_SIZE];
+    let resref = item.resref.as_str().as_bytes();
+    bytes[..resref.len()].copy_from_slice(resref);
+    bytes[8..10].copy_from_slice(&item.expiration_time_days.to_le_bytes());
+    bytes[10..12].copy_from_slice(&item.charges_1.to_le_bytes());
+    bytes[12..14].copy_from_slice(&item.charges_2.to_le_bytes());
+    bytes[14..16].copy_from_slice(&item.charges_3.to_le_bytes());
+    bytes[16..20].copy_from_slice(&item.flags.to_le_bytes());
+    bytes
+}
+
+fn resolve_item_slot(
+    slots: &[CreatureItemSlotJson],
+    choice: SlotChoice,
+    inventory_slots: &[(usize, usize)],
+) -> Result<usize, CreatureItemWriteError> {
+    match choice {
+        SlotChoice::Index(index) => {
+            let slot = slots.get(index).ok_or_else(|| {
+                CreatureItemWriteError::InvalidWrite(format!(
+                    "slot index {index} is outside slot table"
+                ))
+            })?;
+            if slot.item_index.is_some() {
+                return Err(CreatureItemWriteError::InvalidWrite(format!(
+                    "slot index {index} is not empty"
+                )));
+            }
+            Ok(index)
+        }
+        SlotChoice::AutoInventory => inventory_slots
+            .iter()
+            .flat_map(|(start, end)| *start..(*end).min(slots.len().saturating_sub(2)))
+            .find(|index| {
+                slots
+                    .get(*index)
+                    .is_some_and(|slot| slot.item_index.is_none())
+            })
+            .ok_or_else(|| {
+                CreatureItemWriteError::InvalidWrite(
+                    if inventory_slots.is_empty() {
+                        "auto inventory slot selection is not validated for this game variant"
+                    } else {
+                        "no empty general-inventory slot is available"
+                    }
+                    .to_string(),
+                )
+            }),
+    }
+}
+
+fn shift_cre_item_offsets(
+    bytes: &mut [u8],
+    insertion: usize,
+    delta: u32,
+) -> Result<(), CreatureItemWriteError> {
+    for offset_field in [0x02A0, 0x02A8, 0x02B0, 0x02B8, 0x02C4] {
+        add_to_cre_offset_if_at_or_after(bytes, offset_field, insertion, delta)?;
+    }
+    Ok(())
+}
+
+fn add_to_cre_offset_if_at_or_after(
+    bytes: &mut [u8],
+    field_offset: usize,
+    insertion: usize,
+    delta: u32,
+) -> Result<(), CreatureItemWriteError> {
+    let value = read_u32_for_item_write(bytes, field_offset)?;
+    if value != 0 && value != u32::MAX && value as usize >= insertion {
+        let shifted = value.checked_add(delta).ok_or_else(|| {
+            CreatureItemWriteError::InvalidWrite("CRE section offset overflow".into())
+        })?;
+        write_u32_for_item_write(bytes, field_offset, shifted)?;
+    }
+    Ok(())
+}
+
+pub(crate) fn validate_added_item(
+    creature: &CreatureJson,
+    item: &NewItem,
+    slot_index: usize,
+    item_index: u32,
+    old_items_count: u32,
+) -> Result<(), CreatureItemWriteError> {
+    if creature.header.items_count != old_items_count + 1 {
+        return Err(CreatureItemWriteError::InvalidWrite(
+            "round-trip check failed: items_count did not increment by one".to_string(),
+        ));
+    }
+    let parsed_item = creature.items.get(item_index as usize).ok_or_else(|| {
+        CreatureItemWriteError::InvalidWrite(
+            "round-trip check failed: inserted item index is missing".to_string(),
+        )
+    })?;
+    if parsed_item.resource.as_ref().map(ResRef::as_str) != Some(item.resref.as_str())
+        || parsed_item.expiration_time_days != item.expiration_time_days
+        || parsed_item.charges_1 != item.charges_1
+        || parsed_item.charges_2 != item.charges_2
+        || parsed_item.charges_3 != item.charges_3
+        || parsed_item.flags.raw != item.flags
+    {
+        return Err(CreatureItemWriteError::InvalidWrite(
+            "round-trip check failed: inserted item fields differ".to_string(),
+        ));
+    }
+    let slot = creature.item_slots.get(slot_index).ok_or_else(|| {
+        CreatureItemWriteError::InvalidWrite(
+            "round-trip check failed: chosen slot is missing".to_string(),
+        )
+    })?;
+    if slot.item_index != Some(item_index as u16) {
+        return Err(CreatureItemWriteError::InvalidWrite(
+            "round-trip check failed: chosen slot does not point at inserted item".to_string(),
+        ));
+    }
+    Ok(())
+}
+
+fn checked_item_write_end(
+    offset: usize,
+    len: usize,
+    file_len: usize,
+    label: &str,
+) -> Result<usize, CreatureItemWriteError> {
+    let end = offset
+        .checked_add(len)
+        .ok_or_else(|| CreatureItemWriteError::InvalidWrite(format!("{label} offset overflow")))?;
+    if end > file_len {
+        return Err(CreatureItemWriteError::InvalidWrite(format!(
+            "{label} at 0x{offset:X} extends past end of CRE"
+        )));
+    }
+    Ok(end)
+}
+
+fn read_u32_for_item_write(bytes: &[u8], offset: usize) -> Result<u32, CreatureItemWriteError> {
+    let end = checked_item_write_end(offset, 4, bytes.len(), "u32")?;
+    let value = &bytes[offset..end];
+    Ok(u32::from_le_bytes([value[0], value[1], value[2], value[3]]))
+}
+
+fn write_u16_for_item_write(
+    bytes: &mut [u8],
+    offset: usize,
+    value: u16,
+) -> Result<(), CreatureItemWriteError> {
+    let end = checked_item_write_end(offset, 2, bytes.len(), "u16")?;
+    bytes[offset..end].copy_from_slice(&value.to_le_bytes());
+    Ok(())
+}
+
+fn write_u32_for_item_write(
+    bytes: &mut [u8],
+    offset: usize,
+    value: u32,
+) -> Result<(), CreatureItemWriteError> {
+    let end = checked_item_write_end(offset, 4, bytes.len(), "u32")?;
+    bytes[offset..end].copy_from_slice(&value.to_le_bytes());
+    Ok(())
 }
 
 struct ByteEdit {
@@ -828,12 +1127,7 @@ fn parse_effect_v1(
         version: "V1".to_string(),
         opcode: RawDecoded {
             raw: opcode,
-            decoded: decode_effect_opcode(
-                opcode as u16,
-                EffectOpcodeFamily::Creature,
-                game_variant,
-            )
-            .map(str::to_string),
+            decoded: decode_effect_opcode(opcode as u16, game_variant).map(str::to_string),
         },
         target_type: RawDecoded {
             raw: target_type,
@@ -877,9 +1171,7 @@ fn parse_effect_v2(
             raw: opcode,
             decoded: u16::try_from(opcode)
                 .ok()
-                .and_then(|value| {
-                    decode_effect_opcode(value, EffectOpcodeFamily::Creature, game_variant)
-                })
+                .and_then(|value| decode_effect_opcode(value, game_variant))
                 .map(str::to_string),
         },
         target_type: RawDecoded {
@@ -1258,39 +1550,6 @@ fn decode_kit(value: u32) -> Option<&'static str> {
         0x4010_0000 => Some("Totemic"),
         0x4011_0000 => Some("Shapeshifter"),
         0x4012_0000 => Some("Avenger"),
-        _ => None,
-    }
-}
-
-fn decode_effect_target_type(value: u8) -> Option<&'static str> {
-    match value {
-        0 => Some("None"),
-        1 => Some("Self"),
-        2 => Some("ProjectileTarget"),
-        3 => Some("Party"),
-        4 => Some("Everyone"),
-        5 => Some("EveryoneExceptParty"),
-        6 => Some("CasterGroup"),
-        7 => Some("TargetGroup"),
-        8 => Some("EveryoneExceptSelf"),
-        9 => Some("OriginalCaster"),
-        _ => None,
-    }
-}
-
-fn decode_effect_timing(value: u8) -> Option<&'static str> {
-    match value {
-        0 => Some("InstantLimited"),
-        1 => Some("InstantPermanent"),
-        2 => Some("InstantWhileEquipped"),
-        3 => Some("DelayLimited"),
-        4 => Some("DelayPermanent"),
-        5 => Some("DelayWhileEquipped"),
-        6 => Some("LimitedAfterDuration"),
-        7 => Some("PermanentAfterDuration"),
-        8 => Some("EquippedAfterDuration"),
-        9 => Some("InstantPermanentAfterDeath"),
-        10 => Some("InstantLimitedTicks"),
         _ => None,
     }
 }

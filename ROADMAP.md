@@ -25,7 +25,7 @@ Near Infinity remains the right tool for last-mile manual sanity checks and for 
 
 ## Status Snapshot
 
-Current as of 2026-06-05.
+Current as of 2026-07-27.
 
 ### Done
 
@@ -38,7 +38,7 @@ Current as of 2026-06-05.
 - `TLK` string resolution.
 - Typed decoders + JSON export for: `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`.
 - DLG graph export via `dump --format dot|mermaid`, with `--max-label-len`, `--no-triggers`, `--no-actions`, `--strings`, and `--follow-extern[=DEPTH]`.
-- Minimum viable `ARE` decoder + JSON export for header, deferred-section offsets/counts, and actor placement/link data.
+- `ARE` decoder + JSON export for the header, deferred-section offsets/counts, actors, entrances, and Travel-region links.
 - Lazy IDS loading and opcode/name resolution for BCS decoding.
 - Override trust workflow via `override-diff`: shadow reports against BIFF and hash-based comparison against reference directories/files.
 - Real-install smoke coverage for `ITM` and `SPL`; selected Near Infinity comparisons for `SPL`.
@@ -46,6 +46,8 @@ Current as of 2026-06-05.
 - Initial CRE scalar patch support for fixed-offset fields, with byte-exact copy-only behavior.
 - Initial ARE region patch support for `regions.<selector>.destination_entrance` and `regions.<selector>.destination_area`, addressed by region name or 0-based index, byte-exact copy-only behavior.
 - Save inspection: `save-list` (folder discovery across install root + user Documents) and `save-info` (`GAM` v2.0/2.1/2.2 header/party/globals decode, `SAV` zlib container manifest). Validated against real BG2EE saves; see [docs/SAVE_SUPPORT_TODO.md](./docs/SAVE_SUPPORT_TODO.md).
+- Scoped PSTEE save mutation via `save-add-item`: append one item to a party member's embedded CRE, repair affected CRE/GAM offsets, copy the save folder by default, and hard-refuse unvalidated BG/IWD layouts.
+- `dialog.tlk` append support via `tlk-append`, with in-place and copy-output workflows.
 
 ### Validated in real-world use
 
@@ -53,13 +55,14 @@ Current as of 2026-06-05.
 - Read-extend → diagnose → patch loop used end-to-end to fix a broken Travel-region exit (ARR019 → AR1900 in a drow-mod dungeon): added Travel-region and entrance parsing to ARE, identified a destination-entrance name mismatch, repaired via `iecli patch`, verified in-game.
 - `iecli verify --source override` now automates ARE cross-resource checks for dead Travel links, phantom entrances, and missing referenced scripts/actors/items.
 
-### Not started
+### Remaining or deferred
 
-- `ARE`, `WED`, `TIS`, `BAM`, `MOS`, `2DA`.
-- Save support for PSTEE (`GAM` v1.1) and an env-gated real-install save test — BG-family (`GAM` v2.0/2.1/2.2 + `SAV`) is done; see [docs/SAVE_SUPPORT_TODO.md](./docs/SAVE_SUPPORT_TODO.md).
-- Write support at any tier (see below).
+- Additional resource families: `WED`, `TIS`, `BAM`, `MOS`, `2DA`, and deeper `ARE` sections beyond the currently needed actors, entrances, and regions.
+- Classic PST save support (`GAM` v1.1). PSTEE uses `GAM` v2.0 and is already covered by the current read path and the scoped item-write path.
+- BG/BG2/IWD support for `save-add-item`; these variants remain hard-gated until their GAM layouts and inventory slot maps are validated.
 - JSON golden/snapshot tests for any decoded format.
-- Cross-game validation beyond BG2EE (BGEE, PSTEE, IWDEE).
+- Broad cross-game validation. BG2EE and selected PSTEE workflows have real-install coverage; BGEE and IWDEE remain unvalidated.
+- General structured resource serialization and WeiDU patch emission.
 
 ## Driving Use Case
 
@@ -124,77 +127,46 @@ Validated locally against PSTEE `AR0202.ARE` and `AR0500.ARE`.
 Remaining follow-up:
 
 - compare selected area actor fields against Near Infinity
-- expand ARE support only when a concrete workflow needs regions, doors, containers, spawn points, or ambients
+- expand ARE support only when a concrete workflow needs additional region fields, doors, containers, spawn points, or ambients
+
+#### Scalar Patching, TLK Append, and Save Item Write
+
+Implemented:
+
+- `iecli patch` for fixed-offset CRE/CHR fields and selected ARE Travel-region fields, with `--set` and `--patch-json` inputs and byte-exactness checks outside declared edits.
+- `iecli tlk-append` for one-string append, either in place or to a copy, with an optional strref output file for scripting.
+- `iecli save-add-item` for one PSTEE party member's embedded CRE. The command performs a targeted variable-length insertion, repairs known offsets, validates the result, and is copy-first unless `--in-place` is requested.
+
+Remaining validation:
+
+- confirm the PSTEE inventory-slot range visually in Near Infinity
+- add a committed real save fixture or broader env-gated real-save coverage
+- keep BG/BG2/IWD save writes disabled until each layout and slot map satisfies the validation gate in [docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md](./docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md)
 
 ## Next Milestones
 
-### M7: CRE Write — Tier 1 (Scalar Edits)
+### Selection pending
 
-**Why third:** enables the agent to template a new NPC by copying an existing Festhall CRE and scalar-editing a handful of fields (morale, stats, dialog resref, scripts, name strref).
+No new implementation milestone has been selected as of 2026-07-27. The next planning decision should choose among the following already identified work, rather than starting all of it:
 
-**Scope:**
+- address correctness, duplication, and boundary issues found during the current review
+- pay down validation debt with real fixtures, Near Infinity comparisons, and stable JSON snapshots for existing formats
+- exercise the one-NPC/one-interjection PSTEE MVP end to end, using WeiDU for installation rather than adding speculative general-purpose writers
+- validate and enable `save-add-item` for one additional game family
 
-- `iecli patch --resource FOO.CRE --set morale=9 --set reputation=15 --output ./FOO.CRE`
-- Accept a JSON patch file alternative: `--patch-json ./patches.json`.
-- Scalar fields only — no variable-length section edits (no adding/removing effects, items, spells). That is Tier 2 and deferred until a use case demands it.
-- Copy input bytes verbatim, overwrite only the specified byte ranges.
-- Validate field name and value bounds before writing.
-
-Current slice delivered:
-
-- `iecli patch` for CRE/CHR resources.
-- `--set field=value` and `--patch-json` inputs.
-- Fixed-offset scalar coverage for names, morale, morale break, morale recovery time, reputation, dialog, and script resrefs.
-- Unit tests for copy-only byte exactness, offset-limited edits, unknown fields, out-of-range numeric values, and invalid resrefs.
-
-**Acceptance criteria:**
-
-- Round-trip byte-exactness when no fields are set (copy-only).
-- When fields are set, only the specified byte ranges differ from input.
-- Unknown field name or out-of-range value produces a clear error before any write.
-- Real installed game can load the patched CRE without error.
-- Covers at least the fields exercised in the Kirinhale debug session (morale, morale_break, scripts, names).
-
-### M8: TLK Append
-
-**Why fourth:** every new dialogue line and NPC name requires a new strref, and strrefs only exist in `dialog.tlk`. Without append support, the WeiDU layer has to do it, which is fine for shipping but unhelpful for iterative agent-driven development.
-
-**Scope:**
-
-- `iecli tlk-append --game /path --text "..." --output-strref-to /tmp/strref.txt`
-- Appends to `dialog.tlk` (or a working copy — see below) and returns the new strref.
-- Option to write to a copy: `--tlk-out ./dialog-patched.tlk`.
-
-Current RC slice delivered:
-
-- `iecli tlk-append` for appending one string to the discovered `dialog.tlk`.
-- In-place append by default, or copy output through `--tlk-out`.
-- Optional `--output-strref-to` file for scripting follow-up commands.
-- Synthetic TLK regression tests for in-place append, copy output, and malformed table rejection.
-- CLI regression coverage for default in-place append, copy output plus strref file, malformed TLK rejection without writing a patched copy, and missing `dialog.tlk` errors.
-
-**Acceptance criteria:**
-
-- Real installed game loads the modified TLK and resolves the new strref correctly in-game.
-- Original TLK untouched if `--tlk-out` is given.
-- Handles the TLK format variant actually used by PSTEE correctly.
-
-### Later
-
-- `CRE` Tier 2 write (variable-section edits) — deferred until a concrete scenario requires it.
-- WeiDU `.tp2` / `.d` emission from JSON diffs — this is Tier 3 write support and the genuinely novel capability. Defer until M6–M8 have been exercised end-to-end.
-- JSON golden tests across all decoded formats.
-- Cross-game validation (PSTEE, BGEE, IWDEE).
+Until that decision is made, do not add another resource family or broaden write support.
 
 ## Write Support Framework
 
 Write support is framed in three tiers to avoid the "boil the ocean" failure mode:
 
-- **Tier 1 — Scalar poke.** Edit known fields at known offsets. No offset/count recomputation. Byte-exact outside the edited field. Low risk. Covers ~80% of "one wrong byte" bugs. *This is the only tier planned in the active roadmap.*
+- **Tier 1 — Scalar poke.** Edit known fields at known offsets. No offset/count recomputation. Byte-exact outside the edited field. Low risk. This is implemented for selected CRE/CHR and ARE fields.
 - **Tier 2 — Structured write.** Full JSON-in, bytes-out for a format. Requires exhaustive parsing or explicit opaque-range preservation so unknown bytes survive round-trip. Real risk of silently producing engine-valid-but-wrong files. Test burden: byte-exact round-trip on every real fixture.
 - **Tier 3 — Patch emission.** JSON diff → WeiDU `.tp2`/`.d` script. The novel ecosystem contribution, but multiplies Tier 2 across every format plus adds patch-syntax generation. Months of work, and only valuable after Tiers 1–2 have proven themselves on real workflows.
 
-Current rule: **ship Tier 1 when a concrete need appears; do not start Tier 2 or Tier 3 speculatively.**
+`save-add-item` is a deliberate exception between Tier 1 and general Tier 2: it performs one narrowly specified variable-length insertion for a concrete PSTEE workflow, preserves untouched bytes, repairs an explicit offset set, and hard-gates unvalidated game families. It is not a general CRE or GAM serializer and should not be described as one.
+
+Current rule: **ship scalar edits or narrowly scoped mutations only for a concrete workflow and with byte-preservation tests, explicit layout validation, and a documented safety gate. Do not start general Tier 2 serialization or Tier 3 patch emission speculatively.**
 
 ## Agent-Assisted Development Loop
 
