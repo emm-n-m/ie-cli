@@ -1,0 +1,4 @@
+interface:
+  display_name: "Trace IE Quest Timer"
+  short_description: "Explain when a quest or companion event fires"
+  default_prompt: "Use $trace-quest-timer to determine how long this quest event takes to fire."

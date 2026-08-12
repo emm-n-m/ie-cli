@@ -130,7 +130,7 @@ iecli tlk-append --game /path/to/game --text "New line" --tlk-out ./dialog-patch
 - [Regression plan](./docs/REGRESSION_PLAN.md)
 - [Format references](./docs/NEAR_INFINITY_REFERENCE.md)
 - [DLG graph export + override diff](./docs/PROPOSED_DLG_GRAPH_AND_OVERRIDE_DIFF.md)
-- [Project skills](./docs/SKILLS.md) — Claude Code skills shipped with the repo (`diagnose-dialog`, `explore-dungeon`)
+- [Project skills](./docs/SKILLS.md) — six game-exploration workflows for both Claude Code and Codex
 
 ## Notes
 

@@ -16,6 +16,24 @@ The first goal is not a full Near Infinity replacement. The first goal is a reli
 
 Near Infinity is the behavioral reference when its behavior is clear and intentional.
 
+## Game Exploration Skills
+
+This repository keeps Codex-compatible game-exploration skills in [`skills/`](./skills/).
+When a request matches one of the workflows below, read that skill's `SKILL.md` completely
+before acting and follow its bundled scripts and reporting guidance:
+
+- `diagnose-dialog` — explain a missing or fall-through NPC dialog branch
+- `explore-dungeon` — walk an ARE graph and find broken, one-way, or orphaned areas
+- `map-stat-gates` — inventory dialogue stat checks and rank their actual payoffs
+- `mod-diff` — summarize resources added or changed by a mod
+- `plan-stat-build` — synthesize an install-aware protagonist stat plan
+- `trace-quest-timer` — find a quest timer's duration, time base, and firing conditions
+
+Codex normally discovers repository skills through `.agents/skills`. In environments where
+that directory is writable, point it at this repository's canonical packages with
+`ln -s ../skills .agents/skills`. The explicit routing above is the fallback for managed
+environments that mount `.agents` read-only.
+
 ## Product Direction
 
 Build a tool that:

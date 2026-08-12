@@ -1,0 +1,4 @@
+interface:
+  display_name: "Diff IE Mod"
+  short_description: "Map resources added or changed by an IE mod"
+  default_prompt: "Use $mod-diff to summarize what this mod changed in the game install."

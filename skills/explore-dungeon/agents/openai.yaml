@@ -1,0 +1,4 @@
+interface:
+  display_name: "Explore IE Dungeon"
+  short_description: "Walk and explain an Infinity Engine area graph"
+  default_prompt: "Use $explore-dungeon to map this dungeon and flag unreachable or broken areas."
