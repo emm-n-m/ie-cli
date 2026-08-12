@@ -365,8 +365,87 @@ fn dump_pstee_tattoos_use_pst_opcode_labels_when_pstee_game_path_is_set() {
     }
 }
 
+#[test]
+fn dump_iwdee_stat_items_use_standard_opcode_labels_when_iwdee_game_path_is_set() {
+    let Some(game_path) = iwdee_game_path() else {
+        return;
+    };
+
+    // IWDEE shares the standard opcode table rather than needing its own like PST.
+    // Each anchor is an item whose own name states the stat it grants, so a wrong
+    // table would show up as a name/label disagreement rather than a silent
+    // mislabel: "Manual of Bodily Health" must decode as Constitution, not as
+    // whatever opcode 10 means in another game's numbering.
+    let cases = [
+        ("BOOK03.ITM", "Manual of Bodily Health", 10, "Constitution"),
+        (
+            "BOOK05.ITM",
+            "Manual of Quickness of Action ",
+            15,
+            "Dexterity",
+        ),
+        ("BOOK06.ITM", "Tome of Clear Thought", 19, "Intelligence"),
+        (
+            "BOOK07.ITM",
+            "Tome of Leadership and Influence",
+            6,
+            "Charisma",
+        ),
+        ("BOOK08.ITM", "Tome of Understanding", 49, "Wisdom Modifier"),
+        ("GAUNTEM.ITM", "Gauntlets of Elven Might", 44, "Strength"),
+        ("BRAC07.ITM", "Gauntlets of Dexterity", 15, "Dexterity"),
+    ];
+
+    for (resource_name, expected_item_name, raw_opcode, expected_label) in cases {
+        let stdout = dump_json(&game_path, resource_name);
+        assert_eq!(stdout["resource_name"], resource_name);
+        assert_eq!(
+            stdout["header"]["identified_name"]["text"].as_str(),
+            Some(expected_item_name),
+            "{resource_name} is the wrong anchor item; the install may differ"
+        );
+        assert!(
+            item_has_effect_opcode(&stdout, raw_opcode, expected_label),
+            "{resource_name} ({expected_item_name}) should contain opcode {raw_opcode} decoded as {expected_label}; stdout={stdout}"
+        );
+    }
+}
+
+#[test]
+fn dump_iwdee_reports_corrupt_spell_signature_actionably_when_iwdee_game_path_is_set() {
+    let Some(game_path) = iwdee_game_path() else {
+        return;
+    };
+
+    // Stock IWDEE ships #BONECIR.SPL with a signature of "SPL\x03" — one byte off,
+    // with an otherwise coherent spell behind it. Refusing it is correct, but the
+    // error has to say what it found, or the only way to tell a corrupt file from
+    // a wrong resource type is a hex editor.
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("dump")
+        .arg("--game")
+        .arg(&game_path)
+        .arg("--resource")
+        .arg("#BONECIR.SPL")
+        .output()
+        .expect("iecli should run");
+
+    assert!(!output.status.success(), "malformed SPL should not decode");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("missing SPL signature")
+            && stderr.contains("expected \"SPL \"")
+            && stderr.contains("found \"SPL\\x03\""),
+        "unexpected stderr: {stderr}"
+    );
+}
+
 fn pstee_game_path() -> Option<OsString> {
     std::env::var_os("IE_PSTEE_PATH").or_else(|| std::env::var_os("IE_PSTEE_GAME_PATH"))
+}
+
+fn iwdee_game_path() -> Option<OsString> {
+    std::env::var_os("IE_IWDEE_PATH").or_else(|| std::env::var_os("IE_IWDEE_GAME_PATH"))
 }
 
 fn dump_json(game_path: &OsString, resource_name: &str) -> Value {
