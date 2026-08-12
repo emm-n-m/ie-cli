@@ -1,7 +1,7 @@
 use crate::are::AreaJson;
 use ie_core::{ResourceLink, ScriptSlots};
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -77,9 +77,18 @@ pub trait AreaSource {
     fn areas(&self) -> Vec<Result<AreaSourceEntry, AreaSourceError>>;
 }
 
+/// Entrance names indexed per area.
+///
+/// Both the area key and the entrance name are matched case-insensitively,
+/// because the engine is: stock IWDEE ships Travel regions pointing at `Fr3501`
+/// and `FR7002w` where the destination areas declare `FR3501` and `FR7002W`, and
+/// those transitions work in game (AR7002 <-> AR7003 is ordinary Severed Hand
+/// travel). Matching verbatim reported six phantom entrances on an unmodded
+/// install. Original spellings are preserved for reporting, so a real mismatch
+/// still shows the user exactly what each file contains.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct EntranceRegistry {
-    entrances_by_area: BTreeMap<String, BTreeSet<String>>,
+    entrances_by_area: BTreeMap<String, BTreeMap<String, String>>,
 }
 
 impl EntranceRegistry {
@@ -87,8 +96,8 @@ impl EntranceRegistry {
         let entrances = area
             .entrances
             .iter()
-            .map(|entrance| entrance.name.clone())
-            .collect::<BTreeSet<_>>();
+            .map(|entrance| (entrance.name.to_ascii_uppercase(), entrance.name.clone()))
+            .collect::<BTreeMap<_, _>>();
         self.entrances_by_area
             .insert(area.resource_name.to_ascii_uppercase(), entrances);
     }
@@ -101,14 +110,14 @@ impl EntranceRegistry {
     pub fn entrance_names(&self, resource_name: &str) -> Vec<String> {
         self.entrances_by_area
             .get(&resource_name.to_ascii_uppercase())
-            .map(|names| names.iter().cloned().collect())
+            .map(|names| names.values().cloned().collect())
             .unwrap_or_default()
     }
 
     pub fn has_entrance(&self, resource_name: &str, entrance_name: &str) -> bool {
         self.entrances_by_area
             .get(&resource_name.to_ascii_uppercase())
-            .is_some_and(|names| names.contains(entrance_name))
+            .is_some_and(|names| names.contains_key(&entrance_name.to_ascii_uppercase()))
     }
 }
 
@@ -208,6 +217,7 @@ pub fn verify_are(area: &AreaJson, registry: &EntranceRegistry) -> Vec<VerifyIss
 
         if let Some(link) = actor.dialog.as_ref()
             && !link.exists
+            && !is_none_sentinel(link)
         {
             issues.push(missing_link_issue(
                 area,
@@ -270,6 +280,7 @@ fn push_missing_actor_scripts(
     for (name, link) in slots {
         if let Some(link) = link
             && !link.exists
+            && !is_none_sentinel(link)
         {
             issues.push(missing_link_issue(
                 area,
@@ -279,6 +290,20 @@ fn push_missing_actor_scripts(
             ));
         }
     }
+}
+
+/// `None` in a script or dialog slot means "empty", not a resource named None.
+///
+/// Stock IWDEE AR1103 sets an actor's default script to `NONE`, and a PSTEE
+/// actor carries `NONE` as its dialog; no install ships `NONE.BCS` or
+/// `NONE.DLG`, because the engine reads the name as "nothing here". Reporting
+/// them sends the reader looking for files the engine never wanted. The decoders
+/// still surface the literal resref — only this check knows the convention.
+///
+/// Deliberately limited to slot-style fields. A missing CRE, item, or area is a
+/// real problem whatever it is called.
+fn is_none_sentinel(link: &ResourceLink) -> bool {
+    link.resref.as_str().eq_ignore_ascii_case("none")
 }
 
 fn missing_link_issue(
@@ -388,6 +413,33 @@ mod tests {
                 })
                 .collect()
         }
+    }
+
+    #[test]
+    fn entrance_match_ignores_case_like_the_engine() {
+        // Stock IWDEE: AR7002 points at entrance 'FR7002w' while AR7003 declares
+        // 'FR7002W'. The transition works in game, so this must not be an issue.
+        let source = area_with_travel("AR7002.ARE", "ToDest", "AR7003", "FR7002w", &["AR7003.ARE"]);
+        let dest = area_with_entrances("AR7003.ARE", &["FR7002W"]);
+        let registry = registry_for(vec![source.clone(), dest]);
+
+        assert!(verify_are(&source, &registry).is_empty());
+    }
+
+    #[test]
+    fn entrance_report_preserves_original_spelling() {
+        let source = area_with_travel("ARSRC.ARE", "ToDest", "ARDEST", "Missing", &["ARDEST.ARE"]);
+        let dest = area_with_entrances("ARDEST.ARE", &["MixedCase"]);
+        let registry = registry_for(vec![source.clone(), dest]);
+
+        let issues = verify_are(&source, &registry);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(
+            issues[0].available_entrances.as_deref(),
+            Some(&["MixedCase".to_string()][..]),
+            "available entrances should show what the file contains, not a normalized form"
+        );
     }
 
     #[test]
@@ -525,6 +577,38 @@ mod tests {
         assert_eq!(issues.len(), 1);
         assert_eq!(issues[0].issue, VerifyCategory::MissingActorScript);
         assert_eq!(issues[0].path, "actors[0].scripts.override_script");
+    }
+
+    #[test]
+    fn none_script_slot_is_not_reported_as_missing() {
+        // Stock IWDEE AR1103 sets an actor's default script to NONE; no install
+        // ships NONE.BCS, because the engine reads it as "no script".
+        let area = area_with_actor_refs(None, None, Some("NONE"));
+        let registry = registry_for(vec![area.clone()]);
+
+        assert!(verify_are(&area, &registry).is_empty());
+    }
+
+    #[test]
+    fn none_dialog_slot_is_not_reported_as_missing() {
+        // Same convention in a dialog slot, seen on a PSTEE actor.
+        let area = area_with_actor_refs(Some("None"), None, None);
+        let registry = registry_for(vec![area.clone()]);
+
+        assert!(verify_are(&area, &registry).is_empty());
+    }
+
+    #[test]
+    fn missing_cre_named_none_is_still_reported() {
+        // The sentinel is slot-scoped: a creature that does not exist is a real
+        // problem regardless of its name.
+        let area = area_with_actor_refs(None, Some("NONE"), None);
+        let registry = registry_for(vec![area.clone()]);
+
+        let issues = verify_are(&area, &registry);
+
+        assert_eq!(issues.len(), 1);
+        assert_eq!(issues[0].issue, VerifyCategory::MissingActorCre);
     }
 
     #[test]
