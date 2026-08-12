@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan IE Stat Build"
+  short_description: "Build a stat plan from the installed game data"
+  default_prompt: "Use $plan-stat-build to create an install-aware protagonist stat plan."

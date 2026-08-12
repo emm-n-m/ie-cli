@@ -1,0 +1,4 @@
+interface:
+  display_name: "Map IE Stat Gates"
+  short_description: "Find dialogue stat checks and their payoffs"
+  default_prompt: "Use $map-stat-gates to identify the valuable dialogue stat checks in this game install."

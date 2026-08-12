@@ -49,7 +49,7 @@ The Rust rewrite is in progress. The current workspace already supports:
 - scoped PSTEE save mutation via `save-add-item` (one item into a party member's embedded CRE)
 - Tier 1 CRE scalar patching with byte-exact copy behavior outside requested fixed-offset fields
 - Tier 1 ARE Travel-region patching (`destination_area`, `destination_entrance`)
-- Claude Code [skills](./docs/SKILLS.md) that turn the JSON into narrative answers about a real install
+- agent [skills](./docs/SKILLS.md) for Claude Code and Codex that turn the JSON into narrative answers about a real install
 
 Not implemented yet:
 
@@ -147,7 +147,7 @@ iecli save-add-item --game /path/to/pstee --save "000000001-Quick-Save" --item <
 - [Format references](./docs/NEAR_INFINITY_REFERENCE.md)
 - [DLG graph export + override diff](./docs/DLG_GRAPH_AND_OVERRIDE_DIFF.md)
 - [Save support status](./docs/SAVE_SUPPORT_TODO.md) and the write gate in [SPEC_SAVE_ITEM_WRITE_COMPLETE](./docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md)
-- [Project skills](./docs/SKILLS.md) — Claude Code skills shipped with the repo (`diagnose-dialog`, `explore-dungeon`, `map-stat-gates`, `plan-stat-build`, `mod-diff`, `trace-quest-timer`)
+- [Project skills](./docs/SKILLS.md) — six game-exploration workflows (`diagnose-dialog`, `explore-dungeon`, `map-stat-gates`, `plan-stat-build`, `mod-diff`, `trace-quest-timer`), packaged for both Claude Code and Codex
 - [Guides](./docs/guides/) — analysis written by those skills against real installs
 
 ## Notes

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Diagnose IE Dialog"
+  short_description: "Find the trigger blocking an NPC dialog branch"
+  default_prompt: "Use $diagnose-dialog to find why an expected NPC dialog branch is not firing."
