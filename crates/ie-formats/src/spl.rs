@@ -1,3 +1,4 @@
+use crate::common::signature_mismatch;
 use crate::effects::{decode_effect_opcode, decode_effect_target_type, decode_effect_timing};
 use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
@@ -106,7 +107,12 @@ pub(crate) fn parse_spl_with_variant(
     }
 
     if &bytes[0..4] != b"SPL " {
-        return Err(SpellParseError::InvalidHeader("missing SPL signature".to_string()).into());
+        return Err(SpellParseError::InvalidHeader(signature_mismatch(
+            "SPL",
+            b"SPL ",
+            &bytes[0..4],
+        ))
+        .into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;

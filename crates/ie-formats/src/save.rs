@@ -1,3 +1,4 @@
+use crate::common::signature_mismatch;
 use crate::cre::{
     CreatureItemWriteError, NewItem, SlotChoice, add_item_to_cre_with_inventory_slots,
     validate_added_item,
@@ -210,7 +211,12 @@ pub fn parse_gam(
     }
 
     if &bytes[0..4] != b"GAME" {
-        return Err(SaveParseError::InvalidHeader("missing GAME signature".to_string()).into());
+        return Err(SaveParseError::InvalidHeader(signature_mismatch(
+            "GAME",
+            b"GAME",
+            &bytes[0..4],
+        ))
+        .into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;
@@ -275,7 +281,12 @@ pub fn parse_sav(bytes: &[u8], resource_name: &str) -> Result<SaveArchiveJson, c
     }
 
     if &bytes[0..4] != b"SAV " {
-        return Err(SaveParseError::InvalidHeader("missing SAV signature".to_string()).into());
+        return Err(SaveParseError::InvalidHeader(signature_mismatch(
+            "SAV",
+            b"SAV ",
+            &bytes[0..4],
+        ))
+        .into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;

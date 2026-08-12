@@ -1,3 +1,4 @@
+use crate::common::signature_mismatch;
 use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
@@ -119,7 +120,12 @@ pub fn parse_sto(
     }
 
     if &bytes[0..4] != b"STOR" {
-        return Err(StoreParseError::InvalidHeader("missing STOR signature".to_string()).into());
+        return Err(StoreParseError::InvalidHeader(signature_mismatch(
+            "STOR",
+            b"STOR",
+            &bytes[0..4],
+        ))
+        .into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;

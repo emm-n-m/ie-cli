@@ -1,3 +1,4 @@
+use crate::common::signature_mismatch;
 use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{
     CreatureResourceLink, ResRef, ResourceLink, ResourceLinkResolver, ResourceType, ScriptSlots,
@@ -165,7 +166,12 @@ pub fn parse_are(
     }
 
     if &bytes[0..4] != b"AREA" {
-        return Err(AreaParseError::InvalidHeader("missing AREA signature".to_string()).into());
+        return Err(AreaParseError::InvalidHeader(signature_mismatch(
+            "AREA",
+            b"AREA",
+            &bytes[0..4],
+        ))
+        .into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;

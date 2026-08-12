@@ -1,3 +1,4 @@
+use crate::common::signature_mismatch;
 use crate::effects::{decode_effect_opcode, decode_effect_target_type, decode_effect_timing};
 use crate::{RawDecoded, RawDecodedFlags};
 use ie_core::{GameVariant, ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
@@ -437,9 +438,11 @@ fn validate_cre_for_item_write(cre: &[u8]) -> Result<(), CreatureItemWriteError>
         )));
     }
     if &cre[0..4] != b"CRE " {
-        return Err(CreatureItemWriteError::InvalidWrite(
-            "creature is missing CRE signature".to_string(),
-        ));
+        return Err(CreatureItemWriteError::InvalidWrite(signature_mismatch(
+            "CRE",
+            b"CRE ",
+            &cre[0..4],
+        )));
     }
     let version = String::from_utf8_lossy(&cre[4..8]);
     if version != "V1.0" {
@@ -674,7 +677,7 @@ fn validate_cre_header(bytes: &[u8]) -> Result<(), CreaturePatchError> {
 
     if &bytes[0..4] != b"CRE " {
         return Err(CreaturePatchError::Parse(
-            CreatureParseError::InvalidHeader("missing CRE signature".to_string()),
+            CreatureParseError::InvalidHeader(signature_mismatch("CRE", b"CRE ", &bytes[0..4])),
         ));
     }
 
@@ -773,7 +776,12 @@ pub(crate) fn parse_cre_with_variant(
     }
 
     if &bytes[0..4] != b"CRE " {
-        return Err(CreatureParseError::InvalidHeader("missing CRE signature".to_string()).into());
+        return Err(CreatureParseError::InvalidHeader(signature_mismatch(
+            "CRE",
+            b"CRE ",
+            &bytes[0..4],
+        ))
+        .into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;

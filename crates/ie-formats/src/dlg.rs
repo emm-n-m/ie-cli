@@ -1,4 +1,5 @@
 use crate::RawDecodedFlags;
+use crate::common::signature_mismatch;
 use ie_core::{ResRef, ResolvedStrRef, ResourceType, StrRef, StrRefResolver};
 use serde::Serialize;
 use thiserror::Error;
@@ -662,7 +663,12 @@ pub fn parse_dlg(
     }
 
     if &bytes[0..4] != b"DLG " {
-        return Err(DialogParseError::InvalidHeader("missing DLG signature".to_string()).into());
+        return Err(DialogParseError::InvalidHeader(signature_mismatch(
+            "DLG",
+            b"DLG ",
+            &bytes[0..4],
+        ))
+        .into());
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;
