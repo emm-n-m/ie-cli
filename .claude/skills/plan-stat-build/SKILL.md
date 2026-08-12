@@ -21,13 +21,14 @@ weighing trade-offs). Read the gotchas below — they are the hard-won part.
   *combat power* vs *balanced*. Also the creation rules (point pool, per-stat cap) and intended class
   — ask the user; these come from the game/char-creation screen, not the files.
 
-iecli must be built (`cargo build --release`). PST opcode decoding is variant-aware as of the
-"Planescape Torment Effect Support" commit (`a40c8c68`); the table lives in
-`crates/ie-formats/src/effects.rs`. Sanity check when reading Step 2: if item-effect stats come back
-as only Wisdom/Strength with the others blank, the install is being decoded against the BG opcode
-table. The variant is not printed by any command yet, so check the trigger instead: detection keys off
-`torment.lua` / `torment.exe` / `torment64.exe` at the install root (folder name is only a fallback),
-so a repackaged install missing those will silently decode as standard.
+iecli must be built (`cargo build --release`). PST opcode decoding is variant-aware; the table lives
+in `crates/ie-formats/src/effects.rs`. **Verify it engaged before trusting item effects:** if Step 2's
+item-effect stats come back as only Wisdom/Strength with the others blank, the install is being
+decoded against the BG opcode table — stop rather than planning from incomplete data. Confirm with
+`iecli locate --game "<game-path>" --resource <any-resource>`, which reports the detected
+`game_variant`; on a PST install it must read `pst`. Detection keys off `torment.lua` /
+`torment.exe` / `torment64.exe` at the install root (folder name is only a fallback), so a repackaged
+install missing those decodes as standard.
 
 ## Step 0 — trust layer (modded installs)
 

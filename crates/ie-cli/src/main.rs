@@ -352,6 +352,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     "resource_type": located.metadata.resource_type.as_str(),
                     "source_kind": located.metadata.source_kind.as_str(),
                     "source_path": located.metadata.source_path,
+                    "game_variant": located.metadata.game_variant.as_str(),
                     "locator": located.locator,
                 }))?
             );

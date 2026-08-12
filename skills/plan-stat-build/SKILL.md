@@ -22,9 +22,14 @@ weighing trade-offs). Read the gotchas below — they are the hard-won part.
   *combat power* vs *balanced*. Also the creation rules (point pool, per-stat cap) and intended class
   — ask the user; these come from the game/char-creation screen, not the files.
 
-Build `iecli` with `cargo build --release`. **Verify PST opcode decoding before trusting item
-effects:** if Step 2 reports only Wisdom/Strength while other item-effect stats are blank, stop and
-investigate the decoder rather than synthesizing a plan from incomplete data.
+Build `iecli` with `cargo build --release`. PST opcode decoding is variant-aware; the table lives in
+`crates/ie-formats/src/effects.rs`. **Verify it engaged before trusting item effects:** if Step 2
+reports only Wisdom/Strength while other item-effect stats are blank, the install is being decoded
+against the BG table — stop rather than synthesizing a plan from incomplete data. Confirm with
+`iecli locate --game "<game-path>" --resource <any-resource>`, which reports the detected
+`game_variant`; on a PST install it must read `pst`. Detection keys off `torment.lua` / `torment.exe` /
+`torment64.exe` at the install root, with the folder name as a fallback, so a repackaged install
+missing those files decodes as standard.
 
 ## Step 0 — trust layer (modded installs)
 
