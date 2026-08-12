@@ -66,6 +66,7 @@ Current as of 2026-08-12.
 - Read-extend → diagnose → patch loop used end-to-end to fix a broken Travel-region exit (ARR019 → AR1900 in a drow-mod dungeon): added Travel-region and entrance parsing to ARE, identified a destination-entrance name mismatch, repaired via `iecli patch`, verified in-game.
 - `iecli verify --source override` now automates ARE cross-resource checks for dead Travel links, phantom entrances, and missing referenced scripts/actors/items.
 - Whole-install PSTEE sweeps: all 859 dialogues dumped and mined for `CheckStat` gates and `PermanentStatChange` grants, plus ITM/SPL effect scans, producing the stat-plan, conversation-boon, and Law-axis guides. This is the largest read-path workload the parsers have carried, and the ITM/SPL half is what surfaced the PST effect-opcode gap fixed above.
+- Whole-install IWDEE sweep: 5,995 of 5,996 resources decode across `ITM`, `SPL`, `CRE`, `ARE`, `DLG`, `BCS`, and `STO`. The single failure is `#BONECIR.SPL`, which ships with a corrupt signature byte (`SPL\x03`); repairing that byte parses the file cleanly, so it is bad shipped data rather than a parser gap.
 - Fresh-mod triage on a 2,313-resource PST mod (Blizzard in Baator) via `override-diff`, establishing that the mod is additive rather than a vanilla rewrite before any deeper investigation ran.
 - Save-aware analysis: `save-info` globals joined against DLG trackers to tell "already taken" from "still available" in the Law ledger.
 
@@ -75,7 +76,7 @@ Current as of 2026-08-12.
 - Classic PST save support (`GAM` v1.1). PSTEE uses `GAM` v2.0 and is already covered by the current read path and the scoped item-write path.
 - BG/BG2/IWD support for `save-add-item`; these variants remain hard-gated until their GAM layouts and inventory slot maps are validated.
 - JSON golden/snapshot tests for any decoded format.
-- Broad cross-game validation. BG2EE and PSTEE now both have substantial real-install coverage (PSTEE across every DLG in the install, plus a large mod); BGEE has narrow BCS coverage and IWDEE remains unvalidated, including its `iwd` variant path, which is currently just an alias for standard opcode decoding.
+- Broad cross-game validation. BG2EE, PSTEE, and IWDEE now all have substantial real-install coverage; BGEE has narrow BCS coverage only and is the last unvalidated title.
 - `verify` beyond ARE. Other resource types are rejected rather than partially checked.
 - General structured resource serialization and WeiDU patch emission.
 
@@ -162,6 +163,8 @@ Remaining validation:
 
 Implemented. `iecli verify --game <path> --source override --format json` walks every ARE in the install, builds an entrance registry from all areas, and reports cross-resource breakage: dead Travel links, entrances named but absent in the destination area, and missing area/region scripts, actor CRE/dialog/script links, and key items. `--severity`, `--max-issues`, and `--format text|json` shape the output; unparseable areas surface as `parse_error` issues rather than aborting the run.
 
+Validated against a stock IWDEE install, which now reports zero issues. Getting there fixed two false-positive classes: entrance names were compared case-sensitively (stock IWDEE ships `Fr3501` against a declared `FR3501`, and the transitions work in game), and a `NONE` resref in a script or dialog slot means "empty" rather than a missing resource (IWDEE has 1, PSTEE has 92). A stock install is the strongest oracle available for this command — whatever the shipped game does is by definition not breakage.
+
 Remaining follow-up:
 
 - extend beyond ARE only when a workflow needs it; other `--resource-type` values are rejected today
@@ -173,10 +176,31 @@ Implemented. Installations are classified as `standard`, `iwd`, or `pst` from st
 
 `locate` reports the detected variant as `game_variant`, so a misdetected install (a repackaged PST without `torment.lua`/`torment.exe` at the root) can be caught before its effect names are trusted. Verified against the real BG2EE, PSTEE, and IWDEE installs, which report `standard`, `pst`, and `iwd` respectively.
 
+`iwd` sharing the standard opcode table is now confirmed rather than assumed. IWDEE items whose own names and descriptions state the stat they grant decode correctly under the standard table — "Manual of Bodily Health" as Constitution, "Tome of Clear Thought" as Intelligence, "Gauntlets of Elven Might" as Strength 18 — and those anchors are pinned as tests, so a wrong table would surface as a name/label disagreement rather than a silent mislabel.
+
 Remaining follow-up:
 
-- `iwd` currently shares the standard opcode table; confirm or split it when IWDEE gets real validation
 - extend variant awareness to any other decode path where PST/IWD diverge from BG, as concrete mismatches are found
+- extend the opcode tables themselves: 28,885 of 70,696 opcode instances in IWDEE resolve to a name today. Unnamed opcodes surface as raw values with `decoded: null` rather than wrong names, so this is coverage, not correctness. The most common unnamed ones there are 233, 206, 324, 267, and 83.
+
+#### Override Lookup Performance
+
+Fixed. Override resolution rescanned the entire override directory, with a `stat` per entry, on every lookup that was not an exact-case hit — including every resource that lives in a BIF, since override is checked first. The cost scaled with override size, and stock PSTEE ships 3,398 override files while BG2EE ships 2,997.
+
+Each override directory is now indexed once on first use:
+
+| Workload | Before | After |
+| --- | --- | --- |
+| PSTEE `dump` of one area (9 actors) | 60s | 0.5s |
+| PSTEE `verify` (251 areas) | >10min (timed out) | 14s |
+| BG2EE `verify --source override` | >80min | 2min |
+| `cargo test --workspace` with all three real installs | >80min | 2min |
+
+This was invisible until now precisely because it was slow: the env-gated `verify` smoke test never finished, so its result had never been seen, and PSTEE `verify` was impractical on the game the driving use case targets.
+
+Remaining follow-up:
+
+- creature link enrichment still reads and fully decodes a CRE per actor to extract two strrefs, with no memoization across areas. Now that the override scan is gone this is the next cost if area-heavy workloads need to get faster.
 
 #### Agent Skill Layer and Research Guides
 

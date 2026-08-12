@@ -187,8 +187,8 @@ Current status:
 
 - `BG2EE` has been used as the first real validation target.
 - `PSTEE` is now a second real target: every dialogue in the install has been swept, plus a 2,313-resource mod, and PSTEE saves drive the scoped save-write path.
-- `BGEE` has narrow coverage only (BCS smoke).
-- `IWDEE` remains unvalidated.
+- `IWDEE` is validated: a whole-install sweep decoded 5,995 of 5,996 resources, and its stat-item anchors are pinned as tests.
+- `BGEE` has narrow coverage only (BCS smoke), and is the last unvalidated title.
 
 Completed:
 
@@ -197,11 +197,13 @@ Completed:
 - Document the first per-game quirk: PST uses a different effect-opcode table, now decoded per variant.
 - Report the detected variant from `locate` as `game_variant`, so a misdetected install is visible instead of silently decoding as standard.
 
+- Validate IWDEE with a whole-install decode sweep and opcode anchors, and confirm the `iwd` variant can keep sharing the standard opcode table.
+
 Remaining:
 
-- Validate against BGEE and IWDEE beyond smoke coverage.
-- Confirm whether the `iwd` variant needs its own opcode table or can keep sharing the standard one.
-- Keep documenting per-game quirks as they surface.
+- Validate against BGEE beyond smoke coverage.
+- Extend the effect-opcode tables; 41% of IWDEE opcode instances resolve to a name today. Unnamed opcodes emit `decoded: null`, so this is coverage rather than a correctness risk.
+- Keep documenting per-game quirks as they surface. Known so far: PST uses its own opcode numbering; IWDEE ships `#BONECIR.SPL` with a corrupt signature byte; stock areas rely on case-insensitive entrance names and use `NONE` as an empty script/dialog slot.
 
 Exit criteria:
 
@@ -282,7 +284,7 @@ Current high-value follow-up issues:
 2. Add JSON golden or snapshot tests for decoded `ITM` and `SPL` output.
 3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
 4. Broaden real-install validation for `DLG` and `BCS`.
-5. Validate BGEE and IWDEE, the two remaining unvalidated titles.
+5. Validate BGEE, the last unvalidated title.
 
 Validation debt is now the dominant backlog theme: read coverage has run far ahead of fixtures and
 snapshots. Items 1–4 predate the PSTEE sweeps and remain open despite that workload.
