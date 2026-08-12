@@ -10,6 +10,7 @@ use ie_core::{
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use thiserror::Error;
 
 pub use ids::{FileBackedIdsResolver, parse_ids, parse_ids_text};
@@ -54,11 +55,47 @@ impl GameInstallation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Default)]
+struct OverrideIndex {
+    /// Uppercased file name -> path, one map per entry of `override_dirs`.
+    by_dir: Vec<HashMap<String, PathBuf>>,
+}
+
+#[derive(Debug)]
 pub struct ResourceLocator {
     pub installation: GameInstallation,
     key_file: KeyFile,
+    /// Built on first override lookup, then reused.
+    ///
+    /// Override names are matched case-insensitively, which used to mean a full
+    /// `read_dir` plus a `stat` per entry on every lookup that was not an
+    /// exact-case hit — including every resource that lives in a BIF and is
+    /// merely *checked* against override first. Stock PSTEE ships 3,398 override
+    /// files and BG2EE 2,997, so on those installs the scan dominated everything:
+    /// one PSTEE area dump with 9 actors took 60s, and an install-wide `verify`
+    /// ran for over an hour. Indexing each directory once makes lookups O(1).
+    override_index: OnceLock<OverrideIndex>,
 }
+
+impl Clone for ResourceLocator {
+    fn clone(&self) -> Self {
+        // The index is a cache; a clone rebuilds it on demand rather than
+        // sharing a half-populated OnceLock.
+        Self {
+            installation: self.installation.clone(),
+            key_file: self.key_file.clone(),
+            override_index: OnceLock::new(),
+        }
+    }
+}
+
+impl PartialEq for ResourceLocator {
+    fn eq(&self, other: &Self) -> bool {
+        self.installation == other.installation && self.key_file == other.key_file
+    }
+}
+
+impl Eq for ResourceLocator {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ResourceSource {
@@ -131,6 +168,7 @@ impl ResourceLocator {
         Ok(Self {
             installation,
             key_file,
+            override_index: OnceLock::new(),
         })
     }
 
@@ -187,14 +225,30 @@ impl ResourceLocator {
         Ok(entries)
     }
 
+    fn override_index(&self) -> &OverrideIndex {
+        self.override_index.get_or_init(|| OverrideIndex {
+            by_dir: self
+                .installation
+                .override_dirs
+                .iter()
+                .map(|dir| index_override_dir(dir))
+                .collect(),
+        })
+    }
+
     fn locate_override(&self, resource: &ResourceName) -> Option<LocatedResource> {
         let file_name = resource.file_name();
+        let lookup_key = file_name.to_ascii_uppercase();
 
-        for override_dir in &self.installation.override_dirs {
-            if let Some((path, resource_name)) = resolve_override_path(override_dir, &file_name) {
+        for by_name in &self.override_index().by_dir {
+            if let Some(path) = by_name.get(&lookup_key) {
+                let resource_name = path
+                    .file_name()
+                    .map(|name| name.to_string_lossy().to_string())
+                    .unwrap_or_else(|| file_name.clone());
                 return Some(LocatedResource {
                     metadata: ResourceMetadata {
-                        source_path: path,
+                        source_path: path.clone(),
                         source_kind: SourceKind::Override,
                         resource_type: resource.resource_type(),
                         resource_name,
@@ -545,25 +599,41 @@ fn matches_glob(candidate: &str, pattern: &str) -> bool {
     pattern_index == pattern.len()
 }
 
-fn resolve_override_path(override_dir: &Path, file_name: &str) -> Option<(PathBuf, String)> {
-    let direct_path = override_dir.join(file_name);
-    if direct_path.is_file() {
-        return Some((direct_path, file_name.to_string()));
-    }
+/// Map every file in an override directory by its uppercased name.
+///
+/// When two files differ only in case, the lexicographically smallest name wins,
+/// so the choice does not depend on directory iteration order. A directory that
+/// cannot be read yields an empty map, matching the previous behaviour of
+/// treating an unreadable override directory as "nothing here".
+fn index_override_dir(override_dir: &Path) -> HashMap<String, PathBuf> {
+    let Ok(entries) = fs::read_dir(override_dir) else {
+        return HashMap::new();
+    };
 
-    let mut matches = fs::read_dir(override_dir)
-        .ok()?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().is_file())
-        .filter_map(|entry| {
-            let candidate = entry.file_name().to_string_lossy().to_string();
-            candidate
-                .eq_ignore_ascii_case(file_name)
-                .then(|| (entry.path(), candidate))
-        })
-        .collect::<Vec<_>>();
-    matches.sort_by_key(|(_, candidate)| candidate.to_ascii_lowercase());
-    matches.into_iter().next()
+    let mut by_name: HashMap<String, PathBuf> = HashMap::new();
+    for entry in entries.filter_map(Result::ok) {
+        let is_file = entry
+            .file_type()
+            .map(|file_type| file_type.is_file())
+            .unwrap_or(false);
+        if !is_file {
+            continue;
+        }
+
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        let key = file_name.to_ascii_uppercase();
+        match by_name.get(&key) {
+            Some(existing)
+                if existing
+                    .file_name()
+                    .map(|name| name.to_string_lossy().to_string())
+                    .is_some_and(|existing_name| existing_name <= file_name) => {}
+            _ => {
+                by_name.insert(key, entry.path());
+            }
+        }
+    }
+    by_name
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
