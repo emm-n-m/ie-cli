@@ -45,7 +45,7 @@ Current as of 2026-08-12.
 - DLG graph export via `dump --format dot|mermaid`, with `--max-label-len`, `--no-triggers`, `--no-actions`, `--strings`, and `--follow-extern[=DEPTH]`.
 - `ARE` decoder + JSON export for the header, deferred-section offsets/counts, actors, entrances, and Travel-region links.
 - Lazy IDS loading and opcode/name resolution for BCS decoding.
-- Game-variant detection (`standard` / `iwd` / `pst`) from stable root files (`torment.lua`, `icewind.exe`, …) rather than folder names, surfaced on every resource's metadata.
+- Game-variant detection (`standard` / `iwd` / `pst`) from stable root files (`torment.lua`, `icewind.exe`, …) rather than folder names, carried on every resource's metadata and reported by `locate` as `game_variant`.
 - Variant-aware effect decoding: PST uses its own opcode table, so `ITM`, `SPL`, and `CRE` effect names decode correctly on PSTEE instead of silently borrowing BG opcode meanings.
 - Install-wide `verify` for ARE cross-resource integrity, with `--severity`, `--max-issues`, `--source`, and `--format text|json`. Categories: `dead_link`, `phantom_entrance`, `missing_area_script`, `missing_region_script`, `missing_actor_cre`, `missing_actor_dialog`, `missing_actor_script`, `missing_key_item`, `parse_error`.
 - Override trust workflow via `override-diff`: shadow reports against BIFF and hash-based comparison against reference directories/files.
@@ -56,7 +56,7 @@ Current as of 2026-08-12.
 - Save inspection: `save-list` (folder discovery across install root + user Documents) and `save-info` (`GAM` v2.0/2.1/2.2 header/party/globals decode, `SAV` zlib container manifest). Validated against real BG2EE saves; see [docs/SAVE_SUPPORT_TODO.md](./docs/SAVE_SUPPORT_TODO.md).
 - Scoped PSTEE save mutation via `save-add-item`: append one item to a party member's embedded CRE, repair affected CRE/GAM offsets, copy the save folder by default, and hard-refuse unvalidated BG/IWD layouts.
 - `dialog.tlk` append support via `tlk-append`, with in-place and copy-output workflows.
-- Agent skill layer: six Claude Code skills in [`.claude/skills/`](./.claude/skills/) that turn `iecli` JSON into narrative answers. Inventory and per-script flags live in [docs/SKILLS.md](./docs/SKILLS.md).
+- Agent skill layer: six skills that turn `iecli` JSON into narrative answers, packaged twice — [`.claude/skills/`](./.claude/skills/) for Claude Code and [`skills/`](./skills/) for Codex. Inventory and per-script flags live in [docs/SKILLS.md](./docs/SKILLS.md).
 - Research guides in [`docs/guides/`](./docs/guides/) produced by running that skill layer against real installs — the first user-facing output of the tool that is not JSON.
 - `ie-cli` decomposed from one large `main.rs` into per-concern modules (`dialog_graph`, `override_diff`, `patch_input`, `resource_links`, `save_support`, `verify_command`), keeping argument handling and presentation out of the parsers.
 
@@ -171,9 +171,10 @@ Remaining follow-up:
 
 Implemented. Installations are classified as `standard`, `iwd`, or `pst` from stable root files rather than folder names, since install directories are routinely renamed. The variant rides on `ResourceMetadata` and drives effect-opcode decoding, so PST effects decode against the PST table instead of the BG one.
 
+`locate` reports the detected variant as `game_variant`, so a misdetected install (a repackaged PST without `torment.lua`/`torment.exe` at the root) can be caught before its effect names are trusted. Verified against the real BG2EE, PSTEE, and IWDEE installs, which report `standard`, `pst`, and `iwd` respectively.
+
 Remaining follow-up:
 
-- surface the detected variant in CLI output. It currently drives decoding invisibly, so a misdetected install (a repackaged PST without `torment.lua`/`torment.exe` at the root) fails silently as standard-opcode output rather than an obvious error. `locate` is the natural place to print it.
 - `iwd` currently shares the standard opcode table; confirm or split it when IWDEE gets real validation
 - extend variant awareness to any other decode path where PST/IWD diverge from BG, as concrete mismatches are found
 
@@ -181,7 +182,7 @@ Remaining follow-up:
 
 Implemented, and the project's clearest demonstration of the vision: parser emits JSON, skill wraps it in narrative an IE modder can act on without scripting.
 
-Six skills ship in [`.claude/skills/`](./.claude/skills/) — `diagnose-dialog`, `explore-dungeon`, `map-stat-gates`, `plan-stat-build`, `mod-diff`, and `trace-quest-timer` — each documented with its scripts and flags in [docs/SKILLS.md](./docs/SKILLS.md).
+Six skills ship — `diagnose-dialog`, `explore-dungeon`, `map-stat-gates`, `plan-stat-build`, `mod-diff`, and `trace-quest-timer` — in two behaviorally aligned packagings: [`.claude/skills/`](./.claude/skills/) for Claude Code and [`skills/`](./skills/) for Codex. Each is documented with its scripts and flags in [docs/SKILLS.md](./docs/SKILLS.md).
 
 Their output is captured in [`docs/guides/`](./docs/guides/): a PST stat plan, conversation-boon catalogue, Law-axis ledger, mod delta, and a reward map for the Blizzard in Baator mod. Each guide states its provenance and reproduction command, so a reader can re-derive it against their own install.
 

@@ -44,7 +44,7 @@ The Rust rewrite is in progress. The current workspace already supports:
 - DLG graph export via `dump --format dot|mermaid`, with optional extern following
 - override shadow/reference comparison via `override-diff`
 - install-wide ARE cross-resource verification via `verify` (dead Travel links, phantom entrances, missing scripts/actors/items)
-- game-variant detection (`standard` / `iwd` / `pst`) with PST-specific effect-opcode decoding
+- game-variant detection (`standard` / `iwd` / `pst`) with PST-specific effect-opcode decoding, reported by `locate` as `game_variant`
 - save inspection via `save-list` and `save-info` (`GAM` v2.0/2.1/2.2 and the `SAV` archive)
 - scoped PSTEE save mutation via `save-add-item` (one item into a party member's embedded CRE)
 - Tier 1 CRE scalar patching with byte-exact copy behavior outside requested fixed-offset fields

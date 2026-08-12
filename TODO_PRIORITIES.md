@@ -195,12 +195,12 @@ Completed:
 - Test against BG2EE and PSTEE.
 - Ensure discovery logic is not BG-only — game-variant detection keys off root files (`torment.lua`, `icewind.exe`, …) rather than folder names, since installs are routinely renamed.
 - Document the first per-game quirk: PST uses a different effect-opcode table, now decoded per variant.
+- Report the detected variant from `locate` as `game_variant`, so a misdetected install is visible instead of silently decoding as standard.
 
 Remaining:
 
 - Validate against BGEE and IWDEE beyond smoke coverage.
 - Confirm whether the `iwd` variant needs its own opcode table or can keep sharing the standard one.
-- Surface the detected variant in CLI output so a misdetected install fails loudly instead of decoding as standard.
 - Keep documenting per-game quirks as they surface.
 
 Exit criteria:
@@ -283,7 +283,6 @@ Current high-value follow-up issues:
 3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
 4. Broaden real-install validation for `DLG` and `BCS`.
 5. Validate BGEE and IWDEE, the two remaining unvalidated titles.
-6. Print the detected game variant in CLI output so misdetection is visible.
 
 Validation debt is now the dominant backlog theme: read coverage has run far ahead of fixtures and
 snapshots. Items 1–4 predate the PSTEE sweeps and remain open despite that workload.
