@@ -186,25 +186,61 @@ Exit criteria:
 Current status:
 
 - `BG2EE` has been used as the first real validation target.
+- `PSTEE` is now a second real target: every dialogue in the install has been swept, plus a 2,313-resource mod, and PSTEE saves drive the scoped save-write path.
+- `BGEE` has narrow coverage only (BCS smoke).
+- `IWDEE` remains unvalidated.
+
+Completed:
+
+- Test against BG2EE and PSTEE.
+- Ensure discovery logic is not BG-only — game-variant detection keys off root files (`torment.lua`, `icewind.exe`, …) rather than folder names, since installs are routinely renamed.
+- Document the first per-game quirk: PST uses a different effect-opcode table, now decoded per variant.
 
 Remaining:
 
-- Test against at least:
-  - BGEE
-  - BG2EE or EET
-  - PSTEE
-- Document observed per-game quirks.
-- Ensure discovery logic is not BG-only.
+- Validate against BGEE and IWDEE beyond smoke coverage.
+- Confirm whether the `iwd` variant needs its own opcode table or can keep sharing the standard one.
+- Surface the detected variant in CLI output so a misdetected install fails loudly instead of decoding as standard.
+- Keep documenting per-game quirks as they surface.
 
 Exit criteria:
 
-- tool works on more than one Infinity Engine title
+- tool works on more than one Infinity Engine title (met: BG2EE + PSTEE)
+- each supported title has real-install coverage rather than assumed compatibility
+
+## P2: Areas, Verification, And Scoped Writes
+
+Completed:
+
+- Implement `ARE` parsing for the header, actors, entrances, and Travel regions, with deferred-section offsets/counts preserved.
+- Add DLG graph export (`dump --format dot|mermaid`) with extern following and label controls.
+- Add `override-diff` for shadow reports and reference comparison.
+- Add `verify` for install-wide ARE cross-resource integrity (dead links, phantom entrances, missing scripts/actors/items).
+- Add Tier 1 scalar patching for fixed-offset `CRE`/`CHR` fields and `ARE` Travel-region destinations.
+- Add `tlk-append` for single-string appends, in place or to a copy.
+- Add save inspection (`save-list`, `save-info`) and the scoped PSTEE `save-add-item` write.
+
+Remaining:
+
+- Extend `verify` beyond ARE only when a workflow needs it.
+- Expand `ARE` into doors, containers, spawn points, or ambients only on concrete demand.
+- Classic PST `GAM` v1.1 saves, and BG/IWD `save-add-item` once each layout and slot map clears the gate in `docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md`.
+
+Exit criteria:
+
+- an area-level breakage can be found, diagnosed, and repaired without leaving the CLI (met for the Travel-region case)
 
 ## P3: Script And Diff Support
 
+Completed:
+
+- Add resource comparison via `override-diff` (shadow and reference modes). A general decoded-resource `diff` is still open.
+
+Remaining:
+
 - Add `DLG` follow-up improvements if the first model is too raw.
 - Add `BCS` follow-up improvements once more real-world validation identifies gaps.
-- Add `diff` command for decoded resources.
+- Add `diff` command for decoded resources (JSON-level, not just hash-level).
 - Add machine-readable cross-reference output.
 
 Exit criteria:
@@ -213,13 +249,16 @@ Exit criteria:
 
 ## P3: Ecosystem And Workflow
 
-- Add examples for AI-assisted usage.
+Completed:
+
+- Add examples for AI-assisted usage — six Claude Code skills in `.claude/skills/`, inventoried in `docs/SKILLS.md`.
+- Add worked outputs of those workflows in `docs/guides/`, each with its own reproduction commands.
+- Add command recipes for common workflows: inspect item, inspect NPC, compare override vs base resource, resolve dialogue strings (README "Current Commands", plus the skill workflows).
+
+Remaining:
+
 - Add sample prompts for generating WeiDU patches from exported JSON.
-- Add command recipes for common workflows:
-  - inspect item
-  - inspect NPC
-  - compare override vs base resource
-  - resolve dialogue strings
+- Generalize the PST-tuned skills (`plan-stat-build`, and the PST specifics inside `map-stat-gates`) to BG/IWD when a real question demands it.
 
 Exit criteria:
 
@@ -243,7 +282,11 @@ Current high-value follow-up issues:
 2. Add JSON golden or snapshot tests for decoded `ITM` and `SPL` output.
 3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
 4. Broaden real-install validation for `DLG` and `BCS`.
-5. Broaden real-install validation beyond `BG2EE`.
+5. Validate BGEE and IWDEE, the two remaining unvalidated titles.
+6. Print the detected game variant in CLI output so misdetection is visible.
+
+Validation debt is now the dominant backlog theme: read coverage has run far ahead of fixtures and
+snapshots. Items 1–4 predate the PSTEE sweeps and remain open despite that workload.
 
 ## Stop Conditions
 

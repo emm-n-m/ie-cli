@@ -4,6 +4,19 @@ This repo ships **Claude Code agent skills** in [`.claude/skills/`](../.claude/s
 
 Skills are part of `iecli`'s AI-native design (see [README](../README.md), [ROADMAP](../ROADMAP.md)). The parser produces JSON; skills wrap that JSON in narrative output that an IE modder can use without knowing how to script. New skills should follow the same pattern: parser produces JSON, skill produces narrative.
 
+## At a glance
+
+| Skill | Kind | Answers |
+|---|---|---|
+| [`diagnose-dialog`](#diagnose-dialog)     | diagnostic | Why is this dialog branch not firing? |
+| [`explore-dungeon`](#explore-dungeon)     | diagnostic | Where does this area connect, and what's unreachable? |
+| [`mod-diff`](#mod-diff)                   | triage     | What did this mod add, change, or break? |
+| [`trace-quest-timer`](#trace-quest-timer) | diagnostic | How long until this quest/companion event fires? |
+| [`map-stat-gates`](#map-stat-gates)       | analysis   | Which stat thresholds gate content, and is it worth anything? |
+| [`plan-stat-build`](#plan-stat-build)     | generative | What stats should I take, and where do I grab every boost? |
+
+All skills shell out to `iecli`, so build first (`cargo build --release` — the sweeps run hundreds of dumps, and debug builds are much slower). Scripts auto-prefer the release binary and accept `--iecli <path>` to override. Install paths come from [`LOCAL_GAME_PATHS.md`](LOCAL_GAME_PATHS.md).
+
 ---
 
 ## diagnose-dialog
@@ -123,6 +136,159 @@ cargo build
 ```
 
 The scripts default to `target/debug/iecli.exe`. For release builds, pass `--iecli target/release/iecli.exe`.
+
+---
+
+## map-stat-gates
+
+**Folder:** [`.claude/skills/map-stat-gates/`](../.claude/skills/map-stat-gates/)
+
+**Purpose:** Scan every DLG in an install for `CheckStat*` gates on the protagonist and report both *what the gated replies do* (payoffs) and *how much* content sits behind each threshold (volume). Works for BG / IWD / PST.
+
+**Triggers on questions like:**
+- "Which stats actually matter for dialogue in this game?"
+- "What does INT 16 unlock?"
+- "Which stat gates the most valuable content?"
+
+**Files:**
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md`           | Runtime instructions, including how to read payoffs before volume |
+| `gate_payoffs.py`    | Joins each stat-gated reply to its action/journal text and tags a coarse payoff category |
+| `gate_histogram.py`  | Per-stat histogram of how many gated branches require each value |
+
+```bash
+python .claude/skills/map-stat-gates/gate_payoffs.py --game "<game-path>" --protagonist Protagonist
+python .claude/skills/map-stat-gates/gate_histogram.py --game "<game-path>" --protagonist Protagonist
+```
+
+| Flag             | Purpose                                                                     |
+|------------------|-----------------------------------------------------------------------------|
+| `--game`         | Game install directory (required)                                            |
+| `--protagonist`  | Object to match — `Protagonist` (PST) or `Player1` (BG/IWD); `any` = no filter |
+| `--high-only`    | `gate_payoffs.py` only: drop flavor-tier payoffs                              |
+| `--iecli`        | Path to iecli (default: release, then debug)                                  |
+| `--json`         | Emit JSON instead of the text report                                          |
+
+**Design note:** the scripts classify payoffs only coarsely (`STAT_CORE`, `SKILL`, `COMPANION`, `ITEM`, `XP_BIG`/`XP_small`, `QUEST`, `STORY`, `TRAVEL`, `STATE`, `FLAVOR`) and surface the raw trigger and action text alongside. The category is a sort key; the agent judges value. Counts alone mislead — a stat can gate hundreds of flavor lines while one WIS gate hands over 120k XP.
+
+---
+
+## mod-diff
+
+**Folder:** [`.claude/skills/mod-diff/`](../.claude/skills/mod-diff/)
+
+**Purpose:** Bucket `iecli override-diff` output by resource type so an investigation can be scoped to what a mod actually touched. The Step 0 before exploring new content or planning a run on a modded install.
+
+**Triggers on questions like:**
+- "What did this mod change?"
+- "What resources did it add?"
+- "Diff my modded install against vanilla."
+
+**Files:**
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md`     | Runtime instructions, mode selection, and interpretation rules |
+| `mod_diff.py`  | Runs `override-diff` and buckets results by resource type      |
+
+**Two modes:**
+
+- **Mode A — shadow report** (no reference). Override resources that also exist in a BIFF are shadows; `override_only` resources are mod additions. Output buckets: **MOD-ADDED**, **MOD-CHANGED**, **benign shadows** (byte-identical re-ship).
+- **Mode B — reference diff** (`--against <dir-or-file>`). Hash-compare the live override against a clean reference to get added / removed / changed.
+
+```bash
+python .claude/skills/mod-diff/mod_diff.py --game "<game-path>"
+python .claude/skills/mod-diff/mod_diff.py --game "<modded>" --against "<clean-ref>"
+```
+
+| Flag        | Purpose                                             |
+|-------------|-----------------------------------------------------|
+| `--game`    | Modded game install directory (required)            |
+| `--against` | Clean reference directory or file (Mode B)          |
+| `--type`    | Filter to one resource type, e.g. `DLG`             |
+| `--iecli`   | Path to iecli                                       |
+| `--json`    | Pass through the raw `override-diff` JSON           |
+
+**MOD-CHANGED is the interesting bucket** — clobbered vanilla files are where stuck quests and broken links come from. Note the limits: it reports *that* a resource changed, not which WeiDU component did it, and compiled resources can't be diffed against a mod's `.d`/`.baf` sources.
+
+---
+
+## plan-stat-build
+
+**Folder:** [`.claude/skills/plan-stat-build/`](../.claude/skills/plan-stat-build/)
+
+**Purpose:** The generative counterpart to the diagnostic skills — produce a full-game stat plan from the actual install: creation spread, level-up priority, and a sequenced itinerary of where to grab each permanent boost. Tuned for PST; the gate half generalizes to BG/IWD.
+
+**Triggers on questions like:**
+- "What stats should I pump?"
+- "Plan a completionist run for me."
+- "How do I min-max this playthrough?"
+
+**Files:**
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md`         | Runtime instructions, the pipeline, and the synthesis gotchas |
+| `stat_economy.py`  | Catalogues permanent `PermanentStatChange` dialogue grants plus ITM/SPL stat effects, split permanent vs while-equipped |
+
+```bash
+python .claude/skills/plan-stat-build/stat_economy.py --game "<game-path>" --protagonist Protagonist
+```
+
+| Flag            | Purpose                                              |
+|-----------------|------------------------------------------------------|
+| `--game`        | Game install directory (required)                    |
+| `--protagonist` | Object for `PermanentStatChange`; `any` = no filter  |
+| `--no-spl`      | Skip the SPL scan (faster)                           |
+| `--iecli`       | Path to iecli                                        |
+| `--json`        | Emit JSON instead of the text report                 |
+
+**Pipeline:** `mod-diff` (trust layer on modded installs) → `map-stat-gates` (what the gates are worth) → `stat_economy.py` (what you can gain) → agent synthesis. The scripts are mechanical; resolving mutually-exclusive grants, caps, and AD&D bonus thresholds is the agent's job. Counts from `stat_economy.py` are **raw and overcount** — several grants are alternative branches of one conversation.
+
+**Deliverable:** a written plan under [`guides/`](guides/); [`PST_STAT_PLAN.md`](guides/PST_STAT_PLAN.md) is the worked reference.
+
+---
+
+## trace-quest-timer
+
+**Folder:** [`.claude/skills/trace-quest-timer/`](../.claude/skills/trace-quest-timer/)
+
+**Purpose:** Answer "how long until X happens" by finding the `(Real)SetGlobalTimer` that gates an event, converting its duration to real time, and classifying it **game-time** (rest and fast-travel skip it) vs **real-time** (must actually play). The same constant means very different waits in each: `FOUR_HOURS` = 1200 is 4 game hours under `SetGlobalTimer` but ~20 real minutes under `RealSetGlobalTimer`.
+
+**Triggers on questions like:**
+- "When does Hexxat's quest activate?"
+- "How long before Jan comes back?"
+- "What's the cooldown on this script?"
+
+**Files:**
+
+| File | Purpose |
+|------|---------|
+| `SKILL.md`        | Runtime instructions, including cross-file timer chasing |
+| `trace_timer.py`  | Dumps matching DLG/BCS and pairs every timer SET with its CHECKs |
+
+```bash
+python .claude/skills/trace-quest-timer/trace_timer.py --game "<BG2EE-path>" --prefix HEXXAT
+```
+
+| Flag         | Purpose                                                       |
+|--------------|---------------------------------------------------------------|
+| `--game`     | Game install directory (required)                             |
+| `--prefix`   | NPC resref prefix to scan, e.g. `HEXXAT` (repeatable)         |
+| `--resource` | Explicit extra resource to scan, e.g. `LISSA.DLG` (repeatable) |
+| `--timer`    | Only report timers whose name contains this substring          |
+| `--iecli`    | Path to iecli                                                  |
+| `--json`     | Emit JSON instead of the narrative report                      |
+
+Constant names resolve from the game's own `GTIMES.IDS` at runtime, with a small built-in fallback map. Reports label each timer `game-time`, `REAL-time`, or `MIXED` (set and checked as both — a real scripting inconsistency worth surfacing). Depends on the BCS action-argument fix in commit `3a262d9b`; before it, timer durations were read from the wrong argument.
+
+---
+
+## Guides produced by these skills
+
+[`docs/guides/`](guides/) holds the narrative output of running the skills against real installs — the first user-facing output of this project that isn't JSON. Each guide states the install it was derived from and how to reproduce it. See the [guides index](guides/README.md).
 
 ---
 

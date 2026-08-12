@@ -1,5 +1,9 @@
 # Architecture
 
+This document states design intent and the boundaries to preserve. It is written in "should" form and
+stays stable; for what is actually built today, see [ROADMAP.md](./ROADMAP.md) and
+[docs/PARSER_COVERAGE.md](./docs/PARSER_COVERAGE.md).
+
 ## Objective
 
 Build a Rust-based, CLI-first Infinity Engine inspection tool that can:
@@ -76,8 +80,10 @@ Responsible for typed decoding of resource bytes:
 - `SPL`
 - `CRE`
 - `STO`
-- later `DLG`
-- later `BCS`
+- `DLG`
+- `BCS`
+- `ARE`
+- `GAM` / `SAV` (save containers)
 
 Each format should have:
 
@@ -86,6 +92,13 @@ Each format should have:
 - JSON-ready export structs or serializers
 - format-specific tests
 
+Cross-cutting modules also live here where they operate on decoded resources rather than bytes:
+`effects` (variant-aware opcode tables) and `verify` (ARE cross-resource integrity checks).
+
+Scoped write paths (`patch_cre_scalars`, `patch_are_scalars`, `add_item_to_save_gam`) belong to this
+crate too. They must preserve every byte outside the declared edit, repair only an explicit offset
+set, and refuse layouts they have not been validated against.
+
 ### `ie-cli`
 
 Responsible for user-facing commands:
@@ -93,10 +106,18 @@ Responsible for user-facing commands:
 - `locate`
 - `dump-raw`
 - `dump`
-- `tlk`
-- later `diff`
+- `list`
+- `tlk`, `tlk-append`
+- `patch`
+- `override-diff`
+- `verify`
+- `save-list`, `save-info`, `save-add-item`
+- later `diff` for decoded resources
 
-It should not contain parsing logic beyond argument handling and output formatting.
+It should not contain parsing logic beyond argument handling and output formatting. As the command
+surface grew, `main.rs` was split into per-concern modules (`dialog_graph`, `override_diff`,
+`patch_input`, `resource_links`, `save_support`, `verify_command`); new commands should follow that
+shape rather than accreting in `main.rs`.
 
 ## Data Flow
 
@@ -239,6 +260,11 @@ The design should tolerate:
 
 Variant-specific behavior should live in documented decision points, not spread through the codebase.
 
+Implemented shape: `GameVariant` (`standard` / `iwd` / `pst`) is detected once at discovery from stable
+root files rather than folder names, rides on `ResourceMetadata`, and is consumed at the specific points
+that diverge — currently effect-opcode decoding and PST inventory slot maps. Add new variant branches at
+that granularity; do not thread per-game conditionals through parsers wholesale.
+
 ## Error Model
 
 Errors should be actionable.
@@ -331,18 +357,21 @@ Do not leak parser offsets unless they are intentionally exposed.
 
 Prefer explicit subcommands.
 
-Minimal command surface:
+Minimal command surface (all shipped):
 
 - `locate`
 - `dump-raw`
 - `dump`
 - `tlk`
+- `list`
 
 Later:
 
-- `diff`
-- `list`
+- `diff` for decoded resources
 - `search`
+
+Shared flags should stay shared: `--game` and `--resource` mean the same thing everywhere, and
+`--source auto|override|bif` / `--skip-override` apply uniformly to lookup-based commands.
 
 CLI flags should be stable and unsurprising.
 

@@ -43,7 +43,13 @@ The Rust rewrite is in progress. The current workspace already supports:
   - `ARE`
 - DLG graph export via `dump --format dot|mermaid`, with optional extern following
 - override shadow/reference comparison via `override-diff`
+- install-wide ARE cross-resource verification via `verify` (dead Travel links, phantom entrances, missing scripts/actors/items)
+- game-variant detection (`standard` / `iwd` / `pst`) with PST-specific effect-opcode decoding
+- save inspection via `save-list` and `save-info` (`GAM` v2.0/2.1/2.2 and the `SAV` archive)
+- scoped PSTEE save mutation via `save-add-item` (one item into a party member's embedded CRE)
 - Tier 1 CRE scalar patching with byte-exact copy behavior outside requested fixed-offset fields
+- Tier 1 ARE Travel-region patching (`destination_area`, `destination_entrance`)
+- Claude Code [skills](./docs/SKILLS.md) that turn the JSON into narrative answers about a real install
 
 Not implemented yet:
 
@@ -57,6 +63,9 @@ Current validation for decoded formats already includes:
 - real-install `dump` smoke coverage for `ITM` and `SPL`
 - manual Near Infinity comparison for selected BG2EE `SPL` resources
 - env-gated real-install regression tests for validated `SPL` resources
+- whole-install PSTEE sweeps across every dialogue in the game (859 DLGs), plus resource enumeration and diffing over a 2,313-resource PST mod, exercising `DLG`, `ITM`, `SPL`, and `CRE` decoding at scale (see [guides](./docs/guides/))
+
+See [Parser coverage](./docs/PARSER_COVERAGE.md) for a per-format matrix of what is decoded, deferred, or preserved raw.
 
 ## Workspace
 
@@ -121,16 +130,25 @@ iecli override-diff --game /path/to/game --against ./reference-override
 iecli override-diff --game /path/to/game --resource KIRINH.CRE --against ./KIRINH-stock.CRE --format json
 iecli tlk --game /path/to/game --strref 1
 iecli tlk-append --game /path/to/game --text "New line" --tlk-out ./dialog-patched.tlk --output-strref-to ./new-strref.txt
+iecli save-list --game /path/to/game --format json
+iecli save-info --game /path/to/game --save "000000001-Quick-Save" --part gam
+# save-add-item is PSTEE-only today; BG/IWD layouts are hard-refused until validated
+iecli save-add-item --game /path/to/pstee --save "000000001-Quick-Save" --item <ITM-RESREF> --member 0 --output ./patched-save
 ```
 
 ## Documentation
 
+- [Roadmap](./ROADMAP.md) — current status, next milestones, write-support tiers
 - [Architecture](./ARCHITECTURE.md)
 - [Todo priorities](./TODO_PRIORITIES.md)
+- [Parser coverage](./docs/PARSER_COVERAGE.md) — what each decoder exposes, defers, or leaves raw
 - [Regression plan](./docs/REGRESSION_PLAN.md)
+- [Testing notes](./docs/TESTING.md) — env-gated real-install test setup
 - [Format references](./docs/NEAR_INFINITY_REFERENCE.md)
-- [DLG graph export + override diff](./docs/PROPOSED_DLG_GRAPH_AND_OVERRIDE_DIFF.md)
-- [Project skills](./docs/SKILLS.md) — Claude Code skills shipped with the repo (`diagnose-dialog`, `explore-dungeon`)
+- [DLG graph export + override diff](./docs/DLG_GRAPH_AND_OVERRIDE_DIFF.md)
+- [Save support status](./docs/SAVE_SUPPORT_TODO.md) and the write gate in [SPEC_SAVE_ITEM_WRITE_COMPLETE](./docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md)
+- [Project skills](./docs/SKILLS.md) — Claude Code skills shipped with the repo (`diagnose-dialog`, `explore-dungeon`, `map-stat-gates`, `plan-stat-build`, `mod-diff`, `trace-quest-timer`)
+- [Guides](./docs/guides/) — analysis written by those skills against real installs
 
 ## Notes
 

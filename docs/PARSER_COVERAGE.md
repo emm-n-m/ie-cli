@@ -1,8 +1,10 @@
 # Parser Coverage Matrix
 
-Current as of 2026-04-26. This matrix tracks what the typed JSON parsers expose today and what remains shallow or deferred.
+Current as of 2026-08-12. This matrix tracks what the typed JSON parsers expose today and what remains shallow or deferred.
 
 `Deferred (offset/count only)` means the parser reads section pointers from the header but does not decode the referenced records. `Other gaps` covers fields or semantics that are omitted, preserved as raw bytes, or only lightly decoded.
+
+Effect opcode names are **game-variant aware**: `ITM`, `SPL`, and `CRE` decode effects against the PST opcode table on a PST install and the standard table elsewhere (`iwd` currently shares the standard table). The variant is detected from install root files, not folder names, and is not currently echoed in CLI output. Both tables cover the commonly-seen opcodes rather than the full IESDP range; an unrecognized opcode surfaces as a raw value with `decoded: null` rather than a wrong name.
 
 | Resource | Parsed | Deferred (offset/count only) | Other gaps |
 | --- | --- | --- | --- |
@@ -13,6 +15,17 @@ Current as of 2026-04-26. This matrix tracks what the typed JSON parsers expose 
 | ITM | header, strrefs, flags, category, requirements, icons, descriptions, abilities, ability-local effects, global effects | none | ITM effect tail fields after resource are not surfaced; several enum/bitfield values remain raw or shallowly decoded; no opaque byte preservation for omitted fields |
 | SPL | header, strrefs, flags, spell type/school/secondary type, extended headers, feature blocks | none | extended header has omitted bytes/fields; enum/opcode coverage is partial; no opaque byte preservation for omitted fields |
 | STO | header, store type, flags, room prices, items for sale, drinks, cures, purchased item categories | none | unknown header byte ranges are preserved raw; version-specific store variants are not deeply distinguished |
+
+## Save Formats
+
+Save decoding is reached through `save-info` rather than `dump`, so it is tracked separately.
+
+| Format | Parsed | Deferred (offset/count only) | Other gaps |
+| --- | --- | --- | --- |
+| GAM | header (game time, gold, reputation, current/main area), party members (name, area, position, orientation, happiness, talk count, party order, vanquished/time-in-party stats), globals | party inventory, non-party members, journal entries, familiar/extra sections | embedded party CRE bytes are located but not decoded in `save-info` output; `v1.1` (classic PST) is not supported, only `v2.0/2.1/2.2` |
+| SAV | archive manifest: per-entry filename, resolved resource name/type, compressed and uncompressed sizes | contained resource payloads | entries are inventoried and inflated for sizing, not decoded as their own formats |
+
+See [SAVE_SUPPORT_TODO.md](SAVE_SUPPORT_TODO.md) for the format notes behind these rows, and [SPEC_SAVE_ITEM_WRITE_COMPLETE.md](SPEC_SAVE_ITEM_WRITE_COMPLETE.md) for the gate that keeps save writes PSTEE-only.
 
 ## Unsupported Resource Parsers
 

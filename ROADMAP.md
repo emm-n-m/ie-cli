@@ -23,9 +23,14 @@ iecli reads  →  agent reasons in JSON  →  agent emits WeiDU .tp2 + .d + patc
 
 Near Infinity remains the right tool for last-mile manual sanity checks and for hand-editing when a human wants to. `iecli` fills the machine-readable gap in the ecosystem.
 
+The repo now ships the second half of that loop as well: [agent skills](./docs/SKILLS.md) that carry a
+question from natural language through `iecli` JSON to a narrative answer, and the [guides](./docs/guides/)
+those skills produced against real installs. JSON is the interface; the skills are the proof it is the
+right one.
+
 ## Status Snapshot
 
-Current as of 2026-07-27.
+Current as of 2026-08-12.
 
 ### Done
 
@@ -33,13 +38,16 @@ Current as of 2026-07-27.
 - Installation discovery: game root validation, `chitin.key`, language folder, `dialog.tlk`.
 - Typed `KEY` parsing.
 - `BIFF` / `BIF` / `BIFC` raw reads.
-- Override precedence, with `--source <auto|override|bif>` opt-out (`locate`, `dump`, `dump-raw`).
+- Override precedence, with `--source <auto|override|bif>` opt-out (`locate`, `dump`, `dump-raw`, `list`, `verify`).
 - Resource enumeration: `list --type <T> --name <glob> --source <S> --format <text|json>`.
 - `TLK` string resolution.
 - Typed decoders + JSON export for: `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`.
 - DLG graph export via `dump --format dot|mermaid`, with `--max-label-len`, `--no-triggers`, `--no-actions`, `--strings`, and `--follow-extern[=DEPTH]`.
 - `ARE` decoder + JSON export for the header, deferred-section offsets/counts, actors, entrances, and Travel-region links.
 - Lazy IDS loading and opcode/name resolution for BCS decoding.
+- Game-variant detection (`standard` / `iwd` / `pst`) from stable root files (`torment.lua`, `icewind.exe`, …) rather than folder names, surfaced on every resource's metadata.
+- Variant-aware effect decoding: PST uses its own opcode table, so `ITM`, `SPL`, and `CRE` effect names decode correctly on PSTEE instead of silently borrowing BG opcode meanings.
+- Install-wide `verify` for ARE cross-resource integrity, with `--severity`, `--max-issues`, `--source`, and `--format text|json`. Categories: `dead_link`, `phantom_entrance`, `missing_area_script`, `missing_region_script`, `missing_actor_cre`, `missing_actor_dialog`, `missing_actor_script`, `missing_key_item`, `parse_error`.
 - Override trust workflow via `override-diff`: shadow reports against BIFF and hash-based comparison against reference directories/files.
 - Real-install smoke coverage for `ITM` and `SPL`; selected Near Infinity comparisons for `SPL`.
 - Env-gated CLI smoke coverage for `BCS` and PSTEE `ARE`.
@@ -48,12 +56,18 @@ Current as of 2026-07-27.
 - Save inspection: `save-list` (folder discovery across install root + user Documents) and `save-info` (`GAM` v2.0/2.1/2.2 header/party/globals decode, `SAV` zlib container manifest). Validated against real BG2EE saves; see [docs/SAVE_SUPPORT_TODO.md](./docs/SAVE_SUPPORT_TODO.md).
 - Scoped PSTEE save mutation via `save-add-item`: append one item to a party member's embedded CRE, repair affected CRE/GAM offsets, copy the save folder by default, and hard-refuse unvalidated BG/IWD layouts.
 - `dialog.tlk` append support via `tlk-append`, with in-place and copy-output workflows.
+- Agent skill layer: six Claude Code skills in [`.claude/skills/`](./.claude/skills/) that turn `iecli` JSON into narrative answers. Inventory and per-script flags live in [docs/SKILLS.md](./docs/SKILLS.md).
+- Research guides in [`docs/guides/`](./docs/guides/) produced by running that skill layer against real installs — the first user-facing output of the tool that is not JSON.
+- `ie-cli` decomposed from one large `main.rs` into per-concern modules (`dialog_graph`, `override_diff`, `patch_input`, `resource_links`, `save_support`, `verify_command`), keeping argument handling and presentation out of the parsers.
 
 ### Validated in real-world use
 
 - Override-vs-BIFF comparison workflow used end-to-end to diagnose a modded-install bug (Kirinhale morale regression) in a single session.
 - Read-extend → diagnose → patch loop used end-to-end to fix a broken Travel-region exit (ARR019 → AR1900 in a drow-mod dungeon): added Travel-region and entrance parsing to ARE, identified a destination-entrance name mismatch, repaired via `iecli patch`, verified in-game.
 - `iecli verify --source override` now automates ARE cross-resource checks for dead Travel links, phantom entrances, and missing referenced scripts/actors/items.
+- Whole-install PSTEE sweeps: all 859 dialogues dumped and mined for `CheckStat` gates and `PermanentStatChange` grants, plus ITM/SPL effect scans, producing the stat-plan, conversation-boon, and Law-axis guides. This is the largest read-path workload the parsers have carried, and the ITM/SPL half is what surfaced the PST effect-opcode gap fixed above.
+- Fresh-mod triage on a 2,313-resource PST mod (Blizzard in Baator) via `override-diff`, establishing that the mod is additive rather than a vanilla rewrite before any deeper investigation ran.
+- Save-aware analysis: `save-info` globals joined against DLG trackers to tell "already taken" from "still available" in the Law ledger.
 
 ### Remaining or deferred
 
@@ -61,7 +75,8 @@ Current as of 2026-07-27.
 - Classic PST save support (`GAM` v1.1). PSTEE uses `GAM` v2.0 and is already covered by the current read path and the scoped item-write path.
 - BG/BG2/IWD support for `save-add-item`; these variants remain hard-gated until their GAM layouts and inventory slot maps are validated.
 - JSON golden/snapshot tests for any decoded format.
-- Broad cross-game validation. BG2EE and selected PSTEE workflows have real-install coverage; BGEE and IWDEE remain unvalidated.
+- Broad cross-game validation. BG2EE and PSTEE now both have substantial real-install coverage (PSTEE across every DLG in the install, plus a large mod); BGEE has narrow BCS coverage and IWDEE remains unvalidated, including its `iwd` variant path, which is currently just an alias for standard opcode decoding.
+- `verify` beyond ARE. Other resource types are rejected rather than partially checked.
 - General structured resource serialization and WeiDU patch emission.
 
 ## Driving Use Case
@@ -143,16 +158,48 @@ Remaining validation:
 - add a committed real save fixture or broader env-gated real-save coverage
 - keep BG/BG2/IWD save writes disabled until each layout and slot map satisfies the validation gate in [docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md](./docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md)
 
+#### Install Verification
+
+Implemented. `iecli verify --game <path> --source override --format json` walks every ARE in the install, builds an entrance registry from all areas, and reports cross-resource breakage: dead Travel links, entrances named but absent in the destination area, and missing area/region scripts, actor CRE/dialog/script links, and key items. `--severity`, `--max-issues`, and `--format text|json` shape the output; unparseable areas surface as `parse_error` issues rather than aborting the run.
+
+Remaining follow-up:
+
+- extend beyond ARE only when a workflow needs it; other `--resource-type` values are rejected today
+- decide whether warnings should gain per-category suppression once a large modded install produces enough noise to justify it
+
+#### Game-Variant Awareness
+
+Implemented. Installations are classified as `standard`, `iwd`, or `pst` from stable root files rather than folder names, since install directories are routinely renamed. The variant rides on `ResourceMetadata` and drives effect-opcode decoding, so PST effects decode against the PST table instead of the BG one.
+
+Remaining follow-up:
+
+- surface the detected variant in CLI output. It currently drives decoding invisibly, so a misdetected install (a repackaged PST without `torment.lua`/`torment.exe` at the root) fails silently as standard-opcode output rather than an obvious error. `locate` is the natural place to print it.
+- `iwd` currently shares the standard opcode table; confirm or split it when IWDEE gets real validation
+- extend variant awareness to any other decode path where PST/IWD diverge from BG, as concrete mismatches are found
+
+#### Agent Skill Layer and Research Guides
+
+Implemented, and the project's clearest demonstration of the vision: parser emits JSON, skill wraps it in narrative an IE modder can act on without scripting.
+
+Six skills ship in [`.claude/skills/`](./.claude/skills/) — `diagnose-dialog`, `explore-dungeon`, `map-stat-gates`, `plan-stat-build`, `mod-diff`, and `trace-quest-timer` — each documented with its scripts and flags in [docs/SKILLS.md](./docs/SKILLS.md).
+
+Their output is captured in [`docs/guides/`](./docs/guides/): a PST stat plan, conversation-boon catalogue, Law-axis ledger, mod delta, and a reward map for the Blizzard in Baator mod. Each guide states its provenance and reproduction command, so a reader can re-derive it against their own install.
+
+Remaining follow-up:
+
+- keep guides marked with the install they were derived from; they describe a specific modded install, not vanilla
+- generalize the PST-tuned skills to BG/IWD only when a real question demands it
+
 ## Next Milestones
 
 ### Selection pending
 
-No new implementation milestone has been selected as of 2026-07-27. The next planning decision should choose among the following already identified work, rather than starting all of it:
+No new implementation milestone has been selected as of 2026-08-12. Work since the last snapshot has been read-path breadth (PST variant support, install verification, the skill layer and guides) rather than a new tooling milestone. The next planning decision should choose among the following already identified work, rather than starting all of it:
 
-- address correctness, duplication, and boundary issues found during the current review
 - pay down validation debt with real fixtures, Near Infinity comparisons, and stable JSON snapshots for existing formats
 - exercise the one-NPC/one-interjection PSTEE MVP end to end, using WeiDU for installation rather than adding speculative general-purpose writers
 - validate and enable `save-add-item` for one additional game family
+- close the IWDEE gap: validate discovery, decoding, and the `iwd` variant path against a real install
 
 Until that decision is made, do not add another resource family or broaden write support.
 
@@ -186,4 +233,8 @@ This file is a durable artifact for that loop. Keep it current. Old completed mi
 - **[TODO_PRIORITIES.md](./TODO_PRIORITIES.md)** — full P0–P3 backlog with completion status. Tactical.
 - **[ARCHITECTURE.md](./ARCHITECTURE.md)** — crate layout, domain model.
 - **[README.md](./README.md)** — user-facing intro and CLI surface.
+- **[docs/SKILLS.md](./docs/SKILLS.md)** — inventory of the shipped Claude Code skills, their triggers, scripts, and flags.
+- **[docs/guides/](./docs/guides/)** — analysis guides produced by running those skills against real installs.
+- **[docs/PARSER_COVERAGE.md](./docs/PARSER_COVERAGE.md)** — per-format matrix of what is decoded, deferred, or left raw.
+- **[docs/TESTING.md](./docs/TESTING.md)** — env-gated real-install test setup.
 - **This file** — current vision, next milestones, write-support framework, driving use case. Revise each session.
