@@ -65,7 +65,37 @@ fn override_lookup_is_case_insensitive_on_case_sensitive_filesystems() {
     let bytes = read_resource(fixture.root(), TEST_RESOURCE);
     assert_eq!(bytes.bytes, b"ITM LOWERCASE OVERRIDE");
     assert_eq!(bytes.metadata.source_kind, SourceKind::Override);
-    assert_eq!(bytes.metadata.resource_name, "foo.itm");
+    // The reported name is normalized, not the on-disk spelling: overrides match
+    // case-insensitively, so casing is the only thing the filesystem can vary, and
+    // letting it through makes the same resource serialize differently per install.
+    assert_eq!(bytes.metadata.resource_name, TEST_RESOURCE);
+    // The exact on-disk spelling is still recoverable, just not from the name.
+    assert!(
+        bytes.metadata.source_path.ends_with("foo.itm"),
+        "source_path should keep the on-disk spelling; got {:?}",
+        bytes.metadata.source_path
+    );
+}
+
+#[test]
+#[cfg(not(target_os = "windows"))]
+fn override_and_bif_lookups_agree_on_resource_name() {
+    // `list` normalized override names from the start while `locate` reported the
+    // on-disk one, so the two commands disagreed about the same resource. Whichever
+    // source answers, the name has to come out the same or JSON is not diffable.
+    let fixture = TestInstallation::new("override-name-agrees-with-bif");
+    fixture.write_archive_install("data/items.bif", ArchiveKind::Biff, b"ITM BASE");
+    fixture.write_override("foo.itm", b"ITM LOWERCASE OVERRIDE");
+
+    let from_override = read_resource(fixture.root(), TEST_RESOURCE);
+    let from_bif = read_resource_with_source(fixture.root(), TEST_RESOURCE, ResourceSource::Bif);
+
+    assert_eq!(from_override.metadata.source_kind, SourceKind::Override);
+    assert_eq!(from_bif.metadata.source_kind, SourceKind::Bif);
+    assert_eq!(
+        from_override.metadata.resource_name,
+        from_bif.metadata.resource_name
+    );
 }
 
 #[test]
@@ -274,6 +304,21 @@ fn read_resource(root: &Path, resource_name: &str) -> ie_core::ResourceBytes {
     let reader = ResourceReader;
     reader
         .read(&locator, &resource)
+        .expect("resource should load")
+}
+
+fn read_resource_with_source(
+    root: &Path,
+    resource_name: &str,
+    source: ResourceSource,
+) -> ie_core::ResourceBytes {
+    let installation =
+        GameInstallation::discover(root).expect("synthetic installation should be valid");
+    let locator = ResourceLocator::new(installation).expect("KEY parsing should succeed");
+    let resource = ResourceName::parse(resource_name).expect("resource name should parse");
+    let reader = ResourceReader;
+    reader
+        .read_with_source(&locator, &resource, source)
         .expect("resource should load")
 }
 

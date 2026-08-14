@@ -242,16 +242,21 @@ impl ResourceLocator {
 
         for by_name in &self.override_index().by_dir {
             if let Some(path) = by_name.get(&lookup_key) {
-                let resource_name = path
-                    .file_name()
-                    .map(|name| name.to_string_lossy().to_string())
-                    .unwrap_or_else(|| file_name.clone());
+                // Report the normalized name, not the on-disk spelling. Override
+                // files match case-insensitively, so the only thing the filesystem
+                // can vary is case -- BG2EE ships override/baldur.bcs, PSTEE ships
+                // AR0202.are -- and letting that reach the output makes the same
+                // resource serialize differently depending on how a mod's
+                // packaging happened to write it. KEY-backed lookups already
+                // report the canonical name, so this keeps one naming rule across
+                // both sources and keeps JSON diffable across installs.
+                // `source_path` still carries the exact on-disk spelling.
                 return Some(LocatedResource {
                     metadata: ResourceMetadata {
                         source_path: path.clone(),
                         source_kind: SourceKind::Override,
                         resource_type: resource.resource_type(),
-                        resource_name,
+                        resource_name: file_name.clone(),
                         game_variant: self.installation.game_variant,
                     },
                     locator: None,

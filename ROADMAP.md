@@ -39,6 +39,7 @@ Current as of 2026-08-14.
 - Typed `KEY` parsing.
 - `BIFF` / `BIF` / `BIFC` raw reads.
 - Override precedence, with `--source <auto|override|bif>` opt-out (`locate`, `dump`, `dump-raw`, `list`, `verify`).
+- Normalized `resource_name` regardless of source. Override files match case-insensitively, so casing is the only thing the filesystem can vary; reporting the on-disk spelling made the same resource serialize differently per install (and, before the override index landed, differently per filesystem case-sensitivity). `source_path` still carries the exact on-disk spelling. This is a precondition for the JSON golden tests below.
 - Resource enumeration: `list --type <T> --name <glob> --source <S> --format <text|json>`.
 - `TLK` string resolution.
 - Typed decoders + JSON export for: `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`.
