@@ -13,6 +13,7 @@ Each supported game needs an environment variable pointing to its install root:
 | `IE_BGEE_PATH`    | BGEE                                 | `...\Baldur's Gate Enhanced Edition`                                           |
 | `IE_PSTEE_PATH`   | PSTEE                                | `...\Planescape Torment Enhanced Edition`                                      |
 | `IE_IWDEE_PATH`   | IWDEE                                | `...\Icewind Dale Enhanced Edition`                                            |
+| `IE_BGEE_SOD_PATH`| BGEE+SoD with the DLC still **packed** | `...\Baldur's Gate Enhanced Edition` (one that has not run DlcMerger)         |
 
 Tests silently skip when the variable is unset, so CI passes without game data.
 

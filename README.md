@@ -151,6 +151,7 @@ is not plain graphic ASCII, and splitting the unquoted text output on whitespace
 - [Format references](./docs/NEAR_INFINITY_REFERENCE.md)
 - [DLG graph export + override diff](./docs/DLG_GRAPH_AND_OVERRIDE_DIFF.md)
 - [Save support status](./docs/SAVE_SUPPORT_TODO.md) and the write gate in [SPEC_SAVE_ITEM_WRITE_COMPLETE](./docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md)
+- [DLC mounting spec](./docs/SPEC_DLC_MOUNTING.md) — how Enhanced Edition `dlc/*.zip` overlays resolve, and why an unmerged install currently under-reports
 - [Project skills](./docs/SKILLS.md) — six game-exploration workflows (`diagnose-dialog`, `explore-dungeon`, `map-stat-gates`, `plan-stat-build`, `mod-diff`, `trace-quest-timer`), packaged for both Claude Code and Codex
 - [Guides](./docs/guides/) — analysis written by those skills against real installs
 
