@@ -2,7 +2,7 @@ use crate::IoError;
 use crate::bytes::{read_u16_le, read_u32_le};
 use flate2::read::ZlibDecoder;
 use std::fs;
-use std::io::Read;
+use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
 const BIFF_SIGNATURE: &[u8; 8] = b"BIFFV1  ";
@@ -11,13 +11,121 @@ const BIFC_SIGNATURE: &[u8; 8] = b"BIFCV1.0";
 
 pub(crate) fn read_resource(path: &Path, locator: u32) -> Result<Vec<u8>, IoError> {
     let bytes = fs::read(path).map_err(IoError::FileIo)?;
-    let archive = match detect_archive_type(&bytes)? {
-        ArchiveType::Biff => bytes,
-        ArchiveType::Bif => decompress_bif(&bytes)?,
-        ArchiveType::Bifc => decompress_bifc(&bytes)?,
+    read_resource_from_bytes_for_dlc(&bytes, locator)
+}
+
+pub(crate) fn read_resource_from_reader<R: Read + Seek>(
+    reader: &mut R,
+    locator: u32,
+) -> Result<Vec<u8>, IoError> {
+    let mut signature = [0u8; 8];
+    reader.read_exact(&mut signature).map_err(IoError::FileIo)?;
+
+    if signature == *BIFF_SIGNATURE {
+        return extract_resource_from_reader(reader, locator);
+    }
+
+    reader.seek(SeekFrom::Start(0)).map_err(IoError::FileIo)?;
+    let mut bytes = Vec::new();
+    reader.read_to_end(&mut bytes).map_err(IoError::FileIo)?;
+    read_resource_from_bytes_for_dlc(&bytes, locator)
+}
+
+pub(crate) fn read_resource_from_bytes_for_dlc(
+    bytes: &[u8],
+    locator: u32,
+) -> Result<Vec<u8>, IoError> {
+    let archive = match detect_archive_type(bytes)? {
+        ArchiveType::Biff => bytes.to_vec(),
+        ArchiveType::Bif => decompress_bif(bytes)?,
+        ArchiveType::Bifc => decompress_bifc(bytes)?,
     };
 
     extract_resource(&archive, locator)
+}
+
+fn extract_resource_from_reader<R: Read + Seek>(
+    reader: &mut R,
+    locator: u32,
+) -> Result<Vec<u8>, IoError> {
+    let file_count = read_u32_reader(reader, "BIFF file count")? as usize;
+    let tileset_count = read_u32_reader(reader, "BIFF tileset count")? as usize;
+    let entry_offset = read_u32_reader(reader, "BIFF entry offset")? as u64;
+    let locator = locator & 0x000F_FFFF;
+
+    reader
+        .seek(SeekFrom::Start(entry_offset))
+        .map_err(IoError::FileIo)?;
+    for _ in 0..file_count {
+        let mut entry = [0u8; 16];
+        reader.read_exact(&mut entry).map_err(IoError::FileIo)?;
+        if read_u32_le(&entry, 0)? & 0x000F_FFFF == locator {
+            let data_offset = read_u32_le(&entry, 4)? as u64;
+            let size = read_u32_le(&entry, 8)? as usize;
+            return read_entry_data(reader, data_offset, size, None);
+        }
+    }
+
+    for _ in 0..tileset_count {
+        let mut entry = [0u8; 20];
+        reader.read_exact(&mut entry).map_err(IoError::FileIo)?;
+        if read_u32_le(&entry, 0)? & 0x000F_FFFF == locator {
+            let data_offset = read_u32_le(&entry, 4)? as u64;
+            let tile_count = read_u32_le(&entry, 8)? as usize;
+            let tile_size = read_u32_le(&entry, 12)? as usize;
+            return read_entry_data(reader, data_offset, tile_size, Some(tile_count));
+        }
+    }
+
+    Err(IoError::ResourceNotFound(format!(
+        "BIFF locator 0x{locator:05X}"
+    )))
+}
+
+fn read_entry_data<R: Read + Seek>(
+    reader: &mut R,
+    data_offset: u64,
+    size: usize,
+    tile_count: Option<usize>,
+) -> Result<Vec<u8>, IoError> {
+    let byte_len = match tile_count {
+        Some(tile_count) => tile_count
+            .checked_mul(size)
+            .ok_or_else(|| IoError::InvalidBiff("TIS resource size overflow".to_string()))?,
+        None => size,
+    };
+
+    reader
+        .seek(SeekFrom::Start(data_offset))
+        .map_err(IoError::FileIo)?;
+    let mut resource_bytes = vec![0u8; byte_len];
+    reader
+        .read_exact(&mut resource_bytes)
+        .map_err(IoError::FileIo)?;
+
+    if let Some(tile_count) = tile_count {
+        let mut output = Vec::with_capacity(24 + resource_bytes.len());
+        output.extend_from_slice(b"TIS V1  ");
+        output.extend_from_slice(&(tile_count as u32).to_le_bytes());
+        output.extend_from_slice(&(size as u32).to_le_bytes());
+        output.extend_from_slice(&0x18u32.to_le_bytes());
+        output.extend_from_slice(&0x40u32.to_le_bytes());
+        output.extend_from_slice(&resource_bytes);
+        return Ok(output);
+    }
+
+    Ok(resource_bytes)
+}
+
+fn read_u32_reader<R: Read>(reader: &mut R, field: &str) -> Result<u32, IoError> {
+    let mut bytes = [0u8; 4];
+    reader
+        .read_exact(&mut bytes)
+        .map_err(|error| match error.kind() {
+            std::io::ErrorKind::UnexpectedEof => IoError::UnexpectedEof(field.to_string()),
+            _ => IoError::FileIo(error),
+        })?;
+    Ok(u32::from_le_bytes(bytes))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

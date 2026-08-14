@@ -1,6 +1,6 @@
 # Spec: DLC archive mounting (Enhanced Edition `dlc/*.zip`)
 
-Status: specified, not implemented.
+Status: implemented.
 
 Enhanced Edition titles ship expansion content as a zip under `dlc/`. `iecli` has no zip reader, so on
 an install that still keeps its DLC packed, every resource inside it resolves as not-found and every

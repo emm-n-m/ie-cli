@@ -152,6 +152,7 @@ impl GameVariant {
 pub enum SourceKind {
     Override,
     Bif,
+    Dlc,
     LooseFile,
 }
 
@@ -160,6 +161,7 @@ impl SourceKind {
         match self {
             Self::Override => "override",
             Self::Bif => "bif",
+            Self::Dlc => "dlc",
             Self::LooseFile => "loose_file",
         }
     }

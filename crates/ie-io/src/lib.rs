@@ -1,5 +1,6 @@
 mod biff;
 mod bytes;
+mod dlc;
 mod ids;
 
 use crate::bytes::{read_u16_le, read_u32_le};
@@ -13,6 +14,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use thiserror::Error;
 
+pub use dlc::DlcArchive;
 pub use ids::{FileBackedIdsResolver, parse_ids, parse_ids_text};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,6 +26,7 @@ pub struct GameInstallation {
     pub language_dir: Option<PathBuf>,
     pub dialog_tlk: Option<PathBuf>,
     pub override_dirs: Vec<PathBuf>,
+    pub dlc_archives: Vec<DlcArchive>,
 }
 
 impl GameInstallation {
@@ -40,7 +43,8 @@ impl GameInstallation {
         }
 
         let game_variant = detect_game_variant(&root);
-        let (language, language_dir, dialog_tlk) = discover_dialog_tlk(&root)?;
+        let dlc_archives = discover_dlc_archives(&root)?;
+        let (language, language_dir, dialog_tlk) = discover_dialog_tlk(&root, &dlc_archives)?;
         let override_dirs = discover_override_dirs(&root, language_dir.as_deref());
 
         Ok(Self {
@@ -51,7 +55,28 @@ impl GameInstallation {
             language_dir,
             dialog_tlk,
             override_dirs,
+            dlc_archives,
         })
+    }
+
+    fn read_dialog_tlk(&self) -> Result<Vec<u8>, IoError> {
+        let path = self
+            .dialog_tlk
+            .as_ref()
+            .ok_or_else(|| IoError::DialogTlkNotFound(self.root.clone()))?;
+        if path.is_file() {
+            return fs::read(path).map_err(IoError::FileIo);
+        }
+
+        let path_text = path.to_string_lossy();
+        for archive in &self.dlc_archives {
+            let prefix = format!("{}!", archive.path.display());
+            if let Some(interior) = path_text.strip_prefix(&prefix) {
+                return archive.read_entry(interior);
+            }
+        }
+
+        Err(IoError::DialogTlkNotFound(path.clone()))
     }
 }
 
@@ -59,6 +84,8 @@ impl GameInstallation {
 struct OverrideIndex {
     /// Uppercased file name -> path, one map per entry of `override_dirs`.
     by_dir: Vec<HashMap<String, PathBuf>>,
+    /// Uppercased file name -> (DLC index, interior path), one map per archive.
+    dlc_by_archive: Vec<HashMap<String, String>>,
 }
 
 #[derive(Debug)]
@@ -233,6 +260,18 @@ impl ResourceLocator {
                 .iter()
                 .map(|dir| index_override_dir(dir))
                 .collect(),
+            dlc_by_archive: self
+                .installation
+                .dlc_archives
+                .iter()
+                .map(|archive| {
+                    archive
+                        .override_entries()
+                        .into_iter()
+                        .map(|(name, interior)| (name.to_ascii_uppercase(), interior))
+                        .collect()
+                })
+                .collect(),
         })
     }
 
@@ -260,6 +299,35 @@ impl ResourceLocator {
                         game_variant: self.installation.game_variant,
                     },
                     locator: None,
+                    dlc_location: None,
+                });
+            }
+        }
+
+        // DLCs are sorted by filename during discovery. Walk them backwards
+        // so a later-sorted DLC has the documented higher precedence.
+        for (archive_index, by_name) in self
+            .override_index()
+            .dlc_by_archive
+            .iter()
+            .enumerate()
+            .rev()
+        {
+            if let Some(interior) = by_name.get(&lookup_key) {
+                let archive = &self.installation.dlc_archives[archive_index];
+                return Some(LocatedResource {
+                    metadata: ResourceMetadata {
+                        source_path: archive.display_path(interior),
+                        source_kind: SourceKind::Dlc,
+                        resource_type: resource.resource_type(),
+                        resource_name: file_name.clone(),
+                        game_variant: self.installation.game_variant,
+                    },
+                    locator: None,
+                    dlc_location: Some(DlcLocation {
+                        archive_index,
+                        interior_path: interior.clone(),
+                    }),
                 });
             }
         }
@@ -282,21 +350,48 @@ impl ResourceLocator {
                 IoError::InvalidKey(format!("invalid BIFF index {}", entry.biff_index))
             })?;
 
-        let source_path = biff
-            .actual_path
-            .clone()
-            .unwrap_or_else(|| self.installation.root.join(&biff.relative_path));
+        let (source_path, source_kind, dlc_location) = self.biff_source(biff);
 
         Ok(LocatedResource {
             metadata: ResourceMetadata {
                 source_path,
-                source_kind: SourceKind::Bif,
+                source_kind,
                 resource_type: entry.resource_type,
                 resource_name: key,
                 game_variant: self.installation.game_variant,
             },
             locator: Some(entry.locator),
+            dlc_location,
         })
+    }
+
+    fn biff_source(&self, biff: &KeyBiffEntry) -> (PathBuf, SourceKind, Option<DlcLocation>) {
+        if let Some(path) = biff.actual_path.clone() {
+            return (path, SourceKind::Bif, None);
+        }
+
+        for (archive_index, archive) in self.installation.dlc_archives.iter().enumerate() {
+            let interior = archive.entry_name(&biff.relative_path).or_else(|| {
+                let cbf_relative = replace_extension(&biff.relative_path, "cbf");
+                archive.entry_name(&cbf_relative)
+            });
+            if let Some(interior) = interior {
+                return (
+                    archive.display_path(interior),
+                    SourceKind::Dlc,
+                    Some(DlcLocation {
+                        archive_index,
+                        interior_path: interior.to_string(),
+                    }),
+                );
+            }
+        }
+
+        (
+            self.installation.root.join(&biff.relative_path),
+            SourceKind::Bif,
+            None,
+        )
     }
 
     fn override_entries(&self) -> Result<Vec<ListedResource>, IoError> {
@@ -327,6 +422,21 @@ impl ResourceLocator {
             }
         }
 
+        for archive in self.installation.dlc_archives.iter().rev() {
+            for (file_name, interior) in archive.override_entries() {
+                let Ok(resource) = ResourceName::parse(&file_name) else {
+                    continue;
+                };
+                entries.push(ListedResource {
+                    resource_name: resource.file_name(),
+                    resref: resource.resref().as_str().to_string(),
+                    extension: resource.extension().to_string(),
+                    source_kind: SourceKind::Dlc,
+                    source_path: archive.display_path(&interior),
+                });
+            }
+        }
+
         Ok(entries)
     }
 
@@ -341,16 +451,13 @@ impl ResourceLocator {
                 .ok_or_else(|| {
                     IoError::InvalidKey(format!("invalid BIFF index {}", entry.biff_index))
                 })?;
-            let source_path = biff
-                .actual_path
-                .clone()
-                .unwrap_or_else(|| self.installation.root.join(&biff.relative_path));
+            let (source_path, source_kind, _) = self.biff_source(biff);
 
             entries.push(ListedResource {
                 resource_name: entry.resource_name.clone(),
                 resref: entry.resref.clone(),
                 extension: entry.extension.clone(),
-                source_kind: SourceKind::Bif,
+                source_kind,
                 source_path,
             });
         }
@@ -538,6 +645,31 @@ impl ResourceReader {
                     bytes,
                 })
             }
+            SourceKind::Dlc => {
+                let source_path = located.metadata.source_path.clone();
+                let location = located.dlc_location.ok_or_else(|| IoError::DlcArchive {
+                    path: source_path.clone(),
+                    message: "missing DLC entry location".to_string(),
+                })?;
+                let archive = locator
+                    .installation
+                    .dlc_archives
+                    .get(location.archive_index)
+                    .ok_or_else(|| IoError::DlcArchive {
+                        path: source_path,
+                        message: "invalid DLC archive index".to_string(),
+                    })?;
+                let bytes = match located.locator {
+                    Some(locator) => {
+                        archive.read_biff_resource(&location.interior_path, locator)?
+                    }
+                    None => archive.read_entry(&location.interior_path)?,
+                };
+                Ok(ResourceBytes {
+                    metadata: located.metadata,
+                    bytes,
+                })
+            }
         }
     }
 }
@@ -645,6 +777,13 @@ fn index_override_dir(override_dir: &Path) -> HashMap<String, PathBuf> {
 pub struct LocatedResource {
     pub metadata: ResourceMetadata,
     pub locator: Option<u32>,
+    dlc_location: Option<DlcLocation>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DlcLocation {
+    archive_index: usize,
+    interior_path: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -669,11 +808,7 @@ pub struct TlkAppendResult {
 
 impl TlkResolver {
     pub fn new(installation: &GameInstallation) -> Result<Self, IoError> {
-        let path = installation
-            .dialog_tlk
-            .clone()
-            .ok_or_else(|| IoError::DialogTlkNotFound(installation.root.clone()))?;
-        let bytes = fs::read(&path).map_err(IoError::FileIo)?;
+        let bytes = installation.read_dialog_tlk()?;
         let header = parse_tlk_header(&bytes)?;
 
         Ok(Self {
@@ -1054,15 +1189,59 @@ pub struct KeyResourceEntry {
 // (language_name, language_dir, dialog_tlk_path)
 type DialogTlkDiscovery = (Option<String>, Option<PathBuf>, Option<PathBuf>);
 
-fn discover_dialog_tlk(root: &Path) -> Result<DialogTlkDiscovery, IoError> {
+fn discover_dlc_archives(root: &Path) -> Result<Vec<DlcArchive>, IoError> {
+    let dlc_dir = root.join("dlc");
+    if !dlc_dir.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let mut paths = Vec::new();
+    for entry in fs::read_dir(&dlc_dir).map_err(IoError::FileIo)? {
+        let entry = entry.map_err(IoError::FileIo)?;
+        if !entry.file_type().map_err(IoError::FileIo)?.is_file() {
+            continue;
+        }
+        let file_name = entry.file_name().to_string_lossy().to_string();
+        if file_name.ends_with(".disabled")
+            || !file_name
+                .rsplit_once('.')
+                .is_some_and(|(_, extension)| extension.eq_ignore_ascii_case("zip"))
+        {
+            continue;
+        }
+        paths.push(entry.path());
+    }
+
+    paths.sort_by(|left, right| {
+        left.file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_ascii_lowercase()
+            .cmp(
+                &right
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_ascii_lowercase(),
+            )
+            .then_with(|| left.cmp(right))
+    });
+
+    paths.into_iter().map(DlcArchive::open).collect()
+}
+
+fn discover_dialog_tlk(
+    root: &Path,
+    dlc_archives: &[DlcArchive],
+) -> Result<DialogTlkDiscovery, IoError> {
     let direct = root.join("dialog.tlk");
     if direct.is_file() {
-        return Ok((None, None, Some(direct)));
+        return choose_largest_dialog_tlk(None, None, Some(direct), dlc_archives);
     }
 
     let lang_root = root.join("lang");
     if !lang_root.is_dir() {
-        return Ok((None, None, None));
+        return choose_largest_dialog_tlk(None, None, None, dlc_archives);
     }
 
     let mut languages = fs::read_dir(&lang_root)
@@ -1083,7 +1262,12 @@ fn discover_dialog_tlk(root: &Path) -> Result<DialogTlkDiscovery, IoError> {
         let language_dir = entry.path();
         let dialog_tlk = language_dir.join("dialog.tlk");
         if dialog_tlk.is_file() {
-            return Ok((Some(language), Some(language_dir), Some(dialog_tlk)));
+            return choose_largest_dialog_tlk(
+                Some(language),
+                Some(language_dir),
+                Some(dialog_tlk),
+                dlc_archives,
+            );
         }
     }
 
@@ -1092,11 +1276,92 @@ fn discover_dialog_tlk(root: &Path) -> Result<DialogTlkDiscovery, IoError> {
         let language_dir = entry.path();
         let dialog_tlk = language_dir.join("dialog.tlk");
         if dialog_tlk.is_file() {
-            return Ok((Some(language), Some(language_dir), Some(dialog_tlk)));
+            return choose_largest_dialog_tlk(
+                Some(language),
+                Some(language_dir),
+                Some(dialog_tlk),
+                dlc_archives,
+            );
         }
     }
 
-    Ok((None, None, None))
+    choose_largest_dialog_tlk(None, None, None, dlc_archives)
+}
+
+fn choose_largest_dialog_tlk(
+    base_language: Option<String>,
+    base_language_dir: Option<PathBuf>,
+    base_path: Option<PathBuf>,
+    dlc_archives: &[DlcArchive],
+) -> Result<DialogTlkDiscovery, IoError> {
+    let base_count = base_path
+        .as_deref()
+        .map(fs::read)
+        .transpose()
+        .map_err(IoError::FileIo)?
+        .map(|bytes| parse_tlk_header(&bytes).map(|header| header.entry_count))
+        .transpose()?;
+
+    let mut selected = base_path.zip(base_count).map(|(path, count)| {
+        (
+            base_language.clone(),
+            base_language_dir.clone(),
+            path,
+            count,
+        )
+    });
+
+    let mut candidates = Vec::new();
+    for archive in dlc_archives {
+        for (language, interior) in archive.dialog_tlk_entries() {
+            if base_language
+                .as_deref()
+                .is_some_and(|base| !base.eq_ignore_ascii_case(&language))
+            {
+                continue;
+            }
+            candidates.push((language, interior, archive));
+        }
+    }
+
+    // With no base language, prefer en_US if available; otherwise use the
+    // lexicographically first DLC locale, matching base discovery's rule.
+    if base_language.is_none() {
+        let preferred = candidates
+            .iter()
+            .any(|(language, _, _)| language.eq_ignore_ascii_case("en_US"));
+        if preferred {
+            candidates.retain(|(language, _, _)| language.eq_ignore_ascii_case("en_US"));
+        }
+    }
+
+    candidates.sort_by(|left, right| {
+        left.0
+            .to_ascii_lowercase()
+            .cmp(&right.0.to_ascii_lowercase())
+            .then(left.1.cmp(&right.1))
+            .then(left.2.path.cmp(&right.2.path))
+    });
+
+    for (language, interior, archive) in candidates {
+        let bytes = archive.read_entry(&interior)?;
+        let count = parse_tlk_header(&bytes)?.entry_count;
+        let should_select = selected
+            .as_ref()
+            .is_none_or(|(_, _, _, selected_count)| count > *selected_count);
+        if should_select {
+            selected = Some((
+                Some(language),
+                base_language_dir.clone(),
+                archive.display_path(&interior),
+                count,
+            ));
+        }
+    }
+
+    Ok(selected
+        .map(|(language, language_dir, path, _)| (language, language_dir, Some(path)))
+        .unwrap_or((None, None, None)))
 }
 
 fn discover_override_dirs(root: &Path, language_dir: Option<&Path>) -> Vec<PathBuf> {
@@ -1413,6 +1678,10 @@ pub enum IoError {
     InvalidIds(String),
     #[error("invalid BIFF archive: {0}")]
     InvalidBiff(String),
+    #[error("could not mount DLC archive {path}: {message}")]
+    DlcArchive { path: PathBuf, message: String },
+    #[error("DLC entry {entry} not found in {archive}")]
+    DlcEntryNotFound { archive: PathBuf, entry: String },
     #[error("unexpected end of file while reading {0}")]
     UnexpectedEof(String),
     #[error("{0}")]

@@ -61,6 +61,17 @@ These validate the loading pipeline independent of any format decoder.
 | Resolve known item name        | BG2EE  | (from ACIDBL.ITM header) | Matches Near Infinity's displayed name |
 | Out-of-range strref            | BG2EE  | 99999999 | Returns `StrRefOutOfRange`                           |
 
+### 1.5 Packed DLC Mounting
+
+| Test case | Game | What to verify |
+|---|---|---|
+| Discover and mount packed DLC | BGEE+SoD | `dlc/*.zip` is opened and invalid archives fail discovery rather than being skipped |
+| Read DLC-backed CRE | BGEE+SoD | A `BD*` CRE listed from the packed DLC resolves, reads, and decodes as a CRE |
+| Resolve DLC TLK extension | BGEE+SoD | strref `50000` resolves to `If I could, I would. But I can't, so...` and output names the selected zip entry |
+| Compare packed and merged installs | BGEE+SoD | Resource and string answers agree with the DlcMerger-merged installation |
+
+The first three checks are gated by `IE_BGEE_SOD_PATH` and skip when no packed install is available.
+
 ---
 
 ## 2. ITM Decoder Tests (ie-formats)

@@ -9,3 +9,4 @@ rust-version.workspace = true
 flate2.workspace = true
 ie-core = { path = "../ie-core" }
 thiserror.workspace = true
+zip.workspace = true
