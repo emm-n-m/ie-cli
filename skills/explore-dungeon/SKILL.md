@@ -35,7 +35,9 @@ target/debug/iecli verify \
     --format json
 ```
 
-Prioritize `phantom_entrance` and `dead_link` errors before interpreting traversal output. Warnings such as missing area scripts or actor dialogs are useful leads, but can be benign in modded installs.
+Prioritize `phantom_entrance` and `dead_link` errors before interpreting traversal output. Warnings such as missing area scripts or actor dialogs are useful leads, but can be benign in modded installs — stock BGEE alone accounts for 286 `missing_area_script` warnings, because BG1 areas routinely name an area script that was never shipped.
+
+Two cautions when reading the result. Errors are not automatically the mod's fault: stock BGEE ships six `dead_link` / `phantom_entrance` errors in BIF-backed areas, so drop `--source override` only if you are ready to triage shipped data too. And an area no Travel region reaches is not necessarily unreachable — on BG-family installs most outdoor areas are entered from the worldmap, which `iecli` does not parse. Treat the orphan list as suspects, not proof.
 
 ```bash
 python skills/explore-dungeon/scripts/walk_graph.py \

@@ -30,7 +30,7 @@ right one.
 
 ## Status Snapshot
 
-Current as of 2026-08-12.
+Current as of 2026-08-14.
 
 ### Done
 
@@ -67,6 +67,7 @@ Current as of 2026-08-12.
 - `iecli verify --source override` now automates ARE cross-resource checks for dead Travel links, phantom entrances, and missing referenced scripts/actors/items.
 - Whole-install PSTEE sweeps: all 859 dialogues dumped and mined for `CheckStat` gates and `PermanentStatChange` grants, plus ITM/SPL effect scans, producing the stat-plan, conversation-boon, and Law-axis guides. This is the largest read-path workload the parsers have carried, and the ITM/SPL half is what surfaced the PST effect-opcode gap fixed above.
 - Whole-install IWDEE sweep: 5,995 of 5,996 resources decode across `ITM`, `SPL`, `CRE`, `ARE`, `DLG`, `BCS`, and `STO`. The single failure is `#BONECIR.SPL`, which ships with a corrupt signature byte (`SPL\x03`); repairing that byte parses the file cleanly, so it is bad shipped data rather than a parser gap.
+- Whole-install BGEE sweep, the first validation target that is *heavily modded* rather than stock: 16 WeiDU mods, 7,762 override files, and SoD merged in by DlcMerger. 10,965 of 10,966 resources decode across the seven typed formats. The expectation going in was that hand-written mod resources would break the parsers where uniform Bioware data had not; that was wrong, and usefully so — every one of the 7,762 override files decoded, and the only failure was first-party. See the sweep findings below.
 - Fresh-mod triage on a 2,313-resource PST mod (Blizzard in Baator) via `override-diff`, establishing that the mod is additive rather than a vanilla rewrite before any deeper investigation ran.
 - Save-aware analysis: `save-info` globals joined against DLG trackers to tell "already taken" from "still available" in the Law ledger.
 
@@ -76,7 +77,10 @@ Current as of 2026-08-12.
 - Classic PST save support (`GAM` v1.1). PSTEE uses `GAM` v2.0 and is already covered by the current read path and the scoped item-write path.
 - BG/BG2/IWD support for `save-add-item`; these variants remain hard-gated until their GAM layouts and inventory slot maps are validated.
 - JSON golden/snapshot tests for any decoded format.
-- Broad cross-game validation. BG2EE, PSTEE, and IWDEE now all have substantial real-install coverage; BGEE has narrow BCS coverage only and is the last unvalidated title.
+- Broad cross-game validation. All four Enhanced Edition titles now have whole-install or substantial real-install coverage. What is missing is no longer a title but an install *shape*: every target so far has been a single merged game root.
+- DLC archive mounting. `dlc/sod-dlc.zip` is a complete game-root overlay — its own `data/*.BIF`, `override/`, and `lang/<locale>/dialog.tlk` — and nothing in `ie-io` or `ie-core` reads zips. The BGEE sweep did cover SoD content only because DlcMerger had flattened it into the game root. On a default Steam BGEE+SoD install every SoD resource resolves as not-found *silently*, and SoD strrefs would resolve against the base-game TLK. Silent under-coverage is the worst failure shape for a tool that sells trustworthy extraction, so this outranks the remaining format work.
+- `WMP` (worldmap) parsing, without which `verify` cannot tell a live broken exit from an unreachable leftover on BG-family installs. See the BGEE sweep findings.
+- A known-issue baseline for `verify` on stock BGEE, since stock-install-verifies-clean does not generalize off IWDEE.
 - `verify` beyond ARE. Other resource types are rejected rather than partially checked.
 - General structured resource serialization and WeiDU patch emission.
 
@@ -98,6 +102,48 @@ Shipping this MVP touches every format that matters: `CRE` (new + template), `DL
 Priorities below are ordered against this use case.
 
 ### Recently Completed
+
+#### BGEE Validation Sweep
+
+BGEE was the last unvalidated title. A whole-install sweep decoded 10,965 of 10,966 resources
+(ITM 2294, SPL 1858, CRE 2811, ARE 601, DLG 1668, BCS 1578, STO 156), and `verify` ran across all
+601 areas. Four things came out of it.
+
+**A misfiled resource, not a corrupt one.** `CDDETECT.SPL` is indexed as a spell in `chitin.key`,
+but `data/PATCH20.BIF` holds a complete, coherent `ITM V1` at that locator — valid signature, sane
+offsets, `IMISC0` icon. Nothing is damaged; the index simply disagrees with the payload. This is a
+different failure from IWDEE's `#BONECIR.SPL`, where one signature byte was corrupt, and the two are
+only distinguishable because the error reports what it found as well as what it expected. That is
+the second time the expected/found message has paid for itself.
+
+**A resref with a space in the middle.** Stock BGEE ships `MONKTU 8.DLG` in `data/DIALOG.BIF`.
+Resrefs are 8 bytes and space-padded, but here the padding falls mid-name. Lookup and `dump` handle
+it correctly; `list --format text` did not, because it printed the resref bare, making one row
+indistinguishable from two whitespace-separated fields. The first consumer to split that output —
+the sweep harness itself — misaligned from that row onward and reported 2,444 phantom failures. Text
+mode now quotes resrefs that are not purely graphic ASCII and leaves ordinary ones bare; `--format
+json` was and remains the machine interface.
+
+**A stock install is not always a clean one.** `verify` reports 359 issues, of which 10 are errors —
+and 6 of those 10 are in BIF-backed shipped data (`AR2622`, `AR2624`, `AR2637`, `AR2638`, `AR4201`,
+`PH0001`), not in any mod's override. `AR2621.ARE`, `ARC014Z.ARE`, and `FW0123.ARE` are absent from
+the KEY, and mods only add resources, so a clean BGEE reports the same. Some are plain data typos:
+`AR2637` points at `Exit2621` in `AR2638`, which offers `Exit2321` and `Exit2623`. This contradicts
+the premise behind `verify_reports_no_issues_for_stock_iwdee_when_iwdee_game_path_is_set` — stock
+IWDEE verifying clean is a fact about IWDEE, not a property of stock installs, and the analogous
+BGEE assertion would fail on shipped data. A BGEE baseline needs a known-issue list rather than
+`assert_empty`.
+
+The remaining 349 issues are warnings, 286 of them `missing_area_script`: BG1 areas routinely name an
+area script after themselves and ship no such BCS. The references genuinely dangle, and the engine
+tolerates it. Severity already separates these from the 10 errors, which is what keeps the signal
+visible.
+
+**Reachability needs the worldmap.** Dumping all 601 areas and building an inbound Travel-region map
+shows `AR2622` reachable from `AR2623` and `AR2637`/`AR2638` from each other, so those dangling exits
+are live rather than cut content. But 53 areas have zero inbound Travel links, and in BG1 that mostly
+means worldmap entry, not unreachability. `iecli` has no `WMP` parser, so inbound Travel-region count
+is a weak proxy and cannot currently tell "broken exit a player will hit" from "unreachable leftover".
 
 #### DLG Read + Graph Export
 

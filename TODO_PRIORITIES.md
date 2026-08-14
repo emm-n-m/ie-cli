@@ -188,7 +188,8 @@ Current status:
 - `BG2EE` has been used as the first real validation target.
 - `PSTEE` is now a second real target: every dialogue in the install has been swept, plus a 2,313-resource mod, and PSTEE saves drive the scoped save-write path.
 - `IWDEE` is validated: a whole-install sweep decoded 5,995 of 5,996 resources, and its stat-item anchors are pinned as tests.
-- `BGEE` has narrow coverage only (BCS smoke), and is the last unvalidated title.
+- `BGEE` is validated: a whole-install sweep of a heavily modded install (16 WeiDU mods, 7,762 override files, SoD merged) decoded 10,965 of 10,966 resources.
+- All four titles now have real-install coverage. The remaining gap is install *shape*, not title: every target so far has been a single merged game root, so unmerged DLC overlays are untested.
 
 Completed:
 
@@ -198,17 +199,21 @@ Completed:
 - Report the detected variant from `locate` as `game_variant`, so a misdetected install is visible instead of silently decoding as standard.
 
 - Validate IWDEE with a whole-install decode sweep and opcode anchors, and confirm the `iwd` variant can keep sharing the standard opcode table.
+- Validate BGEE with a whole-install decode sweep plus an install-wide `verify` pass, on a heavily modded install rather than a stock one.
 
 Remaining:
 
-- Validate against BGEE beyond smoke coverage.
+- Mount DLC archives (`dlc/*.zip`). A default Steam BGEE+SoD install keeps SoD in a zip that is a full game-root overlay with its own `data/`, `override/`, and `lang/<locale>/dialog.tlk`. Nothing reads zips today, so those resources resolve as not-found *silently* and SoD strrefs would resolve against the base-game TLK. The BGEE sweep missed this only because DlcMerger had already flattened the overlay.
+- Give `verify` a stock-BGEE baseline. Stock BGEE ships 6 dead links / phantom entrances in BIF-backed areas, so the IWDEE-style `assert_empty` does not port; the BGEE assertion needs a known-issue list.
+- Parse `WMP` so `verify` can distinguish a live broken exit from an unreachable leftover. 53 BGEE areas have no inbound Travel region, but in BG1 that usually means worldmap entry rather than unreachability.
 - Extend the effect-opcode tables; 41% of IWDEE opcode instances resolve to a name today. Unnamed opcodes emit `decoded: null`, so this is coverage rather than a correctness risk.
-- Keep documenting per-game quirks as they surface. Known so far: PST uses its own opcode numbering; IWDEE ships `#BONECIR.SPL` with a corrupt signature byte; stock areas rely on case-insensitive entrance names and use `NONE` as an empty script/dialog slot.
+- Keep documenting per-game quirks as they surface. Known so far: PST uses its own opcode numbering; IWDEE ships `#BONECIR.SPL` with a corrupt signature byte; BGEE indexes `CDDETECT` as `.SPL` over ITM payload bytes and ships `MONKTU 8.DLG`, a resref whose padding space falls mid-name; stock areas rely on case-insensitive entrance names and use `NONE` as an empty script/dialog slot.
 
 Exit criteria:
 
-- tool works on more than one Infinity Engine title (met: BG2EE + PSTEE)
-- each supported title has real-install coverage rather than assumed compatibility
+- tool works on more than one Infinity Engine title (met: BG2EE + PSTEE + IWDEE + BGEE)
+- each supported title has real-install coverage rather than assumed compatibility (met)
+- each supported *install shape* has real coverage rather than assumed compatibility (not met: unmerged DLC overlays are unread)
 
 ## P2: Areas, Verification, And Scoped Writes
 
@@ -284,7 +289,7 @@ Current high-value follow-up issues:
 2. Add JSON golden or snapshot tests for decoded `ITM` and `SPL` output.
 3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
 4. Broaden real-install validation for `DLG` and `BCS`.
-5. Validate BGEE, the last unvalidated title.
+5. Mount DLC archives, so a default BGEE+SoD install stops silently hiding SoD content.
 
 Validation debt is now the dominant backlog theme: read coverage has run far ahead of fixtures and
 snapshots. Items 1–4 predate the PSTEE sweeps and remain open despite that workload.

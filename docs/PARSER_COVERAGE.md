@@ -1,6 +1,6 @@
 # Parser Coverage Matrix
 
-Current as of 2026-08-12. This matrix tracks what the typed JSON parsers expose today and what remains shallow or deferred.
+Current as of 2026-08-14. This matrix tracks what the typed JSON parsers expose today and what remains shallow or deferred.
 
 `Deferred (offset/count only)` means the parser reads section pointers from the header but does not decode the referenced records. `Other gaps` covers fields or semantics that are omitted, preserved as raw bytes, or only lightly decoded.
 
@@ -30,3 +30,8 @@ See [SAVE_SUPPORT_TODO.md](SAVE_SUPPORT_TODO.md) for the format notes behind the
 ## Unsupported Resource Parsers
 
 No typed JSON parser is present yet for common follow-on resource families such as `WED`, `TIS`, `BAM`, `MOS`, `2DA`, `EFF` as a standalone resource, `PRO`, `VEF`, `VVC`, or `IDS` as exported JSON. Some of these are already read indirectly as links or resolver inputs, but they are not first-class `dump` decoders.
+
+Two absences have consequences beyond "that resource type does not dump", so they are worth stating plainly:
+
+- **`WMP` (worldmap).** Without it, area reachability can only be inferred from ARE Travel regions. On BG-family installs most outdoor areas are entered from the worldmap instead, so a zero-inbound-Travel-link area is not necessarily unreachable — 53 BGEE areas are in that state. `verify` therefore cannot currently separate a broken exit a player will walk into from a dangling link in content nothing reaches.
+- **DLC archives (`dlc/*.zip`).** Not a resource type but a container: an Enhanced Edition DLC zip is a complete game-root overlay carrying its own `data/*.BIF`, `override/`, and `lang/<locale>/dialog.tlk`. Nothing in the loader reads zips, so on an unmerged install those resources resolve as not-found with no warning, and their strrefs would resolve against the base-game TLK. Installs that ran DlcMerger are unaffected because the overlay has already been flattened into the game root.
