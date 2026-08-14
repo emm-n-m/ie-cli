@@ -533,7 +533,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             match args.format {
                 ListFormat::Text => {
                     for resource in resources {
-                        println!("{}", resource.resref);
+                        println!("{}", format_listed_resref(&resource.resref));
                     }
                 }
                 ListFormat::Json => {
@@ -803,6 +803,40 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+/// Render a resref for the human-facing `list` text output.
+///
+/// Resrefs are 8 bytes and space-padded, but shipped data does not always keep
+/// the padding at the end: stock BGEE has a dialogue whose resref is `MONKTU 8`,
+/// with the space in the middle. Printed bare, that one line is indistinguishable
+/// from two whitespace-separated fields, so anything splitting the listing
+/// silently misaligns from that row onward instead of failing loudly.
+///
+/// Quote only the exceptions. The common case stays greppable, and the odd resref
+/// becomes visible rather than invisible. `--format json` remains the interface
+/// for machine consumers.
+fn format_listed_resref(resref: &str) -> String {
+    if resref.chars().all(|character| character.is_ascii_graphic()) {
+        return resref.to_string();
+    }
+
+    let escaped = resref
+        .chars()
+        .map(|character| match character {
+            '"' => "\\\"".to_string(),
+            '\\' => "\\\\".to_string(),
+            ' ' => " ".to_string(),
+            character if character.is_ascii_graphic() => character.to_string(),
+            character => character
+                .to_string()
+                .bytes()
+                .map(|byte| format!("\\x{byte:02X}"))
+                .collect::<String>(),
+        })
+        .collect::<String>();
+
+    format!("\"{escaped}\"")
+}
+
 fn listed_resource_json(resource: &ListedResource) -> serde_json::Value {
     serde_json::json!({
         "resref": resource.resref,
@@ -831,6 +865,24 @@ mod tests {
     use ie_core::{ResourceLinkResolver, SourceKind};
     use std::path::Path;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn format_listed_resref_leaves_ordinary_resrefs_bare() {
+        assert_eq!(format_listed_resref("SW1H01"), "SW1H01");
+        assert_eq!(format_listed_resref("#BONECIR"), "#BONECIR");
+    }
+
+    #[test]
+    fn format_listed_resref_quotes_embedded_whitespace() {
+        // Stock BGEE ships this resref in data/DIALOG.BIF. Bare, the line looks
+        // like two fields to anything splitting on whitespace.
+        assert_eq!(format_listed_resref("MONKTU 8"), "\"MONKTU 8\"");
+    }
+
+    #[test]
+    fn format_listed_resref_escapes_non_printable_bytes() {
+        assert_eq!(format_listed_resref("AB\u{1}CD"), "\"AB\\x01CD\"");
+    }
 
     #[test]
     fn verify_smoke_against_ie_game_path_when_set() {

@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const CRE_TYPE_CODE: u16 = 0x03F1;
 const ITM_TYPE_CODE: u16 = 0x03ED;
+const DLG_TYPE_CODE: u16 = 0x03F3;
 
 #[test]
 fn dump_raw_source_bif_reads_archive_when_override_exists() {
@@ -43,6 +44,93 @@ fn dump_raw_source_bif_reads_archive_when_override_exists() {
         fs::read(&output_path).expect("dump-raw should write output"),
         b"CRE BASE"
     );
+}
+
+#[test]
+fn list_text_quotes_resrefs_containing_spaces() {
+    // Stock BGEE ships MONKTU 8.DLG, an 8-byte resref whose padding space sits in
+    // the middle. Printed bare it reads as two whitespace-separated fields, which
+    // silently shifts every later row for anything splitting the listing. The
+    // ordinary resref beside it has to stay unquoted, or the fix trades one
+    // parsing surprise for another.
+    let fixture = TestInstallation::new("list-text-spaced-resref");
+    fixture.write_archive_install(
+        "data/dialog.bif",
+        &[
+            TestResourceSpec::new("MONKTU 8.DLG", DLG_TYPE_CODE, b"DLG BASE"),
+            TestResourceSpec::new("MONKTU1.DLG", DLG_TYPE_CODE, b"DLG BASE"),
+        ],
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("list")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--type")
+        .arg("DLG")
+        .arg("--format")
+        .arg("text")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines = stdout.lines().collect::<Vec<_>>();
+
+    assert!(
+        lines.contains(&"\"MONKTU 8\""),
+        "spaced resref should be quoted; got {lines:?}"
+    );
+    assert!(
+        lines.contains(&"MONKTU1"),
+        "ordinary resref should stay bare; got {lines:?}"
+    );
+    for line in &lines {
+        assert_eq!(
+            line.split_whitespace().count() > 1,
+            line.starts_with('"'),
+            "only quoted lines may contain whitespace; got {line:?}"
+        );
+    }
+}
+
+#[test]
+fn list_json_keeps_spaced_resrefs_unquoted_for_machine_consumers() {
+    // The quoting above is a text-mode presentation fix. JSON is the machine
+    // interface, and it must keep carrying the resref exactly as stored.
+    let fixture = TestInstallation::new("list-json-spaced-resref");
+    fixture.write_archive_install(
+        "data/dialog.bif",
+        &[TestResourceSpec::new(
+            "MONKTU 8.DLG",
+            DLG_TYPE_CODE,
+            b"DLG BASE",
+        )],
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("list")
+        .arg("--game")
+        .arg(fixture.root())
+        .arg("--type")
+        .arg("DLG")
+        .arg("--format")
+        .arg("json")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        output.status.success(),
+        "iecli failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout: Value = serde_json::from_slice(&output.stdout).expect("list should emit JSON");
+    assert_eq!(stdout[0]["resref"], "MONKTU 8");
+    assert_eq!(stdout[0]["resource_name"], "MONKTU 8.DLG");
 }
 
 #[test]

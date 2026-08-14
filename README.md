@@ -136,6 +136,10 @@ iecli save-info --game /path/to/game --save "000000001-Quick-Save" --part gam
 iecli save-add-item --game /path/to/pstee --save "000000001-Quick-Save" --item <ITM-RESREF> --member 0 --output ./patched-save
 ```
 
+Use `--format json` when something other than a human reads the output. Resrefs are not guaranteed to
+be whitespace-free — stock BGEE ships `MONKTU 8.DLG` — so `list --format text` quotes any resref that
+is not plain graphic ASCII, and splitting the unquoted text output on whitespace is not safe.
+
 ## Documentation
 
 - [Roadmap](./ROADMAP.md) — current status, next milestones, write-support tiers
