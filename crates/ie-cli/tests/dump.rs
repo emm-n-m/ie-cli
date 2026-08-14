@@ -440,8 +440,64 @@ fn dump_iwdee_reports_corrupt_spell_signature_actionably_when_iwdee_game_path_is
     );
 }
 
+#[test]
+fn dump_bgee_reports_misfiled_item_signature_actionably_when_bgee_game_path_is_set() {
+    let Some(game_path) = bgee_game_path() else {
+        return;
+    };
+
+    // Stock BGEE indexes CDDETECT under .SPL in chitin.key, but data/PATCH20.BIF
+    // holds a complete, coherent ITM V1 at that locator. Unlike IWDEE's
+    // #BONECIR.SPL, nothing here is corrupt — the payload is simply a different
+    // resource type than the index claims. Both cases used to read as a bare
+    // "missing SPL signature"; the found-signature half is what separates them.
+    let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
+        .arg("dump")
+        .arg("--game")
+        .arg(&game_path)
+        .arg("--resource")
+        .arg("CDDETECT.SPL")
+        .output()
+        .expect("iecli should run");
+
+    assert!(
+        !output.status.success(),
+        "a misfiled resource should not decode"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("missing SPL signature")
+            && stderr.contains("expected \"SPL \"")
+            && stderr.contains("found \"ITM \""),
+        "unexpected stderr: {stderr}"
+    );
+}
+
+#[test]
+fn dump_bgee_decodes_resref_containing_a_space_when_bgee_game_path_is_set() {
+    let Some(game_path) = bgee_game_path() else {
+        return;
+    };
+
+    // Stock BGEE ships MONKTU 8.DLG in data/DIALOG.BIF: an 8-byte resref whose
+    // padding space falls in the middle rather than at the end. Lookup has to
+    // carry the name through verbatim rather than trimming at the first space.
+    let dialog = dump_json(&game_path, "MONKTU 8.DLG");
+
+    assert_eq!(dialog["resource_name"], "MONKTU 8.DLG");
+    assert_eq!(dialog["resource_type"], "DLG");
+    assert!(
+        dialog["header"]["num_states"].as_u64().unwrap_or(0) > 0,
+        "the dialogue should decode with at least one state; got {dialog}"
+    );
+}
+
 fn pstee_game_path() -> Option<OsString> {
     std::env::var_os("IE_PSTEE_PATH").or_else(|| std::env::var_os("IE_PSTEE_GAME_PATH"))
+}
+
+fn bgee_game_path() -> Option<OsString> {
+    std::env::var_os("IE_BGEE_PATH").or_else(|| std::env::var_os("IE_BGEE_GAME_PATH"))
 }
 
 fn iwdee_game_path() -> Option<OsString> {
