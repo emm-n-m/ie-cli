@@ -189,7 +189,7 @@ Current status:
 - `PSTEE` is now a second real target: every dialogue in the install has been swept, plus a 2,313-resource mod, and PSTEE saves drive the scoped save-write path.
 - `IWDEE` is validated: a whole-install sweep decoded 5,995 of 5,996 resources, and its stat-item anchors are pinned as tests.
 - `BGEE` is validated: a whole-install sweep of a heavily modded install (16 WeiDU mods, 7,762 override files, SoD merged) decoded 10,965 of 10,966 resources.
-- All four titles now have real-install coverage. The remaining gap is install *shape*, not title: every target so far has been a single merged game root, so unmerged DLC overlays are untested.
+- All four titles now have real-install coverage, and both install *shapes* do: the merged BGEE root above, plus an unmerged BGEE+SoD install whose DLC is still packed in `dlc/sod-dlc.zip`.
 
 Completed:
 
@@ -200,20 +200,20 @@ Completed:
 
 - Validate IWDEE with a whole-install decode sweep and opcode anchors, and confirm the `iwd` variant can keep sharing the standard opcode table.
 - Validate BGEE with a whole-install decode sweep plus an install-wide `verify` pass, on a heavily modded install rather than a stock one.
+- Mount DLC archives (`dlc/*.zip`) read-only, so a default Steam BGEE+SoD install stops silently under-reporting. Specified in [docs/SPEC_DLC_MOUNTING.md](./docs/SPEC_DLC_MOUNTING.md) and verified against a real unmerged install. The load-bearing correction came from that install: a DLC carries **its own KEY** (SoD's `mod.key`, indexing 40 BIFs and 21,269 resources), so it is a second index to merge, not a path-resolution overlay — the merged reference install had hidden this, and the original spec drew the opposite conclusion from it.
 
 Remaining:
 
-- Mount DLC archives (`dlc/*.zip`). A default Steam BGEE+SoD install keeps SoD in a zip that is a full game-root overlay with its own `data/`, `override/`, and `lang/<locale>/dialog.tlk`. Nothing reads zips today, so those resources resolve as not-found *silently* and SoD strrefs fall out of range. The BGEE sweep missed this only because DlcMerger had already flattened the overlay. Specified in [docs/SPEC_DLC_MOUNTING.md](./docs/SPEC_DLC_MOUNTING.md): the base KEY already indexes the DLC's BIFs, so this is a path-resolution overlay rather than a second resource index, and the DLC TLK is an exact prefix-superset of the base one (34,000 identical strrefs, then SoD-only additions). Implementation and unit tests need no game data; only the acceptance test needs an unmerged install.
 - Give `verify` a stock-BGEE baseline. Stock BGEE ships 6 dead links / phantom entrances in BIF-backed areas, so the IWDEE-style `assert_empty` does not port; the BGEE assertion needs a known-issue list.
 - Parse `WMP` so `verify` can distinguish a live broken exit from an unreachable leftover. 53 BGEE areas have no inbound Travel region, but in BG1 that usually means worldmap entry rather than unreachability.
 - Extend the effect-opcode tables; 41% of IWDEE opcode instances resolve to a name today. Unnamed opcodes emit `decoded: null`, so this is coverage rather than a correctness risk.
-- Keep documenting per-game quirks as they surface. Known so far: PST uses its own opcode numbering; IWDEE ships `#BONECIR.SPL` with a corrupt signature byte; BGEE indexes `CDDETECT` as `.SPL` over ITM payload bytes and ships `MONKTU 8.DLG`, a resref whose padding space falls mid-name; stock areas rely on case-insensitive entrance names and use `NONE` as an empty script/dialog slot.
+- Keep documenting per-game quirks as they surface. Known so far: PST uses its own opcode numbering; IWDEE ships `#BONECIR.SPL` with a corrupt signature byte; BGEE indexes `CDDETECT` as `.SPL` over ITM payload bytes and ships `MONKTU 8.DLG`, a resref whose padding space falls mid-name; stock areas rely on case-insensitive entrance names and use `NONE` as an empty script/dialog slot; SoD's `mod.key` and the base `chitin.key` name 17 identical BIF paths that are 17 different files, so BIF resolution must stay scoped to the KEY that named the entry.
 
 Exit criteria:
 
 - tool works on more than one Infinity Engine title (met: BG2EE + PSTEE + IWDEE + BGEE)
 - each supported title has real-install coverage rather than assumed compatibility (met)
-- each supported *install shape* has real coverage rather than assumed compatibility (not met: unmerged DLC overlays are unread)
+- each supported *install shape* has real coverage rather than assumed compatibility (met: merged and packed-DLC roots both validated against real installs)
 
 ## P2: Areas, Verification, And Scoped Writes
 
@@ -289,7 +289,7 @@ Current high-value follow-up issues:
 2. Add JSON golden or snapshot tests for decoded `ITM` and `SPL` output.
 3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
 4. Broaden real-install validation for `DLG` and `BCS`.
-5. Mount DLC archives, so a default BGEE+SoD install stops silently hiding SoD content.
+5. Give `verify` a stock-BGEE known-issue baseline, so the install-wide pass can assert rather than be read by hand.
 
 Validation debt is now the dominant backlog theme: read coverage has run far ahead of fixtures and
 snapshots. Items 1–4 predate the PSTEE sweeps and remain open despite that workload.

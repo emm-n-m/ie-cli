@@ -56,6 +56,24 @@ DLC is therefore **a second resource index to merge**, not merely an overlay on 
 Mounting the archive without reading its KEY reaches only `override/` and `lang/`: on this install
 that is 3 files out of 21,272 DLC-backed resources.
 
+The duplication is also wider and sharper than "three BIFs". Of the 40 BIFs `mod.key` names, **17
+share a name with one the base KEY names, and all 17 differ in declared length** — often by two
+orders of magnitude:
+
+| BIF | length per `mod.key` | length per base KEY |
+| --- | ---: | ---: |
+| `data/PATCH20.BIF` | 211,200 | 50,718,820 |
+| `data/Effects.bif` | 316 | 568,716 |
+| `data/GUIBAM.BIF` | 596 | 5,939,012 |
+| `data/25CREANI.BIF` | 17,618,072 | 43,907,284 |
+| … 13 more, none equal | | |
+
+So a shared path is not a shared file. The two KEYs describe *different archives that happen to
+occupy the same relative path*, and each KEY's resource locators are only valid against its own copy.
+Resolving BIF paths globally by name would hand base-KEY offsets to a 211 KB stand-in for a 50 MB
+archive — not a not-found error, but plausible-looking wrong bytes. This is what makes §4.3's
+per-origin-KEY rule load-bearing rather than a tidiness preference.
+
 ### 2.3 The DLC's TLK is an exact prefix-superset
 
 Both `dialog.tlk` files were extracted and compared entry by entry:
@@ -231,6 +249,11 @@ Secondary:
 - `lang/` locale sets differ between base and DLC; selection must be per-locale.
 - DlcMerger merged resources but left the base TLK in place on the reference install, so "merged"
   does not imply "strings merged". Do not treat a merged install as proof of TLK behaviour.
+- §4.3 step 3 — the by-name DLC scan for a base-KEY BIFF that is missing from disk — is the one path
+  where the 17 colliding names can still pair a KEY's locators with the wrong archive. It only
+  triggers on an install that has lost a base BIF, and a wrong-bytes decode is a worse answer than
+  "BIF not found"; if that case ever shows up in the wild, restrict the scan to BIFs whose name is
+  unique across the merged KEY.
 
 ## 8. Deliverables
 
