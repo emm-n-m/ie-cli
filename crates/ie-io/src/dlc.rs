@@ -1,7 +1,7 @@
 use crate::IoError;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::Read;
+use std::io::{BufReader, Read};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
@@ -68,6 +68,27 @@ impl DlcArchive {
         })
     }
 
+    /// Root-level `*.key` entries carried by the archive, sorted by name.
+    ///
+    /// An EE DLC indexes its own BIFs with a KEY of its own -- SoD ships
+    /// `mod.key` -- rather than being listed in the base `chitin.key`. Without
+    /// reading it, only the DLC's `override/` and `lang/` trees are reachable
+    /// and the whole packed content set resolves as not-found.
+    pub(crate) fn key_entries(&self) -> Vec<String> {
+        let mut entries = self
+            .entries
+            .iter()
+            .filter_map(|(normalized, original)| {
+                if normalized.contains('/') || !normalized.ends_with(".KEY") {
+                    return None;
+                }
+                Some(original.clone())
+            })
+            .collect::<Vec<_>>();
+        entries.sort();
+        entries
+    }
+
     pub(crate) fn entry_name(&self, name: &str) -> Option<&str> {
         self.entries
             .get(&normalize_entry_name(name))
@@ -113,7 +134,17 @@ impl DlcArchive {
         })?;
 
         match archive.by_name_seek(canonical) {
-            Ok(mut entry) => crate::biff::read_resource_from_reader(&mut entry, locator),
+            Ok(entry) => {
+                // Buffered, because scanning a BIFF's entry table is one 16-byte
+                // read per entry and the archive's reader passes each one
+                // straight through to the file. SoD's `data/Creature.bif` holds
+                // 1,566 entries, so an unbuffered lookup costs 1,566 syscalls --
+                // enough to make a whole-install `verify` several times slower
+                // over a network or WSL `/mnt/c` mount than the same BIF on disk,
+                // which is read once and scanned in memory.
+                let mut entry = BufReader::with_capacity(64 * 1024, entry);
+                crate::biff::read_resource_from_reader(&mut entry, locator)
+            }
             Err(_) => {
                 // Compressed ZIP entries cannot expose a seekable reader in the
                 // zip crate. This is uncommon for game BIFs, but remains valid

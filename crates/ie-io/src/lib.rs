@@ -366,24 +366,24 @@ impl ResourceLocator {
     }
 
     fn biff_source(&self, biff: &KeyBiffEntry) -> (PathBuf, SourceKind, Option<DlcLocation>) {
+        // A BIFF named by a DLC's own KEY is resolved against that DLC first,
+        // even when a same-named file sits on disk. Base BGEE and SoD both ship
+        // a `data/25CREANI.BIF`; only the archive's copy matches the offsets the
+        // archive's KEY records.
+        if let Some(archive_index) = biff.dlc_archive_index
+            && let Some(archive) = self.installation.dlc_archives.get(archive_index)
+            && let Some(located) = self.dlc_biff_location(archive_index, archive, biff)
+        {
+            return located;
+        }
+
         if let Some(path) = biff.actual_path.clone() {
             return (path, SourceKind::Bif, None);
         }
 
         for (archive_index, archive) in self.installation.dlc_archives.iter().enumerate() {
-            let interior = archive.entry_name(&biff.relative_path).or_else(|| {
-                let cbf_relative = replace_extension(&biff.relative_path, "cbf");
-                archive.entry_name(&cbf_relative)
-            });
-            if let Some(interior) = interior {
-                return (
-                    archive.display_path(interior),
-                    SourceKind::Dlc,
-                    Some(DlcLocation {
-                        archive_index,
-                        interior_path: interior.to_string(),
-                    }),
-                );
+            if let Some(located) = self.dlc_biff_location(archive_index, archive, biff) {
+                return located;
             }
         }
 
@@ -392,6 +392,27 @@ impl ResourceLocator {
             SourceKind::Bif,
             None,
         )
+    }
+
+    fn dlc_biff_location(
+        &self,
+        archive_index: usize,
+        archive: &DlcArchive,
+        biff: &KeyBiffEntry,
+    ) -> Option<(PathBuf, SourceKind, Option<DlcLocation>)> {
+        let interior = archive.entry_name(&biff.relative_path).or_else(|| {
+            let cbf_relative = replace_extension(&biff.relative_path, "cbf");
+            archive.entry_name(&cbf_relative)
+        })?;
+
+        Some((
+            archive.display_path(interior),
+            SourceKind::Dlc,
+            Some(DlcLocation {
+                archive_index,
+                interior_path: interior.to_string(),
+            }),
+        ))
     }
 
     fn override_entries(&self) -> Result<Vec<ListedResource>, IoError> {
@@ -1029,9 +1050,37 @@ pub struct KeyFile {
 }
 
 impl KeyFile {
+    /// Parses the install's `chitin.key`, then merges the KEY each mounted DLC
+    /// archive carries of its own.
+    ///
+    /// The base KEY does not index DLC archives: on a packed BGEE+SoD install
+    /// `chitin.key` names 83 BIFs, all present under `data/`, none of them
+    /// SoD's. SoD's ~39 BIFs are indexed only by `mod.key` inside
+    /// `dlc/sod-dlc.zip`, so the DLC is a second resource index to merge and
+    /// not merely a path-resolution overlay.
     pub fn parse(installation: &GameInstallation) -> Result<Self, IoError> {
         let bytes = fs::read(&installation.chitin_key).map_err(IoError::FileIo)?;
+        let mut key_file = Self::parse_bytes(&bytes, installation, None)?;
 
+        // DLC archives are sorted by filename during discovery, and each merge
+        // overrides what came before, so a later-sorted DLC keeps the same
+        // higher precedence it has for `override/` entries.
+        for (archive_index, archive) in installation.dlc_archives.iter().enumerate() {
+            for entry in archive.key_entries() {
+                let bytes = archive.read_entry(&entry)?;
+                let dlc_key = Self::parse_bytes(&bytes, installation, Some(archive_index))?;
+                key_file.merge(dlc_key);
+            }
+        }
+
+        Ok(key_file)
+    }
+
+    fn parse_bytes(
+        bytes: &[u8],
+        installation: &GameInstallation,
+        dlc_archive_index: Option<usize>,
+    ) -> Result<Self, IoError> {
         if bytes.len() < 24 {
             return Err(IoError::InvalidKey("KEY file is too small".to_string()));
         }
@@ -1040,10 +1089,10 @@ impl KeyFile {
             return Err(IoError::InvalidKey("invalid KEY signature".to_string()));
         }
 
-        let bif_count = read_u32_le(&bytes, 8)? as usize;
-        let resource_count = read_u32_le(&bytes, 12)? as usize;
-        let bif_offset = read_u32_le(&bytes, 16)? as usize;
-        let resource_offset = read_u32_le(&bytes, 20)? as usize;
+        let bif_count = read_u32_le(bytes, 8)? as usize;
+        let resource_count = read_u32_le(bytes, 12)? as usize;
+        let bif_offset = read_u32_le(bytes, 16)? as usize;
+        let resource_offset = read_u32_le(bytes, 20)? as usize;
         let header = KeyHeader {
             signature: "KEY ".to_string(),
             version: "V1  ".to_string(),
@@ -1068,9 +1117,9 @@ impl KeyFile {
                 return Err(IoError::InvalidKey("truncated BIFF table".to_string()));
             }
 
-            let file_size = read_u32_le(&bytes, entry_offset)?;
-            let string_offset = read_u32_le(&bytes, entry_offset + 4)? as usize;
-            let string_length = read_u16_le(&bytes, entry_offset + 8)? as usize;
+            let file_size = read_u32_le(bytes, entry_offset)?;
+            let string_offset = read_u32_le(bytes, entry_offset + 4)? as usize;
+            let string_length = read_u16_le(bytes, entry_offset + 8)? as usize;
             let string_end = string_offset
                 .checked_add(string_length)
                 .ok_or_else(|| IoError::InvalidKey("BIFF filename offset overflow".to_string()))?;
@@ -1096,6 +1145,7 @@ impl KeyFile {
                 string_length: string_length as u16,
                 relative_path,
                 actual_path,
+                dlc_archive_index,
             });
         }
 
@@ -1115,8 +1165,8 @@ impl KeyFile {
             }
 
             let resref = read_resref(&bytes[entry_offset..entry_offset + 8]);
-            let type_code = read_u16_le(&bytes, entry_offset + 8)?;
-            let locator = read_u32_le(&bytes, entry_offset + 10)?;
+            let type_code = read_u16_le(bytes, entry_offset + 8)?;
+            let locator = read_u32_le(bytes, entry_offset + 10)?;
             let extension =
                 extension_from_type(type_code).unwrap_or_else(|| format!("0x{type_code:04X}"));
             let resource_name = format!("{resref}.{extension}");
@@ -1145,6 +1195,37 @@ impl KeyFile {
         })
     }
 
+    /// Folds another KEY's tables into this one, `other` winning name clashes.
+    ///
+    /// BIFF entries are appended, so each merged resource's `biff_index` is
+    /// rebased onto the combined table. `locator` is left untouched: it still
+    /// addresses the resource inside its own BIFF, which is what reading needs.
+    fn merge(&mut self, other: KeyFile) {
+        let biff_offset = self.biffs.len() as u32;
+
+        for mut biff in other.biffs {
+            biff.index += biff_offset;
+            self.biffs.push(biff);
+        }
+
+        for mut entry in other.resources {
+            entry.biff_index += biff_offset;
+            match self.resource_lookup.get(&entry.resource_name) {
+                // SoD ships patched copies of base resources (PATCH20.BIF,
+                // SODOVR.bif); the DLC's copy is the one the engine uses.
+                Some(&index) => self.resources[index] = entry,
+                None => {
+                    self.resource_lookup
+                        .insert(entry.resource_name.clone(), self.resources.len());
+                    self.resources.push(entry);
+                }
+            }
+        }
+
+        self.header.bif_count = self.biffs.len() as u32;
+        self.header.resource_count = self.resources.len() as u32;
+    }
+
     pub fn resource(&self, resource: &ResourceName) -> Option<&KeyResourceEntry> {
         let key = resource.file_name().to_ascii_uppercase();
         self.resource_lookup
@@ -1171,6 +1252,9 @@ pub struct KeyBiffEntry {
     pub string_length: u16,
     pub relative_path: String,
     pub actual_path: Option<PathBuf>,
+    /// Set when this BIFF came from a DLC archive's own KEY, naming the
+    /// archive that should be searched for it first.
+    pub dlc_archive_index: Option<usize>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

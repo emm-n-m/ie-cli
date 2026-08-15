@@ -1,5 +1,7 @@
 use ie_core::{ResourceName, SourceKind};
-use ie_io::{GameInstallation, IoError, ResourceLocator, ResourceReader, TlkResolver};
+use ie_io::{
+    GameInstallation, IoError, ResourceListOptions, ResourceLocator, ResourceReader, TlkResolver,
+};
 use std::fs::{self, File};
 use std::io::Write;
 use std::path::{Path, PathBuf};
@@ -36,6 +38,130 @@ fn reads_keyed_biff_from_dlc_zip_case_insensitively() {
             .to_string_lossy()
             .contains("!DATA/ITEMS.BIF")
     );
+}
+
+/// A DLC indexes its own BIFs with a KEY of its own -- SoD ships `mod.key` --
+/// and the base `chitin.key` never names them. Reaching only `override/` and
+/// `lang/` leaves the entire packed content set invisible.
+#[test]
+fn dlc_key_indexes_resources_the_base_key_never_names() {
+    let fixture = TestInstallation::new("dlc-mod-key");
+    fixture.write_zip(
+        "test-dlc.zip",
+        &[
+            (
+                "mod.key",
+                build_key(
+                    "data/dlcitems.bif",
+                    "BAR",
+                    "ITM",
+                    ITM_TYPE_CODE,
+                    RESOURCE_LOCATOR,
+                ),
+            ),
+            ("data/dlcitems.bif", fixture.biff_bytes(b"ITM FROM DLC KEY")),
+        ],
+    );
+
+    let installation = GameInstallation::discover(fixture.root()).expect("DLC should mount");
+    let locator = ResourceLocator::new(installation).expect("KEY should parse");
+    let resource = ResourceName::parse("bar.itm").expect("resource should parse");
+    let bytes = ResourceReader
+        .read(&locator, &resource)
+        .expect("resource named only by the DLC KEY should load");
+
+    assert_eq!(bytes.bytes, b"ITM FROM DLC KEY");
+    assert_eq!(bytes.metadata.source_kind, SourceKind::Dlc);
+
+    let listed = locator
+        .list(ResourceListOptions::default())
+        .expect("listing should succeed");
+    let entry = listed
+        .iter()
+        .find(|entry| entry.resource_name == "BAR.ITM")
+        .expect("DLC-KEY resource should be listed");
+    assert_eq!(entry.source_kind, SourceKind::Dlc);
+}
+
+/// SoD ships patched copies of base resources (PATCH20.BIF, SODOVR.bif), so a
+/// resref carried by both KEYs must resolve to the DLC's copy.
+#[test]
+fn dlc_key_entry_beats_base_key_entry() {
+    let fixture = TestInstallation::new("dlc-mod-key-precedence");
+    fixture.write_keyed_archive("data/items.bif", b"ITM FROM BASE KEY");
+    fixture.write_zip(
+        "test-dlc.zip",
+        &[
+            (
+                "mod.key",
+                build_key(
+                    "data/dlcitems.bif",
+                    "FOO",
+                    "ITM",
+                    ITM_TYPE_CODE,
+                    RESOURCE_LOCATOR,
+                ),
+            ),
+            ("data/dlcitems.bif", fixture.biff_bytes(b"ITM FROM DLC KEY")),
+        ],
+    );
+
+    let installation = GameInstallation::discover(fixture.root()).expect("DLC should mount");
+    let locator = ResourceLocator::new(installation).expect("KEY should parse");
+    let resource = ResourceName::parse("FOO.ITM").expect("resource should parse");
+    let bytes = ResourceReader
+        .read(&locator, &resource)
+        .expect("resource should load");
+
+    assert_eq!(bytes.bytes, b"ITM FROM DLC KEY");
+    assert_eq!(bytes.metadata.source_kind, SourceKind::Dlc);
+}
+
+/// Base BGEE and SoD both ship a `data/25CREANI.BIF`. A BIFF named by the DLC's
+/// KEY must be read out of that DLC even though the path also exists on disk;
+/// the disk copy has different offsets and decodes as garbage.
+#[test]
+fn dlc_key_biff_beats_same_named_disk_biff() {
+    let fixture = TestInstallation::new("dlc-mod-key-biff-shadow");
+    fixture.write_keyed_archive("data/items.bif", b"ITM ON DISK");
+    fixture.write_zip(
+        "test-dlc.zip",
+        &[
+            (
+                "mod.key",
+                build_key(
+                    "data/items.bif",
+                    "BAR",
+                    "ITM",
+                    ITM_TYPE_CODE,
+                    RESOURCE_LOCATOR,
+                ),
+            ),
+            ("data/items.bif", fixture.biff_bytes(b"ITM IN DLC ARCHIVE")),
+        ],
+    );
+
+    let installation = GameInstallation::discover(fixture.root()).expect("DLC should mount");
+    let locator = ResourceLocator::new(installation).expect("KEY should parse");
+
+    let from_dlc_key = ResourceReader
+        .read(
+            &locator,
+            &ResourceName::parse("BAR.ITM").expect("resource should parse"),
+        )
+        .expect("resource should load");
+    assert_eq!(from_dlc_key.bytes, b"ITM IN DLC ARCHIVE");
+    assert_eq!(from_dlc_key.metadata.source_kind, SourceKind::Dlc);
+
+    // The base KEY's own entry for the same path still prefers disk.
+    let from_base_key = ResourceReader
+        .read(
+            &locator,
+            &ResourceName::parse("FOO.ITM").expect("resource should parse"),
+        )
+        .expect("resource should load");
+    assert_eq!(from_base_key.bytes, b"ITM ON DISK");
+    assert_eq!(from_base_key.metadata.source_kind, SourceKind::Bif);
 }
 
 #[test]

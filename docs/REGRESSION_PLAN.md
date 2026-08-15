@@ -15,6 +15,10 @@ Each supported game needs an environment variable pointing to its install root:
 | `IE_IWDEE_PATH`   | IWDEE                                | `...\Icewind Dale Enhanced Edition`                                            |
 | `IE_BGEE_SOD_PATH`| BGEE+SoD with the DLC still **packed** | `...\Baldur's Gate Enhanced Edition` (one that has not run DlcMerger)         |
 
+Every variable names the **install root** — the directory holding `chitin.key` — not a subdirectory.
+`IE_BGEE_SOD_PATH` in particular points at the game root, *not* at its `dlc/` folder; it is passed
+straight through as `--game`, so pointing it at `dlc/` fails with `missing chitin.key`.
+
 Tests silently skip when the variable is unset, so CI passes without game data.
 
 ---
@@ -66,6 +70,7 @@ These validate the loading pipeline independent of any format decoder.
 | Test case | Game | What to verify |
 |---|---|---|
 | Discover and mount packed DLC | BGEE+SoD | `dlc/*.zip` is opened and invalid archives fail discovery rather than being skipped |
+| Merge the DLC's own KEY | BGEE+SoD | `mod.key` inside the zip is parsed and merged; SoD's ~39 BIFs are indexed. Mounting the zip without this reaches only `override/` and `lang/` — 3 files out of 21,272 |
 | Read DLC-backed CRE | BGEE+SoD | A `BD*` CRE listed from the packed DLC resolves, reads, and decodes as a CRE |
 | Resolve DLC TLK extension | BGEE+SoD | strref `50000` resolves to `If I could, I would. But I can't, so...` and output names the selected zip entry |
 | Compare packed and merged installs | BGEE+SoD | Resource and string answers agree with the DlcMerger-merged installation |

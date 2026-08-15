@@ -20,26 +20,41 @@ Non-goals: writing into a DLC, repacking a zip, or emulating DlcMerger.
 
 ## 2. What the format actually does (measured, not assumed)
 
-### 2.1 The zip carries no `chitin.key`
+### 2.1 The zip carries its own KEY
 
-`dlc/sod-dlc.zip` contains `data/`, `override/`, `characters/`, and `lang/<locale>/` — but no KEY:
-
-```bash
-unzip -l "$BGEE/dlc/sod-dlc.zip" | grep -icE "chitin|\.key"   # 0
-```
-
-### 2.2 The base KEY already indexes the DLC's archives
-
-The pre-DlcMerger key names BIFs that, unpacked, exist only inside the zip:
+`dlc/sod-dlc.zip` contains `data/`, `override/`, `characters/`, `lang/<locale>/` — and a root-level
+`mod.key`, a normal `KEY V1` file 298,940 bytes long:
 
 ```bash
-strings -n 6 "$BGEE/chitin.original" | grep -E "25CREANI|CD4CREA2|CRIWANIM|BDTP_DLC"
-#   data/25CREANI.BIF  data/CD4CREA2.BIF  data/CRIWANIM.BIF  data/BDTP_DLC.BIF
+unzip -l "$BGEE/dlc/sod-dlc.zip" | grep -iE "chitin|\.key"
+#   298940  2026-03-06 09:39   mod.key
 ```
 
-**This is the load-bearing finding.** KEY parsing needs no change and there is no second resource
-index to merge. The DLC is an overlay on *path resolution*: when the KEY asks for `data/X.BIF` and
-that path is not on disk, the archive is inside a DLC zip.
+> Corrected 2026-08-15. This section previously recorded `# 0` for that command and concluded the zip
+> carried no KEY. The count was wrong, not the archive: `unzip -l` lists `mod.key` on the same install
+> the original measurement was taken from. Everything in §2.2 followed from the bad count, so the two
+> corrections are one mistake, not two.
+
+### 2.2 The base KEY does *not* index the DLC's archives
+
+On a packed install, `chitin.key` names **83 BIFs, all 83 present under `data/`, none of them SoD's**:
+
+```bash
+# every BIF the base KEY names, checked against data/
+#   BIFs in root chitin.key: 83
+#   referenced but not on disk: 0
+#   SoD-named refs: []
+```
+
+The three BIFs once cited as zip-only evidence — `25CREANI.BIF`, `CD4CREA2.BIF`, `CRIWANIM.BIF` —
+ship with base BGEE and sit in `data/`. They are *duplicated* inside the zip, not exclusive to it, so
+finding their names in the base KEY proved nothing about DLC indexing.
+
+**The load-bearing finding is the opposite of what this section used to say.** SoD's ~39 BIFs
+(`SoDAreas.bif`, `SoDITM.bif`, `SoDSPL.bif`, …) are indexed *only* by `mod.key` inside the zip. The
+DLC is therefore **a second resource index to merge**, not merely an overlay on path resolution.
+Mounting the archive without reading its KEY reaches only `override/` and `lang/`: on this install
+that is 3 files out of 21,272 DLC-backed resources.
 
 ### 2.3 The DLC's TLK is an exact prefix-superset
 
@@ -74,6 +89,7 @@ The DLC TLK holds `"If I could, I would. But I can't, so..."` at 50000.
 In scope:
 
 - Read-only resolution of resources whose BIF path lives inside a DLC zip.
+- Merging the KEY a DLC carries of its own (§2.1) into the base resource index.
 - DLC `override/` participating in override precedence.
 - DLC `lang/<locale>/dialog.tlk` selection.
 - `list` enumerating DLC-backed resources with a source that names the zip.
@@ -90,17 +106,31 @@ name; do not rely on directory iteration order — the override index already le
 Ignore `*.disabled`; a real install carries `sod-dlc.disabled` beside the live zip and it must not be
 mounted.
 
-### 4.2 Archive path resolution
+### 4.2 KEY merging
+
+Parse `chitin.key`, then parse every root-level `*.key` each mounted archive carries and fold it in.
+Merging appends the DLC's BIFF table and rebases each merged resource's `biff_index` onto the
+combined table; `locator` is left untouched, since it still addresses the resource inside its own
+BIFF.
+
+On a name clash the DLC's entry wins. SoD ships patched copies of base resources (`PATCH20.BIF`,
+`PATCH26.BIF`, `SODOVR.bif`) and the DLC copy is the one the engine uses. Multiple DLCs merge in the
+§4.1 sort order, so a later-sorted DLC keeps the same higher precedence it has for `override/`.
+
+### 4.3 Archive path resolution
 
 When resolving a KEY BIF path:
 
-1. Try the path on disk under the game root (current behaviour, unchanged).
-2. On miss, try each mounted DLC zip's interior, using the same case-insensitive matching the
+1. If the BIFF came from a DLC's own KEY, try that archive's interior **first** — even when a
+   same-named file exists on disk. Base BGEE and SoD both ship a `data/25CREANI.BIF`; only the
+   archive's copy matches the offsets the archive's KEY records.
+2. Otherwise try the path on disk under the game root (current behaviour, unchanged).
+3. On miss, try each mounted DLC zip's interior, using the same case-insensitive matching the
    override index uses. KEY paths use `\` separators and are compared case-insensitively.
 
 Read the entry **streamed**, not by inflating the whole archive. See §7.
 
-### 4.3 Override precedence
+### 4.4 Override precedence
 
 Order, highest first:
 
@@ -111,13 +141,13 @@ Order, highest first:
 The game's own `override/` must outrank a DLC's, or a user's mod stops taking effect once a DLC is
 mounted.
 
-### 4.4 TLK selection
+### 4.5 TLK selection
 
 If any mounted DLC supplies `lang/<locale>/dialog.tlk`, prefer the one with the **largest string
 count** over the base file, and record which file was chosen. §2.3 justifies this; the chosen path
 must appear in `tlk` output so a wrong choice is visible rather than silent.
 
-### 4.5 Metadata
+### 4.6 Metadata
 
 `source_kind` needs a value distinguishing DLC-backed resources, and `source_path` should name both
 the zip and the interior path (e.g. `dlc/sod-dlc.zip!data/CD4CREA2.BIF`). `resource_name` stays
@@ -138,6 +168,11 @@ The existing helpers (`build_key_file`, `build_biff_archive`, `build_minimal_tlk
 - Two DLC zips both providing the resource → deterministic, documented winner.
 - `*.disabled` beside a live zip → not mounted.
 - DLC supplies a larger `dialog.tlk` → strrefs beyond the base count resolve.
+- Zip carries a `mod.key` naming a BIF the base KEY never mentions → the resource is listed, located
+  as `dlc`, and reads back its bytes.
+- `mod.key` and the base KEY name the same resref → the DLC copy wins (§4.2).
+- `mod.key` names `data/x.bif` while a *different* `data/x.bif` sits on disk → the archive's copy is
+  read, not the disk one (§4.3 step 1). This is the case that decodes as garbage if it regresses.
 
 ### 5.2 Zip64
 
@@ -160,6 +195,18 @@ the merged side (plus `sod-dlc.zip` and `chitin.original`); a second machine has
 - No behaviour change for installs with no `dlc/` directory — the common case must not regress.
 - Mounting must not slow ordinary lookups; the zip central directory is read once, like the override
   index, not per lookup.
+- **Reads out of a DLC BIFF must be buffered.** Scanning a BIFF's entry table is one 16-byte read per
+  entry, and the archive's reader passes each straight to the file, while the on-disk path reads the
+  BIF once and scans memory. SoD's `data/Creature.bif` holds 1,566 entries, so an unbuffered lookup
+  costs 1,566 syscalls. Measured on `verify --resource-type ARE` over `/mnt/c` in WSL2:
+
+  | build | AREs | time |
+  | --- | --- | --- |
+  | before KEY merging | 520 | 185 s |
+  | KEY merging, unbuffered | 596 | > 900 s (killed) |
+  | KEY merging, buffered | 596 | 205 s |
+
+  15% more resources for 11% more time — per-resource cost is no worse than before the merge.
 - A DLC that cannot be opened is reported, never silently skipped. Silent under-coverage is the exact
   bug being fixed, and a swallowed error recreates it.
 

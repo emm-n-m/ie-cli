@@ -20,4 +20,3 @@ When a task needs Near Infinity for comparison:
 - compare behavior against real game resources
 - encode the decision in a Rust test or docs note
 
-This repository should not depend on the vendored Java tree for building or testing the Rust workspace.
