@@ -660,3 +660,31 @@ fn build_minimal_tlk() -> Vec<u8> {
     bytes.extend_from_slice(&18u32.to_le_bytes());
     bytes
 }
+
+/// A CHR wraps a CRE at the offset its header records. Decoding one as a bare
+/// CRE fails on the signature check, which is what every CHR did until the type
+/// was split out; see docs/formats/chr.md.
+#[test]
+fn dump_decodes_chr_as_wrapper_around_embedded_cre_when_bgee_path_is_set() {
+    let Some(game_path) = bgee_game_path() else {
+        return;
+    };
+
+    let stdout = dump_json(&game_path, "01FIGHT.CHR");
+
+    assert_eq!(stdout["resource_type"], "CHR");
+    assert_eq!(stdout["resource_name"], "01FIGHT.CHR");
+    assert_eq!(stdout["version"], "V2.0");
+    // The CHR-level name is a literal string; the embedded CRE has no strref
+    // name for a player character.
+    assert_eq!(stdout["header"]["name"], "Abdel");
+    assert_eq!(stdout["header"]["creature_offset"], 100);
+    assert_eq!(stdout["header"]["creature_length"], 1608);
+    assert_eq!(stdout["creature"]["resource_type"], "CRE");
+
+    // The undecoded quick-slot region is preserved, not dropped.
+    let unknown = stdout["header"]["unknown_header_bytes_0x30"]
+        .as_array()
+        .expect("quick-slot bytes should be preserved");
+    assert_eq!(unknown.len(), 100 - 0x30);
+}

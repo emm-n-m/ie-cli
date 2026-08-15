@@ -12,7 +12,7 @@ use ie_formats::{
     DialogGraphOptions, DialogGraphStringMode, NewItem, VerifyOptions, VerifySeverity,
     add_item_to_save_gam, decode_to_json, dialog_json_to_dot, dialog_json_to_mermaid,
     dialog_jsons_to_dot, dialog_jsons_to_mermaid, parse_dlg, parse_gam, parse_sav,
-    patch_are_scalars, patch_cre_scalars,
+    patch_are_scalars, patch_chr_scalars, patch_cre_scalars,
 };
 use ie_io::{
     FileBackedIdsResolver, GameInstallation, ListedResource, ListedSave, ResourceListOptions,
@@ -486,6 +486,13 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                     let patches = collect_cre_patches(&args.sets, args.patch_json.as_deref())?;
                     let count = patches.len();
                     let out = patch_cre_scalars(&bytes.bytes, &patches)?;
+                    (out, count)
+                }
+                ResourceType::Chr => {
+                    // Same scalar patches, applied to the CRE the CHR wraps.
+                    let patches = collect_cre_patches(&args.sets, args.patch_json.as_deref())?;
+                    let count = patches.len();
+                    let out = patch_chr_scalars(&bytes.bytes, &patches)?;
                     (out, count)
                 }
                 ResourceType::Are => {

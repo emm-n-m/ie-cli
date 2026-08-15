@@ -94,6 +94,10 @@ pub enum ResourceType {
     Itm,
     Spl,
     Cre,
+    /// A saved party member. A CHR is *not* a CRE: it is a `CHR ` header
+    /// wrapping a complete CRE at the offset its header records, so decoding
+    /// one as a bare CRE fails on the signature check.
+    Chr,
     Sto,
     Dlg,
     Bcs,
@@ -106,7 +110,8 @@ impl ResourceType {
             "ARE" => Self::Are,
             "ITM" => Self::Itm,
             "SPL" => Self::Spl,
-            "CRE" | "CHR" => Self::Cre,
+            "CRE" => Self::Cre,
+            "CHR" => Self::Chr,
             "STO" => Self::Sto,
             "DLG" => Self::Dlg,
             "BCS" | "BS" => Self::Bcs,
@@ -120,6 +125,7 @@ impl ResourceType {
             Self::Itm => "ITM",
             Self::Spl => "SPL",
             Self::Cre => "CRE",
+            Self::Chr => "CHR",
             Self::Sto => "STO",
             Self::Dlg => "DLG",
             Self::Bcs => "BCS",
@@ -269,7 +275,11 @@ mod tests {
     fn maps_known_extensions() {
         assert_eq!(ResourceType::from_extension("itm"), ResourceType::Itm);
         assert_eq!(ResourceType::from_extension("are"), ResourceType::Are);
-        assert_eq!(ResourceType::from_extension("chr"), ResourceType::Cre);
+        // A CHR wraps a CRE rather than being one, so it decodes through its
+        // own parser; mapping it onto Cre made every CHR fail the CRE
+        // signature check.
+        assert_eq!(ResourceType::from_extension("chr"), ResourceType::Chr);
+        assert_eq!(ResourceType::from_extension("cre"), ResourceType::Cre);
         assert_eq!(ResourceType::from_extension("zzz"), ResourceType::Unknown);
     }
 

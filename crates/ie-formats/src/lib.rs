@@ -1,5 +1,6 @@
 mod are;
 mod bcs;
+mod chr;
 mod common;
 mod cre;
 mod dlg;
@@ -16,6 +17,7 @@ use thiserror::Error;
 
 pub use are::{AreaJson, parse_are};
 pub use are::{AreaScalarPatch, patch_are_scalars};
+pub use chr::{CharacterHeaderJson, CharacterJson, CharacterParseError, patch_chr_scalars};
 pub use common::{RawDecoded, RawDecodedFlags};
 pub use cre::{
     CreatureItemInsertResult, CreatureItemWriteError, CreatureScalarPatch, NewItem, SlotChoice,
@@ -75,6 +77,16 @@ pub fn decode_to_json(
                 resource.metadata.game_variant,
             )?;
             serde_json::to_value(&creature)
+                .map_err(|err| FormatError::Serialization(err.to_string()))
+        }
+        ResourceType::Chr => {
+            let character = chr::parse_chr(
+                &resource.bytes,
+                &resource.metadata.resource_name,
+                resolvers.strref,
+                resource.metadata.game_variant,
+            )?;
+            serde_json::to_value(&character)
                 .map_err(|err| FormatError::Serialization(err.to_string()))
         }
         ResourceType::Sto => {
