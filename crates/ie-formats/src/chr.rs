@@ -223,13 +223,22 @@ mod tests {
 
     /// Header shape taken from real BGEE files: name at 0x08, CRE at 0x64.
     fn build_chr(version: &[u8; 4], name: &str, cre: &[u8]) -> Vec<u8> {
-        const CRE_OFFSET: usize = 0x64;
-        let mut bytes = vec![0u8; CRE_OFFSET];
+        build_chr_at(version, name, cre, 0x64)
+    }
+
+    /// Same, with the embedded CRE placed wherever the caller asks.
+    ///
+    /// The quick-slot region between 0x30 and the CRE is version-sized, so the
+    /// offset is not a constant across CHR versions. Only V2.0 files were
+    /// available to sample; this lets a test state an offset the sample does not
+    /// have.
+    fn build_chr_at(version: &[u8; 4], name: &str, cre: &[u8], cre_offset: usize) -> Vec<u8> {
+        let mut bytes = vec![0u8; cre_offset];
         bytes[0..4].copy_from_slice(b"CHR ");
         bytes[4..8].copy_from_slice(version);
         bytes[CHR_NAME_OFFSET..CHR_NAME_OFFSET + name.len()].copy_from_slice(name.as_bytes());
         bytes[CHR_CRE_OFFSET_FIELD..CHR_CRE_OFFSET_FIELD + 4]
-            .copy_from_slice(&(CRE_OFFSET as u32).to_le_bytes());
+            .copy_from_slice(&(cre_offset as u32).to_le_bytes());
         bytes[CHR_CRE_LENGTH_FIELD..CHR_CRE_LENGTH_FIELD + 4]
             .copy_from_slice(&(cre.len() as u32).to_le_bytes());
         bytes.extend_from_slice(cre);
@@ -276,6 +285,24 @@ mod tests {
         assert_eq!(&bytes[0..4], b"CHR ");
         assert!(parse_cre_with_variant(&bytes, "X.CHR", None, GameVariant::Standard).is_err());
         assert!(parse_chr(&bytes, "X.CHR", None, GameVariant::Standard).is_ok());
+    }
+
+    /// Every other fixture here puts the CRE at 0x64, the offset the sampled
+    /// V2.0 files happen to use, so they cannot tell reading the field apart
+    /// from assuming that constant. V2.2 grows the quick-slot region and moves
+    /// the CRE to 0x80; this fails if the offset is ever hardcoded.
+    #[test]
+    fn embedded_creature_offset_is_read_rather_than_assumed() {
+        let bytes = build_chr_at(b"V2.2", "Abdel", &minimal_cre(), 0x80);
+        let character = parse_chr(&bytes, "X.CHR", None, GameVariant::Standard)
+            .expect("a CHR whose CRE sits at 0x80 should parse");
+
+        assert_eq!(character.header.creature_offset, 0x80);
+        assert_eq!(character.creature.resource_type, "CRE");
+        assert_eq!(
+            character.header.unknown_header_bytes_0x30.len(),
+            0x80 - CHR_MIN_HEADER_SIZE
+        );
     }
 
     #[test]
