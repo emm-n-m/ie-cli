@@ -1,0 +1,16 @@
+[
+  {
+    "resource_name": "AR0202.ARE",
+    "resref": "AR0202",
+    "source_kind": "override",
+    "source_path": "<install>/override/AR0202.ARE",
+    "type": "ARE"
+  },
+  {
+    "resource_name": "SHADOW.ITM",
+    "resref": "SHADOW",
+    "source_kind": "override",
+    "source_path": "<install>/override/SHADOW.ITM",
+    "type": "ITM"
+  }
+]

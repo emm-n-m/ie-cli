@@ -7,9 +7,9 @@ change — and until these tests existed, one passed CI silently.
 Goldens come in two kinds because no single kind can cover both failure
 directions.
 
-| | [`ie-formats/tests/goldens.rs`](../crates/ie-formats/tests/goldens.rs) | [`ie-cli/tests/shape.rs`](../crates/ie-cli/tests/shape.rs) |
+| | synthetic ([formats](../crates/ie-formats/tests/goldens.rs), [commands](../crates/ie-cli/tests/cli_goldens.rs)) | [`ie-cli/tests/shape.rs`](../crates/ie-cli/tests/shape.rs) |
 | --- | --- | --- |
-| Input | synthetic fixtures, built byte by byte | real installs |
+| Input | fixtures and a temp install, built byte by byte | real installs |
 | Pinned | exact JSON, values included | normalized key paths and types |
 | Assertion | equality | observed ⊆ golden |
 | Runs in CI | yes | no — env-gated |
@@ -112,24 +112,48 @@ Two costs come with that, and both are real:
 
 ## Coverage and its edges
 
-Value goldens cover `ITM`, `SPL`, `CRE`, and `CHR`. Shape goldens cover `ITM`,
-`SPL`, `CRE`, `STO`, `DLG`, `ARE`, and `BCS` per game variant (`standard`, `iwd`,
-`pst`).
+| Output | Value golden | Shape golden |
+| --- | --- | --- |
+| `ITM` `SPL` `CRE` `STO` `DLG` `ARE` `BCS` | yes | yes, per variant |
+| `CHR` | yes | **no — impossible** |
+| `GAM` `SAV` | yes | no — not reached by `dump` |
+| `list` `locate` `verify` `override-diff` | yes | no — not a decoded resource |
 
-`CHR` has no shape golden and cannot get one: `list` enumerates `override` and
-KEY-backed resources, and CHRs live in `characters/`. Its synthetic golden is the
-only thing pinning that shape, which matters more than usual — CHR nests a whole
-CRE under a wrapper, and a refactor could flatten it without any other test
-noticing.
+Shape goldens are keyed per game variant (`standard`, `iwd`, `pst`) because the
+variants genuinely differ: `ARE` differs between `standard` and `iwd` by 33 paths.
 
-`GAM`, `SAV`, and the `verify` / `list` / `locate` / `override-diff` outputs are
-not pinned yet.
+`CHR` can never get a shape golden. `list` enumerates `override` and KEY-backed
+resources, and CHRs live in `characters/`, so the real-install sweep never sees
+one. Its synthetic golden is the only thing pinning that shape, which matters
+more than usual — CHR nests a whole CRE under a wrapper, and a refactor could
+flatten it with nothing else noticing.
+
+The command outputs in the last row are pinned by
+[`ie-cli/tests/cli_goldens.rs`](../crates/ie-cli/tests/cli_goldens.rs), which
+builds a synthetic install in a temp directory. Building the install rather than
+reading one settles what a real install cannot: precedence between an override
+and a KEY-backed BIF is *stated* by the fixture, so the golden asserts which one
+won. `locate-override.json` and `locate-bif.json` are the same resource resolved
+two ways, and they differ exactly where they should:
+
+```
+locate-override   "source_kind": "override"  "locator": null
+locate-bif        "source_kind": "bif"       "locator": 0
+```
+
+Those outputs carry absolute paths, so `<install>` is substituted for the temp
+root and `\` normalized to `/` before comparison. The path *tail* is kept, since
+that is what tells an override hit from a BIF-backed one.
+
+Still unpinned: `dump --format dot|mermaid`, `save-list`, `tlk`, and the text
+(non-JSON) output modes.
 
 ## Regenerating
 
 ```bash
 # synthetic value goldens (no install needed)
 UPDATE_GOLDENS=1 cargo test -p ie-formats --test goldens
+UPDATE_GOLDENS=1 cargo test -p iecli --test cli_goldens
 
 # shape goldens, per install; unions into the existing file rather than
 # replacing it, so running with one install cannot drop another's paths

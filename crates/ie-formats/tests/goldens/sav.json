@@ -1,0 +1,16 @@
+{
+  "resource_type": "SAV",
+  "resource_name": "BALDUR.SAV",
+  "version": "V1.0",
+  "entries": [
+    {
+      "index": 0,
+      "filename": "AR0602.ARE",
+      "resource_name": "AR0602.ARE",
+      "resource_type": "ARE",
+      "uncompressed_size": 10,
+      "compressed_size": 18,
+      "inflated_size": 10
+    }
+  ]
+}

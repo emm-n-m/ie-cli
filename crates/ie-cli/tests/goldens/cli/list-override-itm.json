@@ -1,0 +1,9 @@
+[
+  {
+    "resource_name": "SHADOW.ITM",
+    "resref": "SHADOW",
+    "source_kind": "override",
+    "source_path": "<install>/override/SHADOW.ITM",
+    "type": "ITM"
+  }
+]

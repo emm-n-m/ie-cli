@@ -1,0 +1,18 @@
+[
+  {
+    "expected_value": "AR0202.BCS",
+    "issue": "missing_area_script",
+    "message": "header.area_script references missing resource 'AR0202.BCS'",
+    "path": "header.area_script",
+    "resource": "AR0202.ARE",
+    "severity": "warning"
+  },
+  {
+    "expected_value": "AR9999.ARE",
+    "issue": "dead_link",
+    "message": "Travel region references missing destination area 'AR9999.ARE'",
+    "path": "regions[0].destination_area",
+    "resource": "AR0202.ARE",
+    "severity": "error"
+  }
+]

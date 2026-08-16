@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "override_only": 1,
+    "override_total": 2,
+    "shadowing_bif": 1
+  },
+  "override_only": [
+    "AR0202.ARE"
+  ],
+  "shadows": [
+    {
+      "bif_sha1": "90f3f0ce6d8bd7528cd8611d2627caec497f785a",
+      "identical": false,
+      "in_bif": true,
+      "in_override": true,
+      "override_sha1": "d5801e50fe65bcc8e85ef4a6d0c80702d909e717",
+      "resource": "SHADOW.ITM"
+    }
+  ]
+}

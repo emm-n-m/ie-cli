@@ -1,0 +1,8 @@
+{
+  "game_variant": "standard",
+  "locator": null,
+  "resource_name": "SHADOW.ITM",
+  "resource_type": "ITM",
+  "source_kind": "override",
+  "source_path": "<install>/override/SHADOW.ITM"
+}

@@ -173,7 +173,7 @@ Exit criteria:
 ## P2: Quality And Validation
 
 - Add comparison harness for checking selected resources against Near Infinity expectations.
-- Extend JSON goldens to `STO`, `DLG`, `ARE`, `BCS`, and the save formats. `ITM`, `SPL`, `CRE`, and `CHR` are pinned by value; the shape tier already covers every dump type but `CHR`, which `list` cannot enumerate.
+- Extend JSON goldens to the output modes that still have none: `dump --format dot|mermaid`, `save-list`, `tlk`, and the text (non-JSON) modes. Every decoded resource type, both save formats, and the `list`/`locate`/`verify`/`override-diff` outputs are pinned.
 - Add fuzz or truncated-input tests for critical parsers.
 - Improve CLI error messages.
 - Add `--pretty` and compact JSON modes if not already present.
@@ -287,7 +287,7 @@ Exit criteria:
 Current high-value follow-up issues:
 
 1. Add real-resource fixture coverage and Near Infinity comparisons for `ITM` and `SPL`.
-2. Extend JSON goldens to the formats that have none yet — `STO`, `DLG`, `ARE`, `BCS`, `GAM`, `SAV` — following the two-tier pattern in [docs/GOLDENS.md](./docs/GOLDENS.md).
+2. Pin the remaining output modes with goldens — `dump --format dot|mermaid`, `save-list`, `tlk`, and text mode — following the two-tier pattern in [docs/GOLDENS.md](./docs/GOLDENS.md).
 3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
 4. Broaden real-install validation for `DLG` and `BCS`.
 5. Give `verify` a stock-BGEE known-issue baseline, so the install-wide pass can assert rather than be read by hand.

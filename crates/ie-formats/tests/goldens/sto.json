@@ -1,0 +1,143 @@
+{
+  "cures": [
+    {
+      "price": 50,
+      "spell_resource": "SPPR103"
+    }
+  ],
+  "drinks": [
+    {
+      "alcoholic_strength": 3,
+      "name": {
+        "strref": 2,
+        "text": "<string 2>"
+      },
+      "price": 5,
+      "rumour_resource": "RUMOUR"
+    }
+  ],
+  "header": {
+    "buy_price_markup": 75,
+    "capacity": 0,
+    "cures_count": 1,
+    "cures_offset": 204,
+    "depreciation_rate": 0,
+    "drinks_count": 1,
+    "drinks_offset": 184,
+    "flags": {
+      "decoded": [
+        "CanBuy",
+        "CanSell",
+        "CanIdentify",
+        "CanBuyCures",
+        "BuyFencedGoods"
+      ],
+      "raw": 4135
+    },
+    "id_price": 100,
+    "items_for_sale_count": 1,
+    "items_for_sale_offset": 156,
+    "items_purchased_count": 1,
+    "items_purchased_offset": 216,
+    "lore": 5,
+    "name": {
+      "strref": 1,
+      "text": "<string 1>"
+    },
+    "room_flags": {
+      "decoded": [
+        "Peasant",
+        "Merchant"
+      ],
+      "raw": 3
+    },
+    "room_prices": {
+      "merchant": 25,
+      "noble": 50,
+      "peasant": 10,
+      "royal": 100
+    },
+    "sell_price_markup": 150,
+    "steal_failure_chance": 10,
+    "store_type": {
+      "decoded": "Temple",
+      "raw": 3
+    },
+    "tavern_rumours": "TAVERN",
+    "temple_rumours": "TEMPLE",
+    "unknown_header_bytes_0x24": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "unknown_header_bytes_0x78": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ]
+  },
+  "items_for_sale": [
+    {
+      "charges_1": 1,
+      "charges_2": 0,
+      "charges_3": 0,
+      "expiration_time": 0,
+      "flags": {
+        "decoded": [
+          "Identified"
+        ],
+        "raw": 1
+      },
+      "infinite_supply": true,
+      "resource": "SW1H01",
+      "stock_count": 2
+    }
+  ],
+  "items_purchased": [
+    {
+      "decoded": "Potions",
+      "raw": 9
+    }
+  ],
+  "resource_name": "TEMPLE.STO",
+  "resource_type": "STO",
+  "version": "V1.0"
+}

@@ -1,0 +1,132 @@
+{
+  "actions": [
+    {
+      "length": 25,
+      "offset": 252,
+      "text": "SetGlobal(\"X\",\"GLOBAL\",1)"
+    }
+  ],
+  "header": {
+    "flags": {
+      "decoded": [],
+      "raw": 0
+    },
+    "num_actions": 1,
+    "num_state_triggers": 1,
+    "num_states": 2,
+    "num_transition_triggers": 1,
+    "num_transitions": 3,
+    "offset_actions": 196,
+    "offset_state_triggers": 180,
+    "offset_states": 52,
+    "offset_transition_triggers": 188,
+    "offset_transitions": 84
+  },
+  "resource_name": "IMOEN.DLG",
+  "resource_type": "DLG",
+  "state_triggers": [
+    {
+      "length": 26,
+      "offset": 204,
+      "text": "CheckStatGT(Myself,12,STR)"
+    }
+  ],
+  "states": [
+    {
+      "first_transition_index": 0,
+      "index": 0,
+      "num_transitions": 2,
+      "response_text": {
+        "strref": 100,
+        "text": "<string 100>"
+      },
+      "transitions": [
+        {
+          "action_index": 1162825033,
+          "action_text": null,
+          "flags": {
+            "decoded": [
+              "HasText",
+              "HasTrigger",
+              "HasAction"
+            ],
+            "raw": 7
+          },
+          "index": 0,
+          "journal_text": null,
+          "next_dialog": "N",
+          "next_state_index": 0,
+          "player_text": {
+            "strref": 200,
+            "text": "<string 200>"
+          },
+          "terminates_dialog": false,
+          "trigger_index": 0,
+          "trigger_text": "Global(\"X\",\"GLOBAL\",0)"
+        },
+        {
+          "action_index": null,
+          "action_text": null,
+          "flags": {
+            "decoded": [
+              "TerminatesDialog"
+            ],
+            "raw": 8
+          },
+          "index": 1,
+          "journal_text": null,
+          "next_dialog": null,
+          "next_state_index": null,
+          "player_text": null,
+          "terminates_dialog": true,
+          "trigger_index": null,
+          "trigger_text": null
+        }
+      ],
+      "trigger_index": 0,
+      "trigger_text": "CheckStatGT(Myself,12,STR)"
+    },
+    {
+      "first_transition_index": 2,
+      "index": 1,
+      "num_transitions": 1,
+      "response_text": {
+        "strref": 101,
+        "text": "<string 101>"
+      },
+      "transitions": [
+        {
+          "action_index": null,
+          "action_text": null,
+          "flags": {
+            "decoded": [
+              "HasText"
+            ],
+            "raw": 1
+          },
+          "index": 2,
+          "journal_text": null,
+          "next_dialog": "IRA",
+          "next_state_index": 0,
+          "player_text": {
+            "strref": 201,
+            "text": "<string 201>"
+          },
+          "terminates_dialog": false,
+          "trigger_index": null,
+          "trigger_text": null
+        }
+      ],
+      "trigger_index": null,
+      "trigger_text": null
+    }
+  ],
+  "transition_triggers": [
+    {
+      "length": 22,
+      "offset": 230,
+      "text": "Global(\"X\",\"GLOBAL\",0)"
+    }
+  ],
+  "version": "V1.0"
+}

@@ -1,0 +1,8 @@
+{
+  "game_variant": "standard",
+  "locator": 0,
+  "resource_name": "SHADOW.ITM",
+  "resource_type": "ITM",
+  "source_kind": "bif",
+  "source_path": "<install>/data/base.bif"
+}

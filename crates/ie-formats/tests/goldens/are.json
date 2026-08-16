@@ -1,0 +1,347 @@
+{
+  "actors": [
+    {
+      "animation": 0,
+      "appearance_schedule_raw": 16777215,
+      "cre_file": {
+        "exists": true,
+        "long_name": null,
+        "resource_name": "DGRACE.CRE",
+        "resource_type": "CRE",
+        "resref": "DGRACE",
+        "short_name": {
+          "strref": 1,
+          "text": "<string 1>"
+        },
+        "source_kind": "override",
+        "source_path": null
+      },
+      "destination_position": {
+        "x": 140,
+        "y": 160
+      },
+      "dialog": {
+        "exists": true,
+        "resource_name": "DGRACE.DLG",
+        "resource_type": "DLG",
+        "resref": "DGRACE",
+        "source_kind": "override",
+        "source_path": null
+      },
+      "embedded_cre_offset": 0,
+      "embedded_cre_size": 0,
+      "first_cre_resref_letter": 0,
+      "flags": {
+        "decoded": [
+          "HasSeenParty",
+          "Invulnerable"
+        ],
+        "raw": 6
+      },
+      "index": 0,
+      "is_random_monster": {
+        "decoded": "Yes",
+        "raw": 1
+      },
+      "movement_restriction_distance": 0,
+      "movement_restriction_distance_to_object": 0,
+      "name": "Grace",
+      "num_times_talked_to": 0,
+      "orientation": 12,
+      "position": {
+        "x": 100,
+        "y": 120
+      },
+      "removal_timer_seconds": -1,
+      "scripts": {
+        "class_script": null,
+        "default_script": {
+          "exists": true,
+          "resource_name": "DEF.BCS",
+          "resource_type": "BCS",
+          "resref": "DEF",
+          "source_kind": "override",
+          "source_path": null
+        },
+        "general_script": null,
+        "override_script": {
+          "exists": true,
+          "resource_name": "OVR.BCS",
+          "resource_type": "BCS",
+          "resref": "OVR",
+          "source_kind": "override",
+          "source_path": null
+        },
+        "race_script": null,
+        "specific_script": null
+      },
+      "unknown_tail_bytes_0x90": [
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ],
+  "deferred_sections": {
+    "ambients_count": 0,
+    "ambients_offset": 0,
+    "animations_count": 0,
+    "animations_offset": 0,
+    "automap_notes_count": 0,
+    "automap_notes_offset": 0,
+    "containers_count": 0,
+    "containers_offset": 0,
+    "doors_count": 0,
+    "doors_offset": 0,
+    "items_count": 0,
+    "items_offset": 0,
+    "projectile_traps_count": 0,
+    "projectile_traps_offset": 0,
+    "rest_interruptions_offset": 0,
+    "song_entries_offset": 0,
+    "spawn_points_count": 0,
+    "spawn_points_offset": 0,
+    "tiled_objects_count": 0,
+    "tiled_objects_offset": 0,
+    "variables_count": 0,
+    "variables_offset": 0,
+    "vertices_count": 0,
+    "vertices_offset": 0
+  },
+  "entrances": [
+    {
+      "index": 0,
+      "name": "Exit19",
+      "orientation": 8,
+      "position": {
+        "x": 256,
+        "y": 512
+      }
+    }
+  ],
+  "header": {
+    "actors_count": 1,
+    "actors_offset": 284,
+    "area_flags": {
+      "decoded": [
+        "SaveNotAllowed",
+        "RestingNotAllowed"
+      ],
+      "raw": 33
+    },
+    "area_script": {
+      "exists": true,
+      "resource_name": "AR0202.BCS",
+      "resource_type": "BCS",
+      "resref": "AR0202",
+      "source_kind": "override",
+      "source_path": null
+    },
+    "area_type_flags": {
+      "decoded": [
+        "OutdoorsPst"
+      ],
+      "raw": 1024
+    },
+    "fog_probability": 0,
+    "last_saved_seconds": 0,
+    "lightning_probability": 0,
+    "rain_probability": 0,
+    "snow_probability": 0,
+    "wed_resource": "AR0202"
+  },
+  "regions": [
+    {
+      "activation_point": {
+        "x": 0,
+        "y": 0
+      },
+      "bounding_box": {
+        "bottom_right": {
+          "x": 30,
+          "y": 40
+        },
+        "top_left": {
+          "x": 10,
+          "y": 20
+        }
+      },
+      "cursor_index": 0,
+      "destination_area": {
+        "exists": true,
+        "resource_name": "AR0203.ARE",
+        "resource_type": "ARE",
+        "resref": "AR0203",
+        "source_kind": "override",
+        "source_path": null
+      },
+      "destination_entrance": "Exit19",
+      "first_vertex_index": 0,
+      "flags": {
+        "decoded": [],
+        "raw": 0
+      },
+      "index": 0,
+      "info_point_text_strref": 0,
+      "key_item": {
+        "exists": true,
+        "resource_name": "KEY01.ITM",
+        "resource_type": "ITM",
+        "resref": "KEY01",
+        "source_kind": "override",
+        "source_path": null
+      },
+      "name": "Door19",
+      "region_is_trapped": 0,
+      "region_script": {
+        "exists": true,
+        "resource_name": "RGNSCR.BCS",
+        "resource_type": "BCS",
+        "resref": "RGNSCR",
+        "source_kind": "override",
+        "source_path": null
+      },
+      "region_type": {
+        "decoded": "Travel",
+        "raw": 2
+      },
+      "trap_detected": 0,
+      "trap_detection_difficulty": 0,
+      "trap_launch": {
+        "x": 0,
+        "y": 0
+      },
+      "trap_removal_difficulty": 0,
+      "trigger_value": 0,
+      "vertex_count": 4
+    }
+  ],
+  "resource_name": "AR0202.ARE",
+  "resource_type": "ARE",
+  "version": "V1.0"
+}

@@ -1,0 +1,92 @@
+{
+  "resource_type": "GAM",
+  "resource_name": "BALDUR.GAM",
+  "version": "V2.0",
+  "header": {
+    "game_time": 2181,
+    "game_time_real_seconds": 9876,
+    "party_gold": 1234,
+    "party_reputation_raw": 125,
+    "party_reputation": 12.5,
+    "active_area_party_member": -1,
+    "main_area": "AR0602",
+    "familiar_extra_offset": 0,
+    "current_area": "AR0602",
+    "party_members_offset": 180,
+    "party_members_count": 1,
+    "party_inventory_offset": 0,
+    "party_inventory_count": 0,
+    "non_party_members_offset": 0,
+    "non_party_members_count": 0,
+    "globals_offset": 532,
+    "globals_count": 1,
+    "journal_entries_offset": 0,
+    "journal_entries_count": 0,
+    "unknown_section_68_offset": 0,
+    "unknown_section_6c_offset": 0,
+    "unknown_section_78_offset": 0,
+    "chapter": 3
+  },
+  "party_members": [
+    {
+      "index": 0,
+      "character_selection": {
+        "raw": 1,
+        "decoded": "selected"
+      },
+      "party_order": {
+        "raw": 0,
+        "decoded": "player_1"
+      },
+      "embedded_cre_offset": 1280,
+      "embedded_cre_size": 768,
+      "character_name": "IMOEN",
+      "character_name_long": "Imoen Long",
+      "orientation": 0,
+      "current_area": "AR0602",
+      "position": {
+        "x": 100,
+        "y": 200
+      },
+      "viewing_position": {
+        "x": 0,
+        "y": 0
+      },
+      "modal_action": 0,
+      "happiness": 0,
+      "talk_count": 7,
+      "stats": {
+        "most_powerful_vanquished_name": {
+          "strref": 42,
+          "text": "<string 42>"
+        },
+        "most_powerful_vanquished_xp": 0,
+        "time_in_party_ticks": 0,
+        "time_joined_ticks": 0,
+        "in_party": true,
+        "first_cre_resref_letter": 0,
+        "kills_chapter_xp": 0,
+        "kills_chapter_count": 0,
+        "kills_game_xp": 0,
+        "kills_game_count": 0
+      }
+    }
+  ],
+  "globals": [
+    {
+      "index": 0,
+      "name": "CHAPTER",
+      "type_flags": {
+        "raw": 1,
+        "decoded": [
+          "int"
+        ]
+      },
+      "ref_value": 0,
+      "dword_value": 0,
+      "int_value": 3,
+      "double_value": 0.0,
+      "script_name_value": ""
+    }
+  ]
+}

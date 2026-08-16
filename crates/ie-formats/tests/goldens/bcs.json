@@ -1,0 +1,314 @@
+{
+  "blocks": [
+    {
+      "responses": [
+        {
+          "actions": [
+            {
+              "int_args": [
+                5,
+                9,
+                10
+              ],
+              "name": "Action30",
+              "objects": [
+                {
+                  "decoded": {
+                    "alignment": null,
+                    "class": null,
+                    "ea": "EA#2",
+                    "extra_targets": null,
+                    "gender": null,
+                    "general": null,
+                    "identifier": null,
+                    "race": null,
+                    "specific": null
+                  },
+                  "name": null,
+                  "raw": [
+                    2,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "decoded": {
+                    "alignment": null,
+                    "class": null,
+                    "ea": null,
+                    "extra_targets": null,
+                    "gender": null,
+                    "general": null,
+                    "identifier": null,
+                    "race": null,
+                    "specific": null
+                  },
+                  "name": null,
+                  "raw": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "decoded": {
+                    "alignment": null,
+                    "class": null,
+                    "ea": null,
+                    "extra_targets": [
+                      1,
+                      2,
+                      3,
+                      4
+                    ],
+                    "gender": null,
+                    "general": null,
+                    "identifier": null,
+                    "race": null,
+                    "specific": null
+                  },
+                  "name": "DV",
+                  "raw": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    1,
+                    2,
+                    3,
+                    4
+                  ]
+                }
+              ],
+              "opcode": 30,
+              "point": {
+                "x": 7,
+                "y": 8
+              },
+              "string_args": [
+                "RASAAD_PLOT",
+                "GLOBAL"
+              ]
+            },
+            {
+              "int_args": [
+                6,
+                0,
+                0
+              ],
+              "name": "Action40",
+              "objects": [
+                {
+                  "decoded": {
+                    "alignment": null,
+                    "class": null,
+                    "ea": null,
+                    "extra_targets": null,
+                    "gender": null,
+                    "general": null,
+                    "identifier": null,
+                    "race": null,
+                    "specific": null
+                  },
+                  "name": null,
+                  "raw": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "decoded": {
+                    "alignment": null,
+                    "class": null,
+                    "ea": null,
+                    "extra_targets": null,
+                    "gender": null,
+                    "general": null,
+                    "identifier": null,
+                    "race": null,
+                    "specific": null
+                  },
+                  "name": null,
+                  "raw": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                },
+                {
+                  "decoded": {
+                    "alignment": null,
+                    "class": null,
+                    "ea": null,
+                    "extra_targets": null,
+                    "gender": null,
+                    "general": null,
+                    "identifier": null,
+                    "race": null,
+                    "specific": null
+                  },
+                  "name": null,
+                  "raw": [
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                  ]
+                }
+              ],
+              "opcode": 40,
+              "point": {
+                "x": 0,
+                "y": 0
+              },
+              "string_args": [
+                "",
+                ""
+              ]
+            }
+          ],
+          "weight": 100
+        }
+      ],
+      "triggers": [
+        {
+          "int_args": [
+            10,
+            20,
+            30,
+            40
+          ],
+          "name": "Trigger1",
+          "negated": false,
+          "object": {
+            "decoded": {
+              "alignment": null,
+              "class": null,
+              "ea": "EA#2",
+              "extra_targets": null,
+              "gender": null,
+              "general": null,
+              "identifier": "OBJECT#7",
+              "race": null,
+              "specific": null
+            },
+            "name": "Myself",
+            "raw": [
+              2,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              7,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "opcode": 1,
+          "string_args": [
+            "PLOT",
+            "GLOBAL"
+          ]
+        },
+        {
+          "int_args": [
+            1,
+            2,
+            3,
+            4
+          ],
+          "name": "Trigger2",
+          "negated": true,
+          "object": {
+            "decoded": {
+              "alignment": null,
+              "class": null,
+              "ea": null,
+              "extra_targets": null,
+              "gender": null,
+              "general": null,
+              "identifier": "OBJECT#-1",
+              "race": null,
+              "specific": null
+            },
+            "name": null,
+            "raw": [
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              -1,
+              0,
+              0,
+              0,
+              0
+            ]
+          },
+          "opcode": -2,
+          "string_args": [
+            "",
+            ""
+          ]
+        }
+      ]
+    }
+  ],
+  "resource_name": "RASAAD.BCS",
+  "resource_type": "BCS"
+}
