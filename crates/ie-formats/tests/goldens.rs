@@ -108,6 +108,11 @@ fn assert_golden(name: &str, resource_type: ResourceType, resource_name: &str, b
             path.display()
         )
     });
+    // `.gitattributes` pins these files to LF, but a checkout that ignores it
+    // would otherwise fail all four goldens on Windows and nowhere else -- a
+    // whole-file comparison sees CRLF as a difference on every single line. The
+    // line ending is not part of what a golden is pinning.
+    let expected = expected.replace("\r\n", "\n");
 
     assert_eq!(
         actual,

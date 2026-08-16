@@ -8,6 +8,12 @@
 .project text
 .classpath text
 
+# Goldens are compared byte for byte against generated output, which always ends
+# lines with LF. A CRLF checkout makes every one of them fail on Windows and
+# nowhere else.
+*.json text eol=lf
+*.shape text eol=lf
+
 mve.stub binary
 *.gif binary
 *.png binary
