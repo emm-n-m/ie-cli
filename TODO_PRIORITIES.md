@@ -100,10 +100,11 @@ Completed:
 - Validate selected `SPL` outputs against Near Infinity using real BG2EE resources.
 - Add real-install `dump` regression coverage for validated `SPL` resources when `IE_GAME_PATH` is set.
 
+- Add JSON golden coverage for exported output: exact-value goldens over synthetic fixtures, plus normalized shape goldens against real installs. See [docs/GOLDENS.md](./docs/GOLDENS.md).
+
 Remaining:
 
 - Add fixture tests using real resources.
-- Add JSON golden or snapshot coverage for exported output.
 - Expand semantic validation of decoded `ITM` and `SPL` fields against more real resources.
 - Broaden Near Infinity comparison coverage for `ITM` and additional `SPL` resources.
 
@@ -172,7 +173,7 @@ Exit criteria:
 ## P2: Quality And Validation
 
 - Add comparison harness for checking selected resources against Near Infinity expectations.
-- Add JSON golden tests.
+- Extend JSON goldens to `STO`, `DLG`, `ARE`, `BCS`, and the save formats. `ITM`, `SPL`, `CRE`, and `CHR` are pinned by value; the shape tier already covers every dump type but `CHR`, which `list` cannot enumerate.
 - Add fuzz or truncated-input tests for critical parsers.
 - Improve CLI error messages.
 - Add `--pretty` and compact JSON modes if not already present.
@@ -286,7 +287,7 @@ Exit criteria:
 Current high-value follow-up issues:
 
 1. Add real-resource fixture coverage and Near Infinity comparisons for `ITM` and `SPL`.
-2. Add JSON golden or snapshot tests for decoded `ITM` and `SPL` output.
+2. Extend JSON goldens to the formats that have none yet — `STO`, `DLG`, `ARE`, `BCS`, `GAM`, `SAV` — following the two-tier pattern in [docs/GOLDENS.md](./docs/GOLDENS.md).
 3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
 4. Broaden real-install validation for `DLG` and `BCS`.
 5. Give `verify` a stock-BGEE known-issue baseline, so the install-wide pass can assert rather than be read by hand.

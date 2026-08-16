@@ -21,6 +21,18 @@ straight through as `--game`, so pointing it at `dlc/` fails with `missing chiti
 
 Tests silently skip when the variable is unset, so CI passes without game data.
 
+Two further variables regenerate goldens rather than select an install. They are write switches, not
+inputs — set either one and the run rewrites checked-in expectations instead of asserting against
+them, so never set them on a verification run:
+
+| Variable               | Effect                                                                        |
+|------------------------|-------------------------------------------------------------------------------|
+| `UPDATE_GOLDENS`       | Rewrites the synthetic value goldens in `crates/ie-formats/tests/goldens/`     |
+| `UPDATE_SHAPE_GOLDENS` | Unions observed shapes into `crates/ie-cli/tests/goldens/shape/`               |
+
+See [GOLDENS.md](./GOLDENS.md) for what each tier pins and why real installs can pin shape but not
+values.
+
 ---
 
 ## 1. Infrastructure Tests (ie-io)

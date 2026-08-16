@@ -1,0 +1,63 @@
+{
+  "abilities": [],
+  "global_effects": [],
+  "header": {
+    "abilities_offset": 114,
+    "ability_count": 0,
+    "category": {
+      "decoded": "Weapon",
+      "raw": 16
+    },
+    "description_image": null,
+    "dialogue": null,
+    "drop_sound": null,
+    "effects_offset": 0,
+    "enchantment": 0,
+    "equipped_appearance": 0,
+    "first_effect_index": 0,
+    "flags": {
+      "decoded": [
+        "Magical"
+      ],
+      "raw": 64
+    },
+    "general_description": {
+      "strref": 0,
+      "text": "<string 0>"
+    },
+    "general_name": {
+      "strref": 1,
+      "text": "<string 1>"
+    },
+    "global_effect_count": 0,
+    "ground_icon": "GRND",
+    "icon": "ICON",
+    "identified_description": {
+      "strref": 0,
+      "text": "<string 0>"
+    },
+    "identified_name": {
+      "strref": 2,
+      "text": "<string 2>"
+    },
+    "lore_to_identify": 0,
+    "max_in_stack": 0,
+    "min_charisma": 0,
+    "min_constitution": 0,
+    "min_dexterity": 0,
+    "min_intelligence": 0,
+    "min_level": 0,
+    "min_strength": 0,
+    "min_strength_bonus": 0,
+    "min_wisdom": 0,
+    "price": 123,
+    "speaker_name": null,
+    "unusable_by": 0,
+    "used_up_item": null,
+    "weapon_color": null,
+    "weight": 456
+  },
+  "resource_name": "SW1H01.ITM",
+  "resource_type": "ITM",
+  "version": "V1  "
+}

@@ -1,0 +1,598 @@
+{
+  "effects": [],
+  "header": {
+    "actor_ids": {
+      "global_actor_id": 0,
+      "local_actor_id": 0
+    },
+    "animation_id": 0,
+    "armor_class": {
+      "crushing_modifier": 0,
+      "effective": 0,
+      "missile_modifier": 0,
+      "natural": 0,
+      "piercing_modifier": 0,
+      "slashing_modifier": 0
+    },
+    "attacks_per_round": 0,
+    "attribute_flags": {
+      "decoded": [],
+      "raw": 0
+    },
+    "base_attributes": {
+      "charisma": 0,
+      "constitution": 0,
+      "dexterity": 0,
+      "intelligence": 10,
+      "strength": 18,
+      "strength_bonus": 0,
+      "wisdom": 0
+    },
+    "class_levels": {
+      "first_class": 0,
+      "second_class": 0,
+      "third_class": 0
+    },
+    "classification": {
+      "alignment": 0,
+      "class": 0,
+      "enemy_ally": 0,
+      "gender": 0,
+      "general": 0,
+      "race": 0,
+      "specific": 0
+    },
+    "colors": {
+      "armor": 0,
+      "hair": 0,
+      "leather": 0,
+      "major": 0,
+      "metal": 0,
+      "minor": 0,
+      "skin": 0
+    },
+    "current_hit_points": 0,
+    "death_variable": "",
+    "dialog": null,
+    "effect_structure_version": {
+      "decoded": "EFF V1",
+      "raw": 0
+    },
+    "effects_count": 0,
+    "effects_offset": 0,
+    "fatigue": 0,
+    "field_of_vision": 0,
+    "flags": {
+      "decoded": [],
+      "raw": 0
+    },
+    "gold_carried": 0,
+    "hide_in_shadows": 15,
+    "intoxication": 0,
+    "item_slots_offset": 0,
+    "items_count": 0,
+    "items_offset": 0,
+    "kit": {
+      "decoded": "None",
+      "raw_big_endian": 0,
+      "raw_bytes": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    "known_spells_count": 0,
+    "known_spells_offset": 0,
+    "large_portrait": "LARGE",
+    "long_name": {
+      "strref": 1,
+      "text": "<string 1>"
+    },
+    "luck": 0,
+    "max_hit_points": 0,
+    "memorized_spells_count": 0,
+    "memorized_spells_offset": 0,
+    "morale": 0,
+    "morale_break": 0,
+    "morale_recovery_time": 0,
+    "object_references": [
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "power_level_or_party_xp": 0,
+    "proficiency_bytes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "racial_enemy": 0,
+    "reputation": 10,
+    "resistances": {
+      "acid": 0,
+      "cold": 0,
+      "crushing": 0,
+      "electricity": 0,
+      "fire": 0,
+      "magic": 0,
+      "magic_cold": 0,
+      "magic_fire": 0,
+      "missile": 0,
+      "piercing": 0,
+      "slashing": 0
+    },
+    "saving_throws": {
+      "breath": 0,
+      "death": 0,
+      "polymorph": 0,
+      "spells": 0,
+      "wands": 0
+    },
+    "scripts": {
+      "class_script": null,
+      "default_script": null,
+      "general_script": null,
+      "override_script": "OVERRIDE",
+      "race_script": null
+    },
+    "shield_flags": {
+      "decoded": [],
+      "raw": 0
+    },
+    "short_name": {
+      "strref": 2,
+      "text": "<string 2>"
+    },
+    "small_portrait": "SMALL",
+    "soundset": [
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      },
+      {
+        "strref": 0,
+        "text": "<string 0>"
+      }
+    ],
+    "spell_memorization_count": 0,
+    "spell_memorization_offset": 0,
+    "status_flags": {
+      "decoded": [],
+      "raw": 0
+    },
+    "thac0": 0,
+    "thief_skills": {
+      "detect_illusion": 0,
+      "find_traps": 0,
+      "lockpicking": 0,
+      "lore": 0,
+      "move_silently": 0,
+      "pick_pockets": 0,
+      "set_traps": 0
+    },
+    "tracking_skill": 0,
+    "tracking_target": "GORION",
+    "turn_undead_level": 0,
+    "xp_for_kill": 0
+  },
+  "item_slots": [],
+  "items": [],
+  "known_spells": [],
+  "memorized_spells": [],
+  "resource_name": "GORION.CRE",
+  "resource_type": "CRE",
+  "spell_memorization": [],
+  "version": "V1.0"
+}

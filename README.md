@@ -56,7 +56,7 @@ Not implemented yet:
 
 - real-resource fixture coverage for decoded formats
 - broad Near Infinity comparison coverage for `ITM` and `SPL`
-- JSON golden/snapshot coverage for decoded formats
+- JSON golden coverage for `STO`, `DLG`, `ARE`, `BCS`, and the save formats (`ITM`, `SPL`, `CRE`, and `CHR` are pinned)
 - structured write support for variable-length resource sections
 
 Current validation for decoded formats already includes:
@@ -64,6 +64,7 @@ Current validation for decoded formats already includes:
 - real-install `dump` smoke coverage for `ITM` and `SPL`
 - manual Near Infinity comparison for selected BG2EE `SPL` resources
 - env-gated real-install regression tests for validated `SPL` resources
+- JSON [goldens](./docs/GOLDENS.md) in two tiers: exact-value goldens over synthetic fixtures that run in CI, and normalized shape goldens checked against real installs
 - whole-install PSTEE sweeps across every dialogue in the game (859 DLGs), plus resource enumeration and diffing over a 2,313-resource PST mod, exercising `DLG`, `ITM`, `SPL`, and `CRE` decoding at scale (see [guides](./docs/guides/))
 
 See [Parser coverage](./docs/PARSER_COVERAGE.md) for a per-format matrix of what is decoded, deferred, or preserved raw.
@@ -148,6 +149,7 @@ is not plain graphic ASCII, and splitting the unquoted text output on whitespace
 - [Todo priorities](./TODO_PRIORITIES.md)
 - [Parser coverage](./docs/PARSER_COVERAGE.md) — what each decoder exposes, defers, or leaves raw
 - [Regression plan](./docs/REGRESSION_PLAN.md)
+- [JSON goldens](./docs/GOLDENS.md) — why real installs can pin shape but not values, and how to regenerate both tiers
 - [Testing notes](./docs/TESTING.md) — env-gated real-install test setup
 - [Format references](./docs/NEAR_INFINITY_REFERENCE.md)
 - [DLG graph export + override diff](./docs/DLG_GRAPH_AND_OVERRIDE_DIFF.md)

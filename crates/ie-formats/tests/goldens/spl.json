@@ -1,0 +1,51 @@
+{
+  "extended_headers": [],
+  "feature_blocks": [],
+  "header": {
+    "casting_graphics": 0,
+    "completion_sound": "SOUND",
+    "description": {
+      "strref": 0,
+      "text": "<string 0>"
+    },
+    "exclusion_flags": {
+      "decoded": [
+        "Invokers"
+      ],
+      "raw": 2048
+    },
+    "extended_headers_count": 0,
+    "extended_headers_offset": 114,
+    "feature_block_offset": 0,
+    "first_feature_block_index": 0,
+    "flags": {
+      "decoded": [
+        "Break Sanctuary",
+        "Hostile"
+      ],
+      "raw": 1536
+    },
+    "global_feature_block_count": 0,
+    "school": {
+      "decoded": "Invoker",
+      "raw": 6
+    },
+    "secondary_type": {
+      "decoded": "OffensiveDamage",
+      "raw": 10
+    },
+    "spell_level": 1,
+    "spell_name": {
+      "strref": 1,
+      "text": "<string 1>"
+    },
+    "spell_type": {
+      "decoded": "Wizard",
+      "raw": 1
+    },
+    "spellbook_icon": "ICON"
+  },
+  "resource_name": "SPWI112.SPL",
+  "resource_type": "SPL",
+  "version": "V1  "
+}
