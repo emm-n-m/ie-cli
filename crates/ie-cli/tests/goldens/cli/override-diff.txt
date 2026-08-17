@@ -1,0 +1,4 @@
+resource	status	identical	override_sha1	bif_sha1
+SHADOW.ITM	shadow	false	d5801e50fe65bcc8e85ef4a6d0c80702d909e717	90f3f0ce6d8bd7528cd8611d2627caec497f785a
+AR0202.ARE	override_only			
+counts	override_total=2	shadowing_bif=1	override_only=1

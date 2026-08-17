@@ -1,0 +1,14 @@
+digraph DLG {
+  rankdir=LR;
+  node [fontname="Arial"];
+  edge [fontname="Arial"];
+  END [shape=doublecircle,label="END"];
+  S0 [shape=box,label="S0: <string 0> (#0)\nif CheckStatGT(Myself,12,STR)"];
+  S1 [shape=box,label="S1: <string 1> (#1)"];
+  EXT_IMOEN_1 [shape=box,style="dashed,filled",fillcolor="#fff2cc",label="IMOEN 1"];
+  EXT_JAHEIRA_0 [shape=box,style="dashed,filled",fillcolor="#fff2cc",label="JAHEIRA 0"];
+  S0 -> EXT_IMOEN_1 [label="<string 2> (#2)\nif Global(\"X\",\"GLOBAL\",0)\nSetGlobal(\"X\",\"GLOBAL\",1)",color="#b00020",fontcolor="#b00020"];
+  S0 -> END [label=""];
+  S1 -> EXT_JAHEIRA_0 [label="<string 1> (#1)"];
+}
+

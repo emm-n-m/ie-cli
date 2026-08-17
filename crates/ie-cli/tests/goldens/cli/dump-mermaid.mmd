@@ -1,0 +1,12 @@
+graph LR
+  END((END))
+  S0["S0: <string 0> (#35;0)<br/>if CheckStatGT(Myself,12,STR)"]
+  S1["S1: <string 1> (#35;1)"]
+  EXT_IMOEN_1["IMOEN 1"]
+  EXT_JAHEIRA_0["JAHEIRA 0"]
+  S0 -->|"<string 2> (#35;2)<br/>if Global(#quot;X#quot;,#quot;GLOBAL#quot;,0)<br/>SetGlobal(#quot;X#quot;,#quot;GLOBAL#quot;,1)"| EXT_IMOEN_1
+  S0 --> END
+  S1 -->|"<string 1> (#35;1)"| EXT_JAHEIRA_0
+  classDef external fill:#fff2cc,stroke-dasharray: 5 5
+  class EXT_IMOEN_1,EXT_JAHEIRA_0 external
+

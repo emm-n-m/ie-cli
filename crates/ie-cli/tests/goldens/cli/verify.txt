@@ -1,0 +1,2 @@
+WARNING AR0202.ARE header.area_script missing_area_script: header.area_script references missing resource 'AR0202.BCS'
+ERROR AR0202.ARE regions[0].destination_area dead_link: Travel region references missing destination area 'AR9999.ARE'

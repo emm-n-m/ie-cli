@@ -172,8 +172,13 @@ Exit criteria:
 
 ## P2: Quality And Validation
 
+Completed:
+
+- Extend exact-value goldens to `dump --format dot|mermaid`, `save-list`, `tlk`, and every text (non-JSON) output mode. Every output named in this backlog item is now pinned.
+
+Remaining:
+
 - Add comparison harness for checking selected resources against Near Infinity expectations.
-- Extend JSON goldens to the output modes that still have none: `dump --format dot|mermaid`, `save-list`, `tlk`, and the text (non-JSON) modes. Every decoded resource type, both save formats, and the `list`/`locate`/`verify`/`override-diff` outputs are pinned.
 - Add fuzz or truncated-input tests for critical parsers.
 - Improve CLI error messages.
 - Add `--pretty` and compact JSON modes if not already present.

@@ -56,7 +56,6 @@ Not implemented yet:
 
 - real-resource fixture coverage for decoded formats
 - broad Near Infinity comparison coverage for `ITM` and `SPL`
-- JSON golden coverage for `dump --format dot|mermaid`, `save-list`, `tlk`, and text-mode output (every JSON output is pinned)
 - structured write support for variable-length resource sections
 
 Current validation for decoded formats already includes:
@@ -64,7 +63,7 @@ Current validation for decoded formats already includes:
 - real-install `dump` smoke coverage for `ITM` and `SPL`
 - manual Near Infinity comparison for selected BG2EE `SPL` resources
 - env-gated real-install regression tests for validated `SPL` resources
-- JSON [goldens](./docs/GOLDENS.md) in two tiers: exact-value goldens over synthetic fixtures and a synthetic install, covering every decoded format plus `list`/`locate`/`verify`/`override-diff` and running in CI; and normalized shape goldens checked against four real installs
+- output [goldens](./docs/GOLDENS.md) in two tiers: exact-value goldens over synthetic fixtures and a synthetic install, covering every decoded format plus graph, save-listing, TLK, and human-text output modes and running in CI; and normalized JSON shape goldens checked against four real installs
 - whole-install PSTEE sweeps across every dialogue in the game (859 DLGs), plus resource enumeration and diffing over a 2,313-resource PST mod, exercising `DLG`, `ITM`, `SPL`, and `CRE` decoding at scale (see [guides](./docs/guides/))
 
 See [Parser coverage](./docs/PARSER_COVERAGE.md) for a per-format matrix of what is decoded, deferred, or preserved raw.

@@ -1,8 +1,9 @@
-# JSON Goldens
+# Output Goldens
 
-The exported JSON is the product's interface. Skills, guides, and any downstream
-script read it by field name, so a renamed or re-nested field is a breaking
-change — and until these tests existed, one passed CI silently.
+Exported JSON is the product's primary interface, while DOT, Mermaid, and the
+human-readable modes are stable command interfaces of their own. Skills, guides,
+and downstream scripts consume these outputs, so a renamed field or changed
+graph/text encoding can be a breaking change.
 
 Goldens come in two kinds because no single kind can cover both failure
 directions.
@@ -112,12 +113,15 @@ Two costs come with that, and both are real:
 
 ## Coverage and its edges
 
-| Output | Value golden | Shape golden |
+| Output | Exact-value golden | Shape golden |
 | --- | --- | --- |
 | `ITM` `SPL` `CRE` `STO` `DLG` `ARE` `BCS` | yes | yes, per variant |
 | `CHR` | yes | **no — impossible** |
 | `GAM` `SAV` | yes | no — not reached by `dump` |
 | `list` `locate` `verify` `override-diff` | yes | no — not a decoded resource |
+| `dump --format dot\|mermaid` | yes | no — textual graph output |
+| `save-list` `tlk` | yes | no — install-level output |
+| text modes (`list`, `override-diff`, `verify`, `save-list`) | yes | no — textual output |
 
 Shape goldens are keyed per game variant (`standard`, `iwd`, `pst`) because the
 variants genuinely differ: `ARE` differs between `standard` and `iwd` by 33 paths.
@@ -141,12 +145,11 @@ locate-override   "source_kind": "override"  "locator": null
 locate-bif        "source_kind": "bif"       "locator": 0
 ```
 
-Those outputs carry absolute paths, so `<install>` is substituted for the temp
-root and `\` normalized to `/` before comparison. The path *tail* is kept, since
-that is what tells an override hit from a BIF-backed one.
-
-Still unpinned: `dump --format dot|mermaid`, `save-list`, `tlk`, and the text
-(non-JSON) output modes.
+Outputs carrying absolute paths substitute `<install>` for the temp root and
+normalize separators within path-bearing values or lines. The path *tail* is
+kept, since that is what tells an override hit from a BIF-backed one. Raw graph
+lines are deliberately not separator-normalized: their `\n` and `\"` sequences
+are DOT syntax and are part of the interface being pinned.
 
 ## Regenerating
 

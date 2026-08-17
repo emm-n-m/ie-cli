@@ -1,10 +1,10 @@
-//! Value goldens for the commands that report *about* an install rather than
-//! decode one resource.
+//! Value goldens for command output that does not pass through the decoded
+//! resource JSON golden suite.
 //!
-//! `list`, `locate`, `verify`, and `override-diff` never pass through
-//! `decode_to_json`, so neither the per-format value goldens in `ie-formats` nor
-//! the real-install shape goldens cover them -- and they are exactly the outputs
-//! the skills drive their answers from. Until now nothing pinned them at all.
+//! This covers install-level JSON (`list`, `locate`, `verify`, `override-diff`,
+//! `save-list`, and `tlk`), DLG graph output, and the human-readable text modes.
+//! Neither the per-format value goldens in `ie-formats` nor the real-install
+//! shape goldens cover these interfaces.
 //!
 //! These build a synthetic install in a temp directory, so they run in CI with no
 //! game data and can pin values exactly. Building the install rather than reading
@@ -30,13 +30,13 @@ const RESOURCE_LOCATOR: u32 = 0;
 #[test]
 fn list_json_matches_golden() {
     let install = TempInstall::new("list");
-    assert_golden("list", &install, &["list", "--format", "json"]);
+    assert_json_golden("list", &install, &["list", "--format", "json"]);
 }
 
 #[test]
 fn list_filtered_by_type_and_source_matches_golden() {
     let install = TempInstall::new("list-filtered");
-    assert_golden(
+    assert_json_golden(
         "list-override-itm",
         &install,
         &[
@@ -50,7 +50,7 @@ fn locate_prefers_override_and_reports_it() {
     // SHADOW.ITM exists in both the BIF and the override, so this pins the
     // precedence rule itself rather than just the output shape.
     let install = TempInstall::new("locate-override");
-    assert_golden(
+    assert_json_golden(
         "locate-override",
         &install,
         &["locate", "--resource", "SHADOW.ITM"],
@@ -60,7 +60,7 @@ fn locate_prefers_override_and_reports_it() {
 #[test]
 fn locate_with_explicit_bif_source_reaches_past_the_override() {
     let install = TempInstall::new("locate-bif");
-    assert_golden(
+    assert_json_golden(
         "locate-bif",
         &install,
         &["locate", "--resource", "SHADOW.ITM", "--source", "bif"],
@@ -72,7 +72,7 @@ fn verify_reports_a_dead_travel_link() {
     // The area's Travel region points at AR9999, which the install does not
     // contain. That is the issue `verify` exists to find.
     let install = TempInstall::new("verify");
-    assert_golden(
+    assert_json_golden(
         "verify",
         &install,
         &["verify", "--source", "override", "--format", "json"],
@@ -82,14 +82,97 @@ fn verify_reports_a_dead_travel_link() {
 #[test]
 fn override_diff_reports_the_shadowed_resource() {
     let install = TempInstall::new("override-diff");
-    assert_golden(
+    assert_json_golden(
         "override-diff",
         &install,
         &["override-diff", "--format", "json"],
     );
 }
 
-fn assert_golden(name: &str, install: &TempInstall, args: &[&str]) {
+#[test]
+fn dump_dot_matches_golden() {
+    let install = TempInstall::new("dump-dot");
+    install.write_override("TEST.DLG", &graph_dlg());
+    assert_text_golden(
+        "dump-dot",
+        "dot",
+        &install,
+        &[
+            "dump",
+            "--resource",
+            "TEST.DLG",
+            "--format",
+            "dot",
+            "--strings",
+            "both",
+        ],
+    );
+}
+
+#[test]
+fn dump_mermaid_matches_golden() {
+    let install = TempInstall::new("dump-mermaid");
+    install.write_override("TEST.DLG", &graph_dlg());
+    assert_text_golden(
+        "dump-mermaid",
+        "mmd",
+        &install,
+        &[
+            "dump",
+            "--resource",
+            "TEST.DLG",
+            "--format",
+            "mermaid",
+            "--strings",
+            "both",
+        ],
+    );
+}
+
+#[test]
+fn save_list_json_matches_golden() {
+    let install = TempInstall::new("save-list-json");
+    install.create_save();
+    assert_json_golden("save-list", &install, &["save-list", "--format", "json"]);
+}
+
+#[test]
+fn tlk_json_matches_golden() {
+    let install = TempInstall::new("tlk");
+    assert_json_golden("tlk", &install, &["tlk", "--strref", "1"]);
+}
+
+#[test]
+fn list_text_matches_golden() {
+    let install = TempInstall::new("list-text");
+    assert_text_golden("list", "txt", &install, &["list"]);
+}
+
+#[test]
+fn override_diff_text_matches_golden() {
+    let install = TempInstall::new("override-diff-text");
+    assert_text_golden("override-diff", "txt", &install, &["override-diff"]);
+}
+
+#[test]
+fn verify_text_matches_golden() {
+    let install = TempInstall::new("verify-text");
+    assert_text_golden(
+        "verify",
+        "txt",
+        &install,
+        &["verify", "--source", "override"],
+    );
+}
+
+#[test]
+fn save_list_text_matches_golden() {
+    let install = TempInstall::new("save-list-text");
+    install.create_save();
+    assert_text_golden("save-list", "txt", &install, &["save-list"]);
+}
+
+fn command_output(name: &str, install: &TempInstall, args: &[&str]) -> std::process::Output {
     let output = Command::new(env!("CARGO_BIN_EXE_iecli"))
         .args(args)
         .arg("--game")
@@ -102,6 +185,11 @@ fn assert_golden(name: &str, install: &TempInstall, args: &[&str]) {
         "{name} failed: {}",
         String::from_utf8_lossy(&output.stderr)
     );
+    output
+}
+
+fn assert_json_golden(name: &str, install: &TempInstall, args: &[&str]) {
+    let output = command_output(name, install, args);
 
     let value: Value = serde_json::from_slice(&output.stdout)
         .unwrap_or_else(|error| panic!("{name} should emit JSON: {error}"));
@@ -136,6 +224,58 @@ fn assert_golden(name: &str, install: &TempInstall, args: &[&str]) {
          If the change is intended, regenerate with UPDATE_GOLDENS=1 and review the diff.",
         path.display()
     );
+}
+
+fn assert_text_golden(name: &str, extension: &str, install: &TempInstall, args: &[&str]) {
+    let output = command_output(name, install, args);
+    let actual = String::from_utf8(output.stdout)
+        .unwrap_or_else(|error| panic!("{name} should emit UTF-8: {error}"))
+        .replace("\r\n", "\n");
+    let actual = redact_text(&actual, install.root());
+    let path = text_golden_path(name, extension);
+
+    if std::env::var_os("UPDATE_GOLDENS").is_some() {
+        std::fs::create_dir_all(path.parent().expect("golden path should have a parent"))
+            .expect("golden directory should be creatable");
+        std::fs::write(&path, &actual).expect("golden should be writable");
+        return;
+    }
+
+    let expected = std::fs::read_to_string(&path)
+        .unwrap_or_else(|_| {
+            panic!(
+                "no golden at {}; regenerate with UPDATE_GOLDENS=1",
+                path.display()
+            )
+        })
+        .replace("\r\n", "\n");
+
+    assert_eq!(
+        actual,
+        expected,
+        "{name} output no longer matches {}. If the change is intended, regenerate with \
+         UPDATE_GOLDENS=1 and review the diff.",
+        path.display()
+    );
+}
+
+/// Redacts path-bearing lines without rewriting graph escapes such as `\n` and
+/// `\"`. A global backslash replacement makes a Windows path portable but also
+/// silently changes the DOT document being pinned.
+fn redact_text(text: &str, root: &Path) -> String {
+    let native_root = root.to_string_lossy();
+    let slash_root = native_root.replace('\\', "/");
+    text.split_inclusive('\n')
+        .map(|line| {
+            if line.contains(native_root.as_ref()) || line.contains(&slash_root) {
+                line.replace(native_root.as_ref(), "<install>")
+                    .replace(&slash_root, "<install>")
+                    .replace('\\', "/")
+            } else {
+                line.to_string()
+            }
+        })
+        .collect()
 }
 
 /// Replaces the temp install root with `<install>` and normalizes separators.
@@ -173,6 +313,12 @@ fn golden_path(name: &str) -> PathBuf {
         .join(format!("{name}.json"))
 }
 
+fn text_golden_path(name: &str, extension: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/goldens/cli")
+        .join(format!("{name}.{extension}"))
+}
+
 /// A minimal but complete game root: a KEY naming one BIF, that BIF, an override
 /// that shadows one of its resources and adds another, an area with a dead Travel
 /// link, and a TLK.
@@ -202,6 +348,19 @@ impl TempInstall {
         .expect("TLK should be writable");
 
         Self { root }
+    }
+
+    fn write_override(&self, resource_name: &str, bytes: &[u8]) {
+        std::fs::write(self.root.join("override").join(resource_name), bytes)
+            .expect("override resource should be writable");
+    }
+
+    fn create_save(&self) {
+        let save = self.root.join("save/000000007-Chapter 1 Start");
+        std::fs::create_dir_all(&save).expect("save folder should be creatable");
+        std::fs::write(save.join("BALDUR.gam"), []).expect("GAM marker should be writable");
+        std::fs::write(save.join("BALDUR.SAV"), []).expect("SAV marker should be writable");
+        std::fs::write(save.join("PORTRT0L.BMP"), []).expect("portrait marker should be writable");
     }
 
     fn root(&self) -> &Path {
@@ -254,7 +413,7 @@ fn build_biff(payload: &[u8]) -> Vec<u8> {
     archive
 }
 
-fn build_tlk(entries: &[&str]) -> Vec<u8> {
+fn build_tlk<T: AsRef<str>>(entries: &[T]) -> Vec<u8> {
     let strings_offset = 18u32 + entries.len() as u32 * 26;
     let mut bytes = Vec::new();
     bytes.extend_from_slice(b"TLK V1  ");
@@ -263,12 +422,99 @@ fn build_tlk(entries: &[&str]) -> Vec<u8> {
     bytes.extend_from_slice(&strings_offset.to_le_bytes());
     let mut text = Vec::new();
     for entry in entries {
+        let entry = entry.as_ref();
         bytes.extend_from_slice(&[0u8; 18]);
         bytes.extend_from_slice(&(text.len() as u32).to_le_bytes());
         bytes.extend_from_slice(&(entry.len() as u32).to_le_bytes());
         text.extend_from_slice(entry.as_bytes());
     }
     bytes.extend_from_slice(&text);
+    bytes
+}
+
+const DLG_HEADER_SIZE: usize = 0x34;
+const DLG_STATE_SIZE: usize = 16;
+const DLG_TRANSITION_SIZE: usize = 32;
+const DLG_SCRIPT_ENTRY_SIZE: usize = 8;
+
+/// Two states and three transitions, including every optional script table and
+/// both terminating and external edges. This pins the meaningful graph labels,
+/// not just the renderer prologue.
+fn graph_dlg() -> Vec<u8> {
+    let state_trigger = b"CheckStatGT(Myself,12,STR)";
+    let transition_trigger = b"Global(\"X\",\"GLOBAL\",0)";
+    let action = b"SetGlobal(\"X\",\"GLOBAL\",1)";
+
+    let states_offset = DLG_HEADER_SIZE as u32;
+    let transitions_offset = states_offset + (2 * DLG_STATE_SIZE as u32);
+    let state_triggers_offset = transitions_offset + (3 * DLG_TRANSITION_SIZE as u32);
+    let transition_triggers_offset = state_triggers_offset + DLG_SCRIPT_ENTRY_SIZE as u32;
+    let actions_offset = transition_triggers_offset + DLG_SCRIPT_ENTRY_SIZE as u32;
+    let strings_offset = actions_offset + DLG_SCRIPT_ENTRY_SIZE as u32;
+    let state_trigger_at = strings_offset;
+    let transition_trigger_at = state_trigger_at + state_trigger.len() as u32;
+    let action_at = transition_trigger_at + transition_trigger.len() as u32;
+    let mut bytes = vec![0u8; (action_at + action.len() as u32) as usize];
+
+    bytes[0..4].copy_from_slice(b"DLG ");
+    bytes[4..8].copy_from_slice(b"V1.0");
+    bytes[0x08..0x0C].copy_from_slice(&2u32.to_le_bytes());
+    bytes[0x0C..0x10].copy_from_slice(&states_offset.to_le_bytes());
+    bytes[0x10..0x14].copy_from_slice(&3u32.to_le_bytes());
+    bytes[0x14..0x18].copy_from_slice(&transitions_offset.to_le_bytes());
+    bytes[0x18..0x1C].copy_from_slice(&state_triggers_offset.to_le_bytes());
+    bytes[0x1C..0x20].copy_from_slice(&1u32.to_le_bytes());
+    bytes[0x20..0x24].copy_from_slice(&transition_triggers_offset.to_le_bytes());
+    bytes[0x24..0x28].copy_from_slice(&1u32.to_le_bytes());
+    bytes[0x28..0x2C].copy_from_slice(&actions_offset.to_le_bytes());
+    bytes[0x2C..0x30].copy_from_slice(&1u32.to_le_bytes());
+
+    let state0 = states_offset as usize;
+    bytes[state0..state0 + 4].copy_from_slice(&0u32.to_le_bytes());
+    bytes[state0 + 8..state0 + 12].copy_from_slice(&2u32.to_le_bytes());
+
+    let state1 = state0 + DLG_STATE_SIZE;
+    bytes[state1..state1 + 4].copy_from_slice(&1u32.to_le_bytes());
+    bytes[state1 + 4..state1 + 8].copy_from_slice(&2u32.to_le_bytes());
+    bytes[state1 + 8..state1 + 12].copy_from_slice(&1u32.to_le_bytes());
+    bytes[state1 + 12..state1 + 16].copy_from_slice(&u32::MAX.to_le_bytes());
+
+    let transition0 = transitions_offset as usize;
+    bytes[transition0..transition0 + 4].copy_from_slice(&0b0000_0111u32.to_le_bytes());
+    bytes[transition0 + 4..transition0 + 8].copy_from_slice(&2u32.to_le_bytes());
+    bytes[transition0 + 12..transition0 + 16].copy_from_slice(&0u32.to_le_bytes());
+    bytes[transition0 + 16..transition0 + 20].copy_from_slice(&0u32.to_le_bytes());
+    bytes[transition0 + 20..transition0 + 28].copy_from_slice(b"IMOEN\0\0\0");
+    bytes[transition0 + 28..transition0 + 32].copy_from_slice(&1u32.to_le_bytes());
+
+    let transition1 = transition0 + DLG_TRANSITION_SIZE;
+    bytes[transition1..transition1 + 4].copy_from_slice(&0b0000_1000u32.to_le_bytes());
+
+    let transition2 = transition1 + DLG_TRANSITION_SIZE;
+    bytes[transition2..transition2 + 4].copy_from_slice(&0b0000_0001u32.to_le_bytes());
+    bytes[transition2 + 4..transition2 + 8].copy_from_slice(&1u32.to_le_bytes());
+    bytes[transition2 + 20..transition2 + 28].copy_from_slice(b"JAHEIRA\0");
+
+    for (entry_offset, string_offset, string) in [
+        (
+            state_triggers_offset,
+            state_trigger_at,
+            state_trigger.as_slice(),
+        ),
+        (
+            transition_triggers_offset,
+            transition_trigger_at,
+            transition_trigger.as_slice(),
+        ),
+        (actions_offset, action_at, action.as_slice()),
+    ] {
+        let entry = entry_offset as usize;
+        bytes[entry..entry + 4].copy_from_slice(&string_offset.to_le_bytes());
+        bytes[entry + 4..entry + 8].copy_from_slice(&(string.len() as u32).to_le_bytes());
+        let at = string_offset as usize;
+        bytes[at..at + string.len()].copy_from_slice(string);
+    }
+
     bytes
 }
 
@@ -351,5 +597,16 @@ mod tests {
         let redacted = redact(json!("/tmp/install/data/base.bif"), root);
 
         assert_eq!(redacted, json!("<install>/data/base.bif"));
+    }
+
+    #[test]
+    fn text_redaction_preserves_dot_backslash_escapes() {
+        let root = Path::new("/tmp/install");
+        let text = "label=\"line one\\nline two\\\"quoted\\\"\"\n/tmp/install/save/slot\n";
+
+        assert_eq!(
+            redact_text(text, root),
+            "label=\"line one\\nline two\\\"quoted\\\"\"\n<install>/save/slot\n"
+        );
     }
 }

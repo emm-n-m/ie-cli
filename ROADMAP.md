@@ -60,6 +60,7 @@ Current as of 2026-08-14.
 - Agent skill layer: six skills that turn `iecli` JSON into narrative answers, packaged twice — [`.claude/skills/`](./.claude/skills/) for Claude Code and [`skills/`](./skills/) for Codex. Inventory and per-script flags live in [docs/SKILLS.md](./docs/SKILLS.md).
 - Research guides in [`docs/guides/`](./docs/guides/) produced by running that skill layer against real installs — the first user-facing output of the tool that is not JSON.
 - `ie-cli` decomposed from one large `main.rs` into per-concern modules (`dialog_graph`, `override_diff`, `patch_input`, `resource_links`, `save_support`, `verify_command`), keeping argument handling and presentation out of the parsers.
+- Exact-value output goldens for every decoded format plus `list`, `locate`, `verify`, `override-diff`, DLG DOT/Mermaid graphs, save listing, TLK lookup, and every human-readable text mode.
 
 ### Validated in real-world use
 
@@ -77,7 +78,6 @@ Current as of 2026-08-14.
 - Additional resource families: `WED`, `TIS`, `BAM`, `MOS`, `2DA`, and deeper `ARE` sections beyond the currently needed actors, entrances, and regions.
 - Classic PST save support (`GAM` v1.1). PSTEE uses `GAM` v2.0 and is already covered by the current read path and the scoped item-write path.
 - BG/BG2/IWD support for `save-add-item`; these variants remain hard-gated until their GAM layouts and inventory slot maps are validated.
-- JSON golden/snapshot tests for any decoded format.
 - Broad cross-game validation. All four Enhanced Edition titles now have whole-install or substantial real-install coverage. What is missing is no longer a title but an install *shape*: every target so far has been a single merged game root.
 - DLC archive mounting. `dlc/sod-dlc.zip` is a complete game-root overlay — its own `data/*.BIF`, `override/`, and `lang/<locale>/dialog.tlk` — and nothing in `ie-io` or `ie-core` reads zips. The BGEE sweep did cover SoD content only because DlcMerger had flattened it into the game root. On a default Steam BGEE+SoD install every SoD resource resolves as not-found *silently*, and SoD strrefs would resolve against the base-game TLK. Silent under-coverage is the worst failure shape for a tool that sells trustworthy extraction, so this outranks the remaining format work.
 - `WMP` (worldmap) parsing, without which `verify` cannot tell a live broken exit from an unreachable leftover on BG-family installs. See the BGEE sweep findings.
