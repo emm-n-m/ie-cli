@@ -58,10 +58,42 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
 
+      # Pull this tag's section out of CHANGELOG.md. Releases shipped with empty
+      # notes before this, which left the binaries with nothing saying what they
+      # contained.
+      - name: Extract release notes
+        id: notes
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v version="$version" '
+            $0 ~ "^## \\[" version "\\]" { collecting = 1; next }
+            collecting && /^## \[/ { exit }
+            collecting { print }
+          ' CHANGELOG.md > release-notes.md
+          if [[ ! -s release-notes.md ]]; then
+            echo "no CHANGELOG.md section for [$version]" >&2
+            exit 1
+          fi
+
+      # A tag like v0.3.0-rc.1 must not become the "Latest" release that people
+      # land on. Semver says a hyphen marks a pre-release, so key off that.
+      - name: Classify release
+        id: classify
+        run: |
+          if [[ "${GITHUB_REF_NAME}" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/* 
+          files: artifacts/**/*
+          body_path: release-notes.md
+          prerelease: ${{ steps.classify.outputs.prerelease }}
