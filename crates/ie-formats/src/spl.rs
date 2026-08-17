@@ -591,6 +591,37 @@ mod tests {
     }
 
     #[test]
+    fn rejects_spl_shorter_than_header() {
+        let error = parse_spl_with_variant(
+            &[0; SPL_HEADER_SIZE - 1],
+            "SHORT.SPL",
+            None,
+            GameVariant::Standard,
+        )
+        .expect_err("truncated SPL header should fail");
+
+        assert!(error.to_string().contains("must contain at least"));
+    }
+
+    #[test]
+    fn rejects_truncated_extended_header_table() {
+        let mut bytes = vec![0u8; SPL_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"SPL ");
+        bytes[4..8].copy_from_slice(b"V1  ");
+        bytes[0x64..0x68].copy_from_slice(&(SPL_HEADER_SIZE as u32).to_le_bytes());
+        bytes[0x68..0x6A].copy_from_slice(&1u16.to_le_bytes());
+
+        let error = parse_spl_with_variant(&bytes, "SHORT.SPL", None, GameVariant::Standard)
+            .expect_err("truncated SPL extended-header table should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("extended header table exceeds SPL length")
+        );
+    }
+
+    #[test]
     fn parse_minimal_spl_header() {
         let mut bytes = vec![0u8; SPL_HEADER_SIZE];
         bytes[0..4].copy_from_slice(b"SPL ");

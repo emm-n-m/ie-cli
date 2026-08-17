@@ -5,7 +5,6 @@
 /.idea
 /.settings
 .vscode/launch.json
-docs/TESTING.md
 docs/LOCAL_GAME_PATHS.md
 .claude/settings.local.json
 # Local-only golden files (contain game data, must not be committed)

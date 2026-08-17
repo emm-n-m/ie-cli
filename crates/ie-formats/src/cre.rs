@@ -1582,6 +1582,33 @@ mod tests {
     }
 
     #[test]
+    fn rejects_cre_shorter_than_header() {
+        let error = parse_cre_with_variant(
+            &vec![0; CRE_HEADER_SIZE - 1],
+            "SHORT.CRE",
+            None,
+            GameVariant::Standard,
+        )
+        .expect_err("truncated CRE header should fail");
+
+        assert!(error.to_string().contains("must contain at least"));
+    }
+
+    #[test]
+    fn rejects_truncated_known_spell_table() {
+        let mut bytes = vec![0u8; CRE_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"CRE ");
+        bytes[4..8].copy_from_slice(b"V1.0");
+        bytes[0x02A0..0x02A4].copy_from_slice(&(CRE_HEADER_SIZE as u32).to_le_bytes());
+        bytes[0x02A4..0x02A8].copy_from_slice(&1u32.to_le_bytes());
+
+        let error = parse_cre_with_variant(&bytes, "SHORT.CRE", None, GameVariant::Standard)
+            .expect_err("truncated CRE known-spell table should fail");
+
+        assert!(error.to_string().contains("exceeds CRE length"));
+    }
+
+    #[test]
     fn parse_minimal_cre_header() {
         let mut bytes = vec![0u8; CRE_HEADER_SIZE];
         bytes[0..4].copy_from_slice(b"CRE ");

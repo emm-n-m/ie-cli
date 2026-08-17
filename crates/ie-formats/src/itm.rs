@@ -734,6 +734,37 @@ mod tests {
     }
 
     #[test]
+    fn rejects_itm_shorter_than_header() {
+        let error = parse_itm_with_variant(
+            &[0; ITM_HEADER_SIZE - 1],
+            "SHORT.ITM",
+            None,
+            GameVariant::Standard,
+        )
+        .expect_err("truncated ITM header should fail");
+
+        assert!(error.to_string().contains("must contain at least"));
+    }
+
+    #[test]
+    fn rejects_truncated_ability_table() {
+        let mut bytes = vec![0u8; ITM_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"ITM ");
+        bytes[4..8].copy_from_slice(b"V1  ");
+        bytes[0x64..0x68].copy_from_slice(&(ITM_HEADER_SIZE as u32).to_le_bytes());
+        bytes[0x68..0x6A].copy_from_slice(&1u16.to_le_bytes());
+
+        let error = parse_itm_with_variant(&bytes, "SHORT.ITM", None, GameVariant::Standard)
+            .expect_err("truncated ITM ability table should fail");
+
+        assert!(
+            error
+                .to_string()
+                .contains("ability table exceeds ITM length")
+        );
+    }
+
+    #[test]
     fn parse_minimal_itm_header() {
         let mut bytes = vec![0u8; ITM_HEADER_SIZE];
         bytes[0..4].copy_from_slice(b"ITM ");

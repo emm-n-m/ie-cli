@@ -532,6 +532,28 @@ mod tests {
     }
 
     #[test]
+    fn rejects_sto_shorter_than_header() {
+        let error = parse_sto(&[0; STO_HEADER_SIZE - 1], "SHORT.STO", None)
+            .expect_err("truncated STO header should fail");
+
+        assert!(error.to_string().contains("must contain at least"));
+    }
+
+    #[test]
+    fn rejects_truncated_item_table() {
+        let mut bytes = vec![0u8; STO_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"STOR");
+        bytes[4..8].copy_from_slice(b"V1.0");
+        bytes[0x34..0x38].copy_from_slice(&(STO_HEADER_SIZE as u32).to_le_bytes());
+        bytes[0x38..0x3C].copy_from_slice(&1u32.to_le_bytes());
+
+        let error =
+            parse_sto(&bytes, "SHORT.STO", None).expect_err("truncated STO item table should fail");
+
+        assert!(error.to_string().contains("exceeds STO length"));
+    }
+
+    #[test]
     fn parse_minimal_sto_header_and_tables() {
         let mut bytes =
             vec![0u8; STO_HEADER_SIZE + STO_ITEM_SIZE + STO_DRINK_SIZE + STO_CURE_SIZE + 4];

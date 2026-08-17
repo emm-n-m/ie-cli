@@ -30,7 +30,7 @@ right one.
 
 ## Status Snapshot
 
-Current as of 2026-08-14.
+Current as of 2026-08-17.
 
 ### Done
 
@@ -78,10 +78,9 @@ Current as of 2026-08-14.
 - Additional resource families: `WED`, `TIS`, `BAM`, `MOS`, `2DA`, and deeper `ARE` sections beyond the currently needed actors, entrances, and regions.
 - Classic PST save support (`GAM` v1.1). PSTEE uses `GAM` v2.0 and is already covered by the current read path and the scoped item-write path.
 - BG/BG2/IWD support for `save-add-item`; these variants remain hard-gated until their GAM layouts and inventory slot maps are validated.
-- Broad cross-game validation. All four Enhanced Edition titles now have whole-install or substantial real-install coverage. What is missing is no longer a title but an install *shape*: every target so far has been a single merged game root.
-- DLC archive mounting. `dlc/sod-dlc.zip` is a complete game-root overlay — its own `data/*.BIF`, `override/`, and `lang/<locale>/dialog.tlk` — and nothing in `ie-io` or `ie-core` reads zips. The BGEE sweep did cover SoD content only because DlcMerger had flattened it into the game root. On a default Steam BGEE+SoD install every SoD resource resolves as not-found *silently*, and SoD strrefs would resolve against the base-game TLK. Silent under-coverage is the worst failure shape for a tool that sells trustworthy extraction, so this outranks the remaining format work.
 - `WMP` (worldmap) parsing, without which `verify` cannot tell a live broken exit from an unreachable leftover on BG-family installs. See the BGEE sweep findings.
-- A known-issue baseline for `verify` on stock BGEE, since stock-install-verifies-clean does not generalize off IWDEE.
+- Continued validation of the stock-BGEE `verify` known-issue baseline across game patches and
+  distribution layouts. A clean Steam BGEE+SoD install with packed DLC is now pinned.
 - `verify` beyond ARE. Other resource types are rejected rather than partially checked.
 - General structured resource serialization and WeiDU patch emission.
 
@@ -264,16 +263,23 @@ Remaining follow-up:
 
 ## Next Milestones
 
-### Selection pending
+### Validation debt
 
-No new implementation milestone has been selected as of 2026-08-12. Work since the last snapshot has been read-path breadth (PST variant support, install verification, the skill layer and guides) rather than a new tooling milestone. The next planning decision should choose among the following already identified work, rather than starting all of it:
+Selected on 2026-08-17 after the output goldens passed against a second BGEE installation. The
+current milestone strengthens existing formats rather than adding another resource family:
 
-- pay down validation debt with real fixtures, Near Infinity comparisons, and stable JSON snapshots for existing formats
+- keep synthetic exact-value and real-install shape goldens green across installations
+- pin stock-install `verify` behavior with per-game expectations (IWDEE clean; BGEE known issues)
+- cover malformed and truncated inputs for critical parsers
+- add factual real-resource assertions and Near Infinity comparisons for existing formats
+
+Candidates after this validation pass:
+
 - exercise the one-NPC/one-interjection PSTEE MVP end to end, using WeiDU for installation rather than adding speculative general-purpose writers
 - validate and enable `save-add-item` for one additional game family
-- close the IWDEE gap: validate discovery, decoding, and the `iwd` variant path against a real install
+- add `WMP` parsing when reachability-aware area verification becomes the selected workflow
 
-Until that decision is made, do not add another resource family or broaden write support.
+Until the validation pass is complete, do not add another resource family or broaden write support.
 
 ## Write Support Framework
 

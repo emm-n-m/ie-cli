@@ -104,8 +104,9 @@ Completed:
 
 Remaining:
 
-- Add fixture tests using real resources.
-- Expand semantic validation of decoded `ITM` and `SPL` fields against more real resources.
+- Expand env-gated factual assertions for decoded `ITM` and `SPL` fields against more real
+  resources. Raw game resources and full derived dumps are not committed; see
+  [docs/REGRESSION_PLAN.md](./docs/REGRESSION_PLAN.md).
 - Broaden Near Infinity comparison coverage for `ITM` and additional `SPL` resources.
 
 Suggested verification resources:
@@ -132,8 +133,9 @@ Completed:
 
 Remaining:
 
-- Add fixture and snapshot tests for `CRE` and `STO`.
-- Verify several real resources against Near Infinity.
+- Add env-gated factual assertions for representative `CRE` and `STO` resources.
+- Verify those resources against Near Infinity. Exact synthetic JSON goldens already pin both
+  formats' exported shape and values.
 
 Suggested verification resources:
 
@@ -179,9 +181,12 @@ Completed:
 Remaining:
 
 - Add comparison harness for checking selected resources against Near Infinity expectations.
-- Add fuzz or truncated-input tests for critical parsers.
+- Add fuzz coverage for critical parsers. Deterministic truncated-header and truncated-table
+  tests cover `ITM`, `SPL`, `CRE`, `STO`, and `ARE`; `DLG` and `BCS` also have malformed-input
+  regression tests.
 - Improve CLI error messages.
-- Add `--pretty` and compact JSON modes if not already present.
+- Add a compact JSON mode if demand justifies another presentation option. JSON is currently
+  pretty-printed consistently.
 
 Exit criteria:
 
@@ -210,7 +215,8 @@ Completed:
 
 Remaining:
 
-- Give `verify` a stock-BGEE baseline. Stock BGEE ships 6 dead links / phantom entrances in BIF-backed areas, so the IWDEE-style `assert_empty` does not port; the BGEE assertion needs a known-issue list.
+- Keep the stock-BGEE `verify` known-issue baseline current across game patches. The committed
+  env-gated test covers a clean Steam BGEE+SoD root with SoD packed in `dlc/sod-dlc.zip`.
 - Parse `WMP` so `verify` can distinguish a live broken exit from an unreachable leftover. 53 BGEE areas have no inbound Travel region, but in BG1 that usually means worldmap entry rather than unreachability.
 - Extend the effect-opcode tables; 41% of IWDEE opcode instances resolve to a name today. Unnamed opcodes emit `decoded: null`, so this is coverage rather than a correctness risk.
 - Keep documenting per-game quirks as they surface. Known so far: PST uses its own opcode numbering; IWDEE ships `#BONECIR.SPL` with a corrupt signature byte; BGEE indexes `CDDETECT` as `.SPL` over ITM payload bytes and ships `MONKTU 8.DLG`, a resref whose padding space falls mid-name; stock areas rely on case-insensitive entrance names and use `NONE` as an empty script/dialog slot; SoD's `mod.key` and the base `chitin.key` name 17 identical BIF paths that are 17 different files, so BIF resolution must stay scoped to the KEY that named the entry.
@@ -291,14 +297,17 @@ Exit criteria:
 
 Current high-value follow-up issues:
 
-1. Add real-resource fixture coverage and Near Infinity comparisons for `ITM` and `SPL`.
-2. Pin the remaining output modes with goldens — `dump --format dot|mermaid`, `save-list`, `tlk`, and text mode — following the two-tier pattern in [docs/GOLDENS.md](./docs/GOLDENS.md).
-3. Add fixture/snapshot coverage and real-resource validation for `CRE` and `STO`.
-4. Broaden real-install validation for `DLG` and `BCS`.
-5. Give `verify` a stock-BGEE known-issue baseline, so the install-wide pass can assert rather than be read by hand.
+1. Add env-gated factual assertions and Near Infinity comparisons for representative `ITM` and
+   `SPL` resources.
+2. Add the same real-resource validation for `CRE` and `STO`; their synthetic exact-value goldens
+   are already complete.
+3. Broaden real-install validation for `DLG` and `BCS`, especially external-dialog references.
+4. Add a reusable Near Infinity expectation harness so comparison findings are recorded uniformly.
+5. Add fuzz coverage for the binary parsers now that deterministic truncation cases are covered.
 
 Validation debt is now the dominant backlog theme: read coverage has run far ahead of fixtures and
-snapshots. Items 1–4 predate the PSTEE sweeps and remain open despite that workload.
+factual assertions against independently inspected resources. Items 1–4 predate the PSTEE sweeps
+and remain open despite that workload.
 
 ## Stop Conditions
 
