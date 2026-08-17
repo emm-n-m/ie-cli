@@ -46,6 +46,22 @@ IE_BGEE_PATH=/path/to/bgee cargo test -p iecli --test verify
 IE_IWDEE_PATH=/path/to/iwdee cargo test -p iecli --test verify
 ```
 
+### Factual expectations
+
+[`real_resources.json`](../crates/ie-cli/tests/expectations/real_resources.json) records small,
+non-localized facts checked against Near Infinity or the relevant IESDP layout. Every case states
+its provenance; the harness reports that provenance with a failing JSON pointer. It currently
+covers ITM, SPL, CRE, STO, DLG, BCS, and ARE, including an external-dialog transition.
+
+```bash
+IE_BGEE_PATH=/path/to/bgee cargo test -p iecli --test real_expectations
+```
+
+Malformed-input coverage has two layers: targeted truncated-header/table tests beside the parsers,
+and a deterministic adversarial-input test that gives every decoder valid signatures with
+randomized bodies and asserts that it never panics. The latter runs in the default suite and can be
+run directly with `cargo test -p ie-formats --test robustness`.
+
 ## Goldens
 
 Exact-value goldens use synthetic fixtures and run in the default suite. Shape goldens sample real

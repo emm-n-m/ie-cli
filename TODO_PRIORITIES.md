@@ -99,6 +99,7 @@ Completed:
 - Add parser unit tests for both formats.
 - Validate selected `SPL` outputs against Near Infinity using real BG2EE resources.
 - Add real-install `dump` regression coverage for validated `SPL` resources when `IE_GAME_PATH` is set.
+- Add reusable env-gated factual expectations for stock BGEE `SW1H01.ITM` and `SPWI112.SPL`.
 
 - Add JSON golden coverage for exported output: exact-value goldens over synthetic fixtures, plus normalized shape goldens against real installs. See [docs/GOLDENS.md](./docs/GOLDENS.md).
 
@@ -130,11 +131,13 @@ Completed:
 - Implement `CRE` parser.
 - Implement `STO` parser.
 - Add stable JSON export.
+- Add env-gated factual expectations for stock BGEE `GORION.CRE` and `FRIEND.STO`.
 
 Remaining:
 
-- Add env-gated factual assertions for representative `CRE` and `STO` resources.
-- Verify those resources against Near Infinity. Exact synthetic JSON goldens already pin both
+- Add env-gated factual assertions for additional representative `CRE` and `STO` resources and
+  other game families.
+- Verify representative resources against Near Infinity. Exact synthetic JSON goldens already pin both
   formats' exported shape and values.
 
 Suggested verification resources:
@@ -177,13 +180,13 @@ Exit criteria:
 Completed:
 
 - Extend exact-value goldens to `dump --format dot|mermaid`, `save-list`, `tlk`, and every text (non-JSON) output mode. Every output named in this backlog item is now pinned.
+- Add a reusable, provenance-bearing expectation harness for factual real-resource checks.
+- Add deterministic adversarial-input no-panic coverage for every decoder in the normal test suite.
 
 Remaining:
 
-- Add comparison harness for checking selected resources against Near Infinity expectations.
-- Add fuzz coverage for critical parsers. Deterministic truncated-header and truncated-table
-  tests cover `ITM`, `SPL`, `CRE`, `STO`, and `ARE`; `DLG` and `BCS` also have malformed-input
-  regression tests.
+- Add coverage-guided fuzzing if deterministic adversarial cases and targeted truncation regressions
+  expose insufficient paths. The dependency-free randomized harness currently covers every decoder.
 - Improve CLI error messages.
 - Add a compact JSON mode if demand justifies another presentation option. JSON is currently
   pretty-printed consistently.
@@ -218,7 +221,9 @@ Remaining:
 - Keep the stock-BGEE `verify` known-issue baseline current across game patches. The committed
   env-gated test covers a clean Steam BGEE+SoD root with SoD packed in `dlc/sod-dlc.zip`.
 - Parse `WMP` so `verify` can distinguish a live broken exit from an unreachable leftover. 53 BGEE areas have no inbound Travel region, but in BG1 that usually means worldmap entry rather than unreachability.
-- Extend the effect-opcode tables; 41% of IWDEE opcode instances resolve to a name today. Unnamed opcodes emit `decoded: null`, so this is coverage rather than a correctness risk.
+- Continue extending the effect-opcode tables and remeasure IWDEE coverage. The last sweep resolved
+  41%; common save modifiers and cast/learn/protection-from-spell opcodes were added afterward.
+  Unnamed opcodes emit `decoded: null`, so this is coverage rather than a correctness risk.
 - Keep documenting per-game quirks as they surface. Known so far: PST uses its own opcode numbering; IWDEE ships `#BONECIR.SPL` with a corrupt signature byte; BGEE indexes `CDDETECT` as `.SPL` over ITM payload bytes and ships `MONKTU 8.DLG`, a resref whose padding space falls mid-name; stock areas rely on case-insensitive entrance names and use `NONE` as an empty script/dialog slot; SoD's `mod.key` and the base `chitin.key` name 17 identical BIF paths that are 17 different files, so BIF resolution must stay scoped to the KEY that named the entry.
 
 Exit criteria:
@@ -297,13 +302,12 @@ Exit criteria:
 
 Current high-value follow-up issues:
 
-1. Add env-gated factual assertions and Near Infinity comparisons for representative `ITM` and
-   `SPL` resources.
-2. Add the same real-resource validation for `CRE` and `STO`; their synthetic exact-value goldens
-   are already complete.
-3. Broaden real-install validation for `DLG` and `BCS`, especially external-dialog references.
-4. Add a reusable Near Infinity expectation harness so comparison findings are recorded uniformly.
-5. Add fuzz coverage for the binary parsers now that deterministic truncation cases are covered.
+1. Broaden the initial BGEE factual expectation matrix across BG2EE, PSTEE, and IWDEE when those
+   installs are available.
+2. Add manual Near Infinity comparisons for representative `ITM`, `CRE`, `STO`, `DLG`, `BCS`, and
+   `ARE` resources; record the findings in the existing expectation manifest.
+3. Add more real external-dialog edges and script constructs beyond the BGEE `ALATOS`/`BALDUR`
+   anchors.
 
 Validation debt is now the dominant backlog theme: read coverage has run far ahead of fixtures and
 factual assertions against independently inspected resources. Items 1–4 predate the PSTEE sweeps

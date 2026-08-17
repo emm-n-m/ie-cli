@@ -21,6 +21,11 @@ straight through as `--game`, so pointing it at `dlc/` fails with `missing chiti
 
 Tests silently skip when the variable is unset, so CI passes without game data.
 
+Small factual expectations live in
+`crates/ie-cli/tests/expectations/real_resources.json` and are executed by the reusable
+`real_expectations` integration test. Each case must include provenance distinguishing a manual
+Near Infinity comparison from an IESDP/raw-byte check; do not label the latter as NI-verified.
+
 Two further variables regenerate goldens rather than select an install. They are write switches, not
 inputs — set either one and the run rewrites checked-in expectations instead of asserting against
 them, so never set them on a verification run:
@@ -105,7 +110,7 @@ Choose items that exercise different parser paths:
 | `STAF09.ITM`   | Staff of the Magi, many effects and flags                 | Complex item      |
 | `POTN08.ITM`   | Consumable, single-use item with effects                  | Consumable        |
 | `AMUL14.ITM`   | Amulet with passive effects                               | Passive equipment |
-| `RING06.ITM`   | Ring of Free Action, continuous effects                   | Continuous effect |
+| `RING06.ITM`   | Ring of the Princes +1, six equipped effects               | Continuous effect |
 | `SCRL1B.ITM`   | Scroll, learnable spell reference                         | Scroll            |
 | `MISC01.ITM`   | Gold piece, zero-ability item                             | Minimal item      |
 
@@ -152,7 +157,7 @@ For each ITM resource, verify these fields against Near Infinity:
 | `SPPR718.SPL`  | Nature's Beauty, level 7 druid, class exclusion flags     | Exclusion flags     |
 | `SPWI220.SPL`  | Know Alignment, divination                                | Divination school   |
 | `SPCL212.SPL`  | Innate ability (Lay On Hands or similar)                  | Innate/special      |
-| `SPWI613.SPL`  | Contingency, complex targeting                            | Complex mechanics   |
+| `SPWI613.SPL`  | Improved Haste, many level-scaled effect blocks           | Complex mechanics   |
 
 ### 3.2 Field Verification Matrix
 
@@ -383,13 +388,13 @@ Track which resources have been fully verified. Mark each cell when done.
 | Resource       | Parsed | Fields checked vs NI | Asserts committed | Notes |
 |----------------|--------|----------------------|-------------------|-------|
 | `ACIDBL.ITM`   | yes    | partial              | no                |       |
-| `SW1H01.ITM`   |        |                      |                   |       |
+| `SW1H01.ITM`   | yes    | IESDP/raw bytes      | yes               | BGEE; exposed and fixed byte-width requirement bug |
 | `BOOT01.ITM`   |        |                      |                   |       |
 | `STAF09.ITM`   |        |                      |                   |       |
 | `POTN08.ITM`   |        |                      |                   |       |
 | `AMUL14.ITM`   |        |                      |                   |       |
-| `RING06.ITM`   |        |                      |                   |       |
-| `SCRL1B.ITM`   |        |                      |                   |       |
+| `RING06.ITM`   | yes    | IESDP/raw bytes      | yes               | BGEE equipped-effect case |
+| `SCRL1B.ITM`   | yes    | IESDP/raw bytes      | yes               | BGEE cast/learn ability case |
 | `MISC01.ITM`   |        |                      |                   |       |
 
 ### SPL Resources
@@ -406,13 +411,13 @@ Track which resources have been fully verified. Mark each cell when done.
 | `SPPR718.SPL`  |        |                      |                   |       |
 | `SPWI220.SPL`  |        |                      |                   |       |
 | `SPCL212.SPL`  |        |                      |                   |       |
-| `SPWI613.SPL`  |        |                      |                   |       |
+| `SPWI613.SPL`  | yes    | IESDP/raw bytes      | yes               | BGEE 9 headers / 81 effects |
 
 ### Cross-Game
 
 | Game   | Discovery | KEY parse | 1 ITM | 1 SPL | TLK | Notes |
 |--------|-----------|-----------|-------|-------|-----|-------|
 | BG2EE  | yes       | yes       | yes   | yes   | yes |       |
-| BGEE   |           |           |       |       |     |       |
+| BGEE   | yes       | yes       | yes   | yes   | yes | stock packed-DLC install |
 | PSTEE  |           |           |       |       |     |       |
 | IWDEE  |           |           |       |       |     |       |

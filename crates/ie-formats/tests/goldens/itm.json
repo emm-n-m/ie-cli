@@ -5,7 +5,7 @@
     "abilities_offset": 114,
     "ability_count": 0,
     "category": {
-      "decoded": "Weapon",
+      "decoded": "Daggers",
       "raw": 16
     },
     "description_image": null,
@@ -40,6 +40,12 @@
       "strref": 2,
       "text": "<string 2>"
     },
+    "kit_usability": [
+      0,
+      0,
+      0,
+      0
+    ],
     "lore_to_identify": 0,
     "max_in_stack": 0,
     "min_charisma": 0,
@@ -55,6 +61,7 @@
     "unusable_by": 0,
     "used_up_item": null,
     "weapon_color": null,
+    "weapon_proficiency": 0,
     "weight": 456
   },
   "resource_name": "SW1H01.ITM",

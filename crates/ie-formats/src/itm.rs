@@ -30,11 +30,13 @@ pub struct ItemHeaderJson {
     pub equipped_appearance: u16,
     pub min_level: u16,
     pub min_strength: u16,
-    pub min_strength_bonus: u16,
-    pub min_intelligence: u16,
-    pub min_dexterity: u16,
-    pub min_wisdom: u16,
-    pub min_constitution: u16,
+    pub min_strength_bonus: u8,
+    pub kit_usability: [u8; 4],
+    pub min_intelligence: u8,
+    pub min_dexterity: u8,
+    pub min_wisdom: u8,
+    pub min_constitution: u8,
+    pub weapon_proficiency: u8,
     pub min_charisma: u16,
     pub price: u32,
     pub max_in_stack: u16,
@@ -171,11 +173,17 @@ pub(crate) fn parse_itm_with_variant(
     let equipped_appearance = parse_u16(bytes, 0x22)?;
     let min_level = parse_u16(bytes, 0x24)?;
     let min_strength = parse_u16(bytes, 0x26)?;
-    let min_strength_bonus = parse_u16(bytes, 0x28)?;
-    let min_intelligence = parse_u16(bytes, 0x2A)?;
-    let min_dexterity = parse_u16(bytes, 0x2C)?;
-    let min_wisdom = parse_u16(bytes, 0x2E)?;
-    let min_constitution = parse_u16(bytes, 0x30)?;
+    // The stat requirements are interleaved with four independent kit-usability
+    // bytes. Reading them as u16 values silently folded the adjacent kit byte
+    // into the requirement (for example stock BGEE SW1H01 reported Constitution
+    // 22784 instead of 0). Keep both halves explicit.
+    let min_strength_bonus = bytes[0x28];
+    let kit_usability = [bytes[0x29], bytes[0x2B], bytes[0x2D], bytes[0x2F]];
+    let min_intelligence = bytes[0x2A];
+    let min_dexterity = bytes[0x2C];
+    let min_wisdom = bytes[0x2E];
+    let min_constitution = bytes[0x30];
+    let weapon_proficiency = bytes[0x31];
     let min_charisma = parse_u16(bytes, 0x32)?;
     let price = parse_u32(bytes, 0x34)?;
     let max_in_stack = parse_u16(bytes, 0x38)?;
@@ -220,10 +228,12 @@ pub(crate) fn parse_itm_with_variant(
         min_level,
         min_strength,
         min_strength_bonus,
+        kit_usability,
         min_intelligence,
         min_dexterity,
         min_wisdom,
         min_constitution,
+        weapon_proficiency,
         min_charisma,
         price,
         max_in_stack,
@@ -591,14 +601,72 @@ fn parse_i16(bytes: &[u8], offset: usize) -> Result<i16, ItemParseError> {
 
 fn decode_item_category(value: u16) -> Option<&'static str> {
     match value {
-        1 => Some("Misc"),
-        2 => Some("Amulet"),
-        3 => Some("Armor"),
-        7 => Some("Ring"),
-        8 => Some("Cloak"),
-        0x0B => Some("Scroll"),
-        0x0C => Some("Wand"),
-        0x10 => Some("Weapon"),
+        0x00 => Some("BooksMisc"),
+        0x01 => Some("AmuletsAndNecklaces"),
+        0x02 => Some("Armor"),
+        0x03 => Some("BeltsAndGirdles"),
+        0x04 => Some("Boots"),
+        0x05 => Some("Arrows"),
+        0x06 => Some("BracersAndGauntlets"),
+        0x07 => Some("Headgear"),
+        0x08 => Some("Keys"),
+        0x09 => Some("Potions"),
+        0x0A => Some("Rings"),
+        0x0B => Some("Scrolls"),
+        0x0C => Some("Shields"),
+        0x0D => Some("Food"),
+        0x0E => Some("Bullets"),
+        0x0F => Some("Bows"),
+        0x10 => Some("Daggers"),
+        0x11 => Some("Maces"),
+        0x12 => Some("Slings"),
+        0x13 => Some("SmallSwords"),
+        0x14 => Some("LargeSwords"),
+        0x15 => Some("Hammers"),
+        0x16 => Some("MorningStars"),
+        0x17 => Some("Flails"),
+        0x18 => Some("Darts"),
+        0x19 => Some("Axes"),
+        0x1A => Some("Quarterstaff"),
+        0x1B => Some("Crossbow"),
+        0x1C => Some("HandToHandWeapons"),
+        0x1D => Some("Spears"),
+        0x1E => Some("Halberds"),
+        0x1F => Some("CrossbowBolts"),
+        0x20 => Some("CloaksAndRobes"),
+        0x21 => Some("Gold"),
+        0x22 => Some("Gems"),
+        0x23 => Some("Wands"),
+        0x24 => Some("ContainersEyeBrokenArmor"),
+        0x25 => Some("BooksBrokenShieldsBracelets"),
+        0x26 => Some("FamiliarsBrokenSwordsEarrings"),
+        0x27 => Some("Tattoos"),
+        0x28 => Some("Lenses"),
+        0x29 => Some("BucklersTeeth"),
+        0x2A => Some("Candles"),
+        0x2C => Some("Clubs"),
+        0x2F => Some("LargeShields"),
+        0x31 => Some("MediumShields"),
+        0x32 => Some("Notes"),
+        0x35 => Some("SmallShields"),
+        0x37 => Some("Telescopes"),
+        0x38 => Some("Drinks"),
+        0x39 => Some("GreatSwords"),
+        0x3A => Some("Container"),
+        0x3B => Some("FurPelt"),
+        0x3C => Some("LeatherArmor"),
+        0x3D => Some("StuddedLeatherArmor"),
+        0x3E => Some("ChainMail"),
+        0x3F => Some("SplintMail"),
+        0x40 => Some("HalfPlate"),
+        0x41 => Some("FullPlate"),
+        0x42 => Some("HideArmor"),
+        0x43 => Some("Robe"),
+        0x45 => Some("BastardSword"),
+        0x46 => Some("Scarf"),
+        0x47 => Some("FoodIwd2"),
+        0x48 => Some("Hat"),
+        0x49 => Some("Gauntlet"),
         _ => None,
     }
 }
@@ -635,29 +703,36 @@ fn decode_item_flags(value: u32) -> Vec<String> {
 
 fn decode_ability_type(value: u8) -> Option<&'static str> {
     match value {
-        1 => Some("Attack"),
-        2 => Some("Ability"),
-        3 => Some("Innate"),
+        0 => Some("None"),
+        1 => Some("Melee"),
+        2 => Some("Ranged"),
+        3 => Some("Magical"),
+        4 => Some("Launcher"),
         _ => None,
     }
 }
 
 fn decode_ability_location(value: u8) -> Option<&'static str> {
     match value {
+        0 => Some("None"),
         1 => Some("Weapon"),
         2 => Some("Spell"),
         3 => Some("Item"),
-        4 => Some("Ability"),
+        4 => Some("Innate"),
         _ => None,
     }
 }
 
 fn decode_target_type(value: u8) -> Option<&'static str> {
     match value {
-        0 => Some("None"),
-        1 => Some("Single"),
-        2 => Some("Group"),
-        3 => Some("Area"),
+        0 => Some("Invalid"),
+        1 => Some("Living actor"),
+        2 => Some("Inventory"),
+        3 => Some("Dead actor"),
+        4 => Some("Any point within range"),
+        5 => Some("Caster"),
+        6 => Some("Crash"),
+        7 => Some("Caster (instant)"),
         _ => None,
     }
 }
@@ -800,10 +875,62 @@ mod tests {
         assert_eq!(item.header.weight, 456);
         assert_eq!(item.header.icon.unwrap().as_str(), "ICON");
         assert_eq!(item.header.ground_icon.unwrap().as_str(), "GRND");
-        assert_eq!(item.header.category.decoded.as_deref(), Some("Weapon"));
+        assert_eq!(item.header.category.decoded.as_deref(), Some("Daggers"));
         assert_eq!(item.header.flags.decoded, vec!["Magical"]);
         assert!(item.abilities.is_empty());
         assert!(item.global_effects.is_empty());
+    }
+
+    #[test]
+    fn parses_byte_sized_requirements_without_absorbing_kit_flags() {
+        let mut bytes = vec![0u8; ITM_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"ITM ");
+        bytes[4..8].copy_from_slice(b"V1  ");
+        bytes[0x28] = 18;
+        bytes[0x29] = 0x59;
+        bytes[0x2A] = 17;
+        bytes[0x2B] = 0x58;
+        bytes[0x2C] = 16;
+        bytes[0x2D] = 0x57;
+        bytes[0x2E] = 15;
+        bytes[0x2F] = 0x56;
+        bytes[0x30] = 14;
+        bytes[0x31] = 89;
+        bytes[0x32..0x34].copy_from_slice(&13u16.to_le_bytes());
+        bytes[0x64..0x68].copy_from_slice(&(ITM_HEADER_SIZE as u32).to_le_bytes());
+
+        let item = parse_itm_with_variant(&bytes, "REQUIRE.ITM", None, GameVariant::Standard)
+            .expect("ITM requirements should parse");
+
+        assert_eq!(item.header.min_strength_bonus, 18);
+        assert_eq!(item.header.kit_usability, [0x59, 0x58, 0x57, 0x56]);
+        assert_eq!(item.header.min_intelligence, 17);
+        assert_eq!(item.header.min_dexterity, 16);
+        assert_eq!(item.header.min_wisdom, 15);
+        assert_eq!(item.header.min_constitution, 14);
+        assert_eq!(item.header.weapon_proficiency, 89);
+        assert_eq!(item.header.min_charisma, 13);
+    }
+
+    #[test]
+    fn decodes_itm_v1_ability_enums_from_the_format_table() {
+        for (raw, expected) in [
+            (0, "None"),
+            (1, "Melee"),
+            (2, "Ranged"),
+            (3, "Magical"),
+            (4, "Launcher"),
+        ] {
+            assert_eq!(decode_ability_type(raw), Some(expected));
+        }
+        assert_eq!(decode_ability_location(3), Some("Item"));
+        assert_eq!(decode_ability_location(4), Some("Innate"));
+        assert_eq!(decode_target_type(1), Some("Living actor"));
+        assert_eq!(decode_target_type(2), Some("Inventory"));
+        assert_eq!(decode_target_type(3), Some("Dead actor"));
+        assert_eq!(decode_target_type(4), Some("Any point within range"));
+        assert_eq!(decode_target_type(5), Some("Caster"));
+        assert_eq!(decode_target_type(7), Some("Caster (instant)"));
     }
 
     #[test]

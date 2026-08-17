@@ -21,6 +21,11 @@ fn decode_standard_effect_opcode(value: u16) -> Option<&'static str> {
         15 => Some("Dexterity"),
         18 => Some("Max HP"),
         19 => Some("Intelligence"),
+        33 => Some("Save vs. Death Modifier"),
+        34 => Some("Save vs. Wands Modifier"),
+        35 => Some("Save vs. Polymorph Modifier"),
+        36 => Some("Save vs. Breath Modifier"),
+        37 => Some("Save vs. Spell Modifier"),
         38 => Some("Silence"),
         44 => Some("Strength"),
         45 => Some("Stun"),
@@ -36,7 +41,10 @@ fn decode_standard_effect_opcode(value: u16) -> Option<&'static str> {
         139 => Some("Display String"),
         141 => Some("Lighting Effects"),
         142 => Some("Display Special Effect Icon"),
+        146 => Some("Cast Spell at Creature"),
+        147 => Some("Learn Spell"),
         174 => Some("Play Sound Effect"),
+        206 => Some("Protection from Spell"),
         215 => Some("Play 3D Effect"),
         318 => Some("Protection from Resource"),
         _ => None,
@@ -139,6 +147,25 @@ mod tests {
                 Some(label)
             );
             assert_eq!(decode_effect_opcode(opcode, GameVariant::Iwd), Some(label));
+        }
+    }
+
+    #[test]
+    fn standard_save_and_spell_opcodes_are_decoded() {
+        for (opcode, label) in [
+            (33, "Save vs. Death Modifier"),
+            (34, "Save vs. Wands Modifier"),
+            (35, "Save vs. Polymorph Modifier"),
+            (36, "Save vs. Breath Modifier"),
+            (37, "Save vs. Spell Modifier"),
+            (146, "Cast Spell at Creature"),
+            (147, "Learn Spell"),
+            (206, "Protection from Spell"),
+        ] {
+            assert_eq!(
+                decode_effect_opcode(opcode, GameVariant::Standard),
+                Some(label)
+            );
         }
     }
 

@@ -1,0 +1,195 @@
+[
+  {
+    "name": "BG2EE Near Infinity comparisons",
+    "environment": ["IE_GAME_PATH"],
+    "cases": [
+      {
+        "resource": "SPWI401.SPL",
+        "provenance": "Manual Near Infinity comparison recorded in docs/REGRESSION_PLAN.md",
+        "assertions": [
+          { "pointer": "/version", "equals": "V1  " },
+          { "pointer": "/header/spell_type/decoded", "equals": "Wizard" },
+          { "pointer": "/header/school/decoded", "equals": "Enchanter" },
+          { "pointer": "/header/spell_level", "equals": 4 },
+          { "pointer": "/extended_headers", "length": 4 },
+          { "pointer": "/feature_blocks/0/opcode/decoded", "equals": "Confusion" }
+        ]
+      },
+      {
+        "resource": "SPPR211.SPL",
+        "provenance": "Manual Near Infinity comparison recorded in docs/REGRESSION_PLAN.md",
+        "assertions": [
+          { "pointer": "/version", "equals": "V1  " },
+          { "pointer": "/header/spell_type/decoded", "equals": "Priest" },
+          { "pointer": "/header/exclusion_flags/raw", "equals": 2147483648 },
+          { "pointer": "/header/spell_level", "equals": 2 },
+          { "pointer": "/extended_headers", "length": 20 },
+          { "pointer": "/feature_blocks/0/opcode/decoded", "equals": "Silence" }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Stock Steam BGEE+SoD factual checks",
+    "environment": ["IE_BGEE_PATH", "IE_BGEE_GAME_PATH", "IE_BGEE_SOD_PATH"],
+    "cases": [
+      {
+        "resource": "SW1H01.ITM",
+        "provenance": "IESDP ITM V1 offsets checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/version", "equals": "V1  " },
+          { "pointer": "/header/category/raw", "equals": 20 },
+          { "pointer": "/header/category/decoded", "equals": "LargeSwords" },
+          { "pointer": "/header/min_strength", "equals": 11 },
+          { "pointer": "/header/min_intelligence", "equals": 0 },
+          { "pointer": "/header/min_constitution", "equals": 0 },
+          { "pointer": "/header/weapon_proficiency", "equals": 89 },
+          { "pointer": "/abilities", "length": 1 },
+          { "pointer": "/global_effects", "length": 3 }
+        ]
+      },
+      {
+        "resource": "SPWI112.SPL",
+        "provenance": "IESDP SPL V1 offsets checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/header/spell_type/decoded", "equals": "Wizard" },
+          { "pointer": "/header/school/decoded", "equals": "Invoker" },
+          { "pointer": "/header/spell_level", "equals": 1 },
+          { "pointer": "/extended_headers", "length": 5 },
+          { "pointer": "/feature_blocks", "length": 15 }
+        ]
+      },
+      {
+        "resource": "RING06.ITM",
+        "provenance": "IESDP ITM V1 header/effect layouts checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/header/category/decoded", "equals": "Rings" },
+          { "pointer": "/header/flags/raw", "equals": 108 },
+          { "pointer": "/header/lore_to_identify", "equals": 35 },
+          { "pointer": "/abilities", "length": 0 },
+          { "pointer": "/global_effects", "length": 6 },
+          { "pointer": "/global_effects/0/opcode/decoded", "equals": "AC vs. Damage Type Modifier" },
+          { "pointer": "/global_effects/1/opcode/decoded", "equals": "Save vs. Death Modifier" },
+          { "pointer": "/global_effects/5/opcode/decoded", "equals": "Save vs. Spell Modifier" },
+          { "pointer": "/global_effects/5/timing/decoded", "equals": "Instant/While Equipped" }
+        ]
+      },
+      {
+        "resource": "SCRL1B.ITM",
+        "provenance": "IESDP ITM V1 ability/effect tables checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/header/category/decoded", "equals": "Scrolls" },
+          { "pointer": "/header/min_intelligence", "equals": 9 },
+          { "pointer": "/header/max_in_stack", "equals": 50 },
+          { "pointer": "/abilities", "length": 2 },
+          { "pointer": "/abilities/0/ability_type/decoded", "equals": "Magical" },
+          { "pointer": "/abilities/0/target_type/decoded", "equals": "Living actor" },
+          { "pointer": "/abilities/0/effects/0/opcode/decoded", "equals": "Cast Spell at Creature" },
+          { "pointer": "/abilities/1/target_type/decoded", "equals": "Caster" },
+          { "pointer": "/abilities/1/effects/0/opcode/decoded", "equals": "Learn Spell" }
+        ]
+      },
+      {
+        "resource": "SPWI613.SPL",
+        "provenance": "IESDP SPL V1 header/effect layouts checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/header/spell_type/decoded", "equals": "Wizard" },
+          { "pointer": "/header/school/decoded", "equals": "Transmuter" },
+          { "pointer": "/header/spell_level", "equals": 6 },
+          { "pointer": "/extended_headers", "length": 9 },
+          { "pointer": "/feature_blocks", "length": 81 },
+          { "pointer": "/feature_blocks/0/opcode/decoded", "equals": "Protection from Spell" },
+          { "pointer": "/feature_blocks/0/resource", "equals": "SPCL521" }
+        ]
+      },
+      {
+        "resource": "GORION.CRE",
+        "provenance": "IESDP CRE V1 offsets checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/version", "equals": "V1.0" },
+          { "pointer": "/header/current_hit_points", "equals": 290 },
+          { "pointer": "/header/max_hit_points", "equals": 290 },
+          { "pointer": "/header/base_attributes/intelligence", "equals": 18 },
+          { "pointer": "/header/dialog", "equals": "GORION" },
+          { "pointer": "/items", "length": 7 },
+          { "pointer": "/known_spells", "length": 2 }
+        ]
+      },
+      {
+        "resource": "WOLF.CRE",
+        "provenance": "IESDP CRE V1 offsets checked against stock Steam BGEE+SoD bytes; hostile-creature case",
+        "assertions": [
+          { "pointer": "/version", "equals": "V1.0" },
+          { "pointer": "/header/classification/enemy_ally", "equals": 255 },
+          { "pointer": "/header/effect_structure_version/decoded", "equals": "EFF V1" },
+          { "pointer": "/header/current_hit_points", "equals": 24 },
+          { "pointer": "/header/xp_for_kill", "equals": 65 },
+          { "pointer": "/header/scripts/default_script", "equals": "WTASIGHT" },
+          { "pointer": "/items", "length": 1 }
+        ]
+      },
+      {
+        "resource": "FRIEND.STO",
+        "provenance": "IESDP STO V1 offsets checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/version", "equals": "V1.0" },
+          { "pointer": "/header/store_type/decoded", "equals": "Inn" },
+          { "pointer": "/header/flags/raw", "equals": 71 },
+          { "pointer": "/items_for_sale", "length": 35 },
+          { "pointer": "/items_purchased", "length": 34 },
+          { "pointer": "/drinks", "length": 6 },
+          { "pointer": "/cures", "length": 0 }
+        ]
+      },
+      {
+        "resource": "TEM2601.STO",
+        "provenance": "IESDP STO V1 offsets checked against stock Steam BGEE+SoD bytes; special-purpose temple case",
+        "assertions": [
+          { "pointer": "/header/store_type/decoded", "equals": "Temple" },
+          { "pointer": "/header/flags/raw", "equals": 53 },
+          { "pointer": "/header/lore", "equals": 100 },
+          { "pointer": "/items_for_sale", "length": 4 },
+          { "pointer": "/items_purchased", "length": 36 },
+          { "pointer": "/drinks", "length": 0 },
+          { "pointer": "/cures", "length": 6 }
+        ]
+      },
+      {
+        "resource": "ALATOS.DLG",
+        "provenance": "IESDP DLG V1 tables checked against stock Steam BGEE+SoD bytes; external transition regression",
+        "assertions": [
+          { "pointer": "/header/num_states", "equals": 21 },
+          { "pointer": "/header/num_transitions", "equals": 41 },
+          { "pointer": "/states", "length": 21 },
+          { "pointer": "/states/11/first_transition_index", "equals": 27 },
+          { "pointer": "/states/11/transitions/0/next_dialog", "equals": "RESAR" },
+          { "pointer": "/states/11/transitions/0/next_state_index", "equals": 0 }
+        ]
+      },
+      {
+        "resource": "BALDUR.BCS",
+        "provenance": "Stock Steam BGEE+SoD script checked against Near Infinity IDS symbol tables",
+        "assertions": [
+          { "pointer": "/blocks", "length": 48 },
+          { "pointer": "/blocks/0/triggers/0/opcode", "equals": 16608 },
+          { "pointer": "/blocks/0/triggers/0/name", "equals": "NextTriggerObject" },
+          { "pointer": "/blocks/0/triggers/1/name", "equals": "Global" },
+          { "pointer": "/blocks/0/responses/0/weight", "equals": 100 },
+          { "pointer": "/blocks/0/responses/0/actions/0/name", "equals": "SetGlobal" }
+        ]
+      },
+      {
+        "resource": "AR2600.ARE",
+        "provenance": "IESDP ARE V1 offsets checked against stock Steam BGEE+SoD bytes",
+        "assertions": [
+          { "pointer": "/version", "equals": "V1.0" },
+          { "pointer": "/header/actors_count", "equals": 42 },
+          { "pointer": "/actors", "length": 42 },
+          { "pointer": "/entrances", "length": 8 },
+          { "pointer": "/regions", "length": 17 },
+          { "pointer": "/header/area_script/resref", "equals": "AR2600" }
+        ]
+      }
+    ]
+  }
+]

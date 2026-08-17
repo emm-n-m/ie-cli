@@ -61,6 +61,11 @@ Current as of 2026-08-17.
 - Research guides in [`docs/guides/`](./docs/guides/) produced by running that skill layer against real installs — the first user-facing output of the tool that is not JSON.
 - `ie-cli` decomposed from one large `main.rs` into per-concern modules (`dialog_graph`, `override_diff`, `patch_input`, `resource_links`, `save_support`, `verify_command`), keeping argument handling and presentation out of the parsers.
 - Exact-value output goldens for every decoded format plus `list`, `locate`, `verify`, `override-diff`, DLG DOT/Mermaid graphs, save listing, TLK lookup, and every human-readable text mode.
+- Data-driven real-resource expectations with explicit provenance for all seven decoded families on
+  stock BGEE+SoD, including a real external DLG transition, plus deterministic adversarial-input
+  no-panic coverage for every decoder.
+- Correct ITM byte-sized stat requirements, preserved interleaved kit-usability/proficiency values,
+  and complete IESDP item-category labels. Real-resource validation caught the former parser bug.
 
 ### Validated in real-world use
 
@@ -227,7 +232,10 @@ Implemented. Installations are classified as `standard`, `iwd`, or `pst` from st
 Remaining follow-up:
 
 - extend variant awareness to any other decode path where PST/IWD diverge from BG, as concrete mismatches are found
-- extend the opcode tables themselves: 28,885 of 70,696 opcode instances in IWDEE resolve to a name today. Unnamed opcodes surface as raw values with `decoded: null` rather than wrong names, so this is coverage, not correctness. The most common unnamed ones there are 233, 206, 324, 267, and 83.
+- extend the opcode tables themselves. The last IWDEE measurement resolved 28,885 of 70,696
+  instances; common save modifiers plus cast/learn/protection-from-spell opcodes have since been
+  added, so that baseline must be remeasured on the next IWDEE pass. Unnamed opcodes surface as raw
+  values with `decoded: null` rather than wrong names, so this is coverage, not correctness.
 
 #### Override Lookup Performance
 
@@ -272,6 +280,12 @@ current milestone strengthens existing formats rather than adding another resour
 - pin stock-install `verify` behavior with per-game expectations (IWDEE clean; BGEE known issues)
 - cover malformed and truncated inputs for critical parsers
 - add factual real-resource assertions and Near Infinity comparisons for existing formats
+
+The reusable expectation harness, representative stock BGEE+SoD cases for every decoded family
+(including complex ITM/SPL, hostile CRE, special-purpose STO, and a real external-DLG edge), and
+deterministic adversarial-input coverage are complete. Remaining work in this pass is
+broader factual coverage across the other available installs and additional manual Near Infinity
+comparisons, particularly for ITM, CRE, STO, DLG, BCS, and ARE.
 
 Candidates after this validation pass:
 

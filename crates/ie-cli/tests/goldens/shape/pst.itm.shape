@@ -91,6 +91,7 @@ $.header.identified_description.strref: int
 $.header.identified_description.text: null|str
 $.header.identified_name.strref: int
 $.header.identified_name.text: null|str
+$.header.kit_usability[]: int
 $.header.lore_to_identify: int
 $.header.max_in_stack: int
 $.header.min_charisma: int
@@ -106,6 +107,7 @@ $.header.speaker_name: null
 $.header.unusable_by: int
 $.header.used_up_item: null|str
 $.header.weapon_color: null
+$.header.weapon_proficiency: int
 $.header.weight: int
 $.resource_name: str
 $.resource_type: str

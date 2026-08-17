@@ -14,6 +14,11 @@ notice when it changes.
 
 ### Added
 
+- A data-driven, env-gated real-resource expectation harness now records small
+  factual assertions with explicit provenance. The initial matrix covers all
+  seven decoded resource families on stock BGEE+SoD, including a real DLG
+  external transition, while the normal suite adds deterministic adversarial
+  no-panic coverage for every decoder (including CHR).
 - **DLC archive mounting.** A default Steam BGEE+SoD install keeps the expansion
   packed in `dlc/sod-dlc.zip`, and every resource inside it previously resolved as
   not-found *silently*, with SoD strrefs out of range. The loader now mounts
@@ -53,6 +58,14 @@ notice when it changes.
 
 ### Fixed
 
+- ITM minimum Intelligence, Dexterity, Wisdom, Constitution, and exceptional
+  Strength requirements are byte-sized fields interleaved with kit-usability
+  bytes. They were read as words, producing impossible requirements such as
+  Constitution 22784 for stock `SW1H01.ITM`. Requirements now use the specified
+  widths, the four kit bytes and weapon proficiency are preserved explicitly,
+  and the item-category and ability type/location/target decoders follow the
+  IESDP tables. Common save modifiers and cast/learn/protection-from-spell effect
+  opcodes now resolve by name as well.
 - `verify` no longer reports false positives on stock installs. Two checks flagged
   shipped, working game data — worse than not checking at all, since the
   `explore-dungeon` skill tells users to run it.
