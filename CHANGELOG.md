@@ -70,18 +70,6 @@ notice when it changes.
   closes the last install-shape gap: every earlier target was a single merged
   game root.
 
-### Known issues
-
-- Stock BGEE ships 6 dead links / phantom entrances in BIF-backed areas, so
-  `verify` on a clean BGEE is not empty. A known-issue baseline is not yet
-  written, so those need reading by hand.
-- `WMP` is not parsed, so `verify` cannot tell a live broken exit from a dangling
-  link in content nothing reaches. 53 BGEE areas have no inbound Travel region and
-  are almost certainly worldmap-entered rather than unreachable.
-- Effect-opcode tables are partial: 41% of opcode instances in an IWDEE sweep
-  resolve to a name. Unrecognized opcodes emit `decoded: null` beside their raw
-  value rather than a wrong name.
-
 ## [0.2.0] - 2026-07-05
 
 - `ARE` parsing, and `verify` for install-wide cross-resource integrity.
