@@ -15,20 +15,21 @@ weighing trade-offs). Read the gotchas below — they are the hard-won part.
 
 ## Inputs
 
-- Game install path (auto-memory / `docs/LOCAL_GAME_PATHS.md`).
+- Game install path. Use one already provided in the conversation, then check
+  `docs/LOCAL_GAME_PATHS.md` if it exists; ask only if neither source provides one.
 - Protagonist object — `Protagonist` (PST) or `Player1` (BG/IWD).
 - The **goal** — clarify if unstated, it changes everything: *see-everything completionist* vs
   *combat power* vs *balanced*. Also the creation rules (point pool, per-stat cap) and intended class
   — ask the user; these come from the game/char-creation screen, not the files.
 
-iecli must be built (`cargo build --release`). PST opcode decoding is variant-aware; the table lives
-in `crates/ie-formats/src/effects.rs`. **Verify it engaged before trusting item effects:** if Step 2's
-item-effect stats come back as only Wisdom/Strength with the others blank, the install is being
-decoded against the BG opcode table — stop rather than planning from incomplete data. Confirm with
+Build `iecli` with `cargo build --release`. PST opcode decoding is variant-aware; the table lives in
+`crates/ie-formats/src/effects.rs`. **Verify it engaged before trusting item effects:** if Step 2
+reports only Wisdom/Strength while other item-effect stats are blank, the install is being decoded
+against the BG table — stop rather than synthesizing a plan from incomplete data. Confirm with
 `iecli locate --game "<game-path>" --resource <any-resource>`, which reports the detected
-`game_variant`; on a PST install it must read `pst`. Detection keys off `torment.lua` /
-`torment.exe` / `torment64.exe` at the install root (folder name is only a fallback), so a repackaged
-install missing those decodes as standard.
+`game_variant`; on a PST install it must read `pst`. Detection keys off `torment.lua` / `torment.exe` /
+`torment64.exe` at the install root, with the folder name as a fallback, so a repackaged install
+missing those files decodes as standard.
 
 ## Step 0 — trust layer (modded installs)
 
@@ -39,8 +40,8 @@ not behave as community guides describe.
 ## Step 1 — content map (what the gates are *worth*, then how much)
 
 ```bash
-python .claude/skills/map-stat-gates/gate_payoffs.py   --game "<game-path>" --protagonist Protagonist  # value: lead here
-python .claude/skills/map-stat-gates/gate_histogram.py --game "<game-path>" --protagonist Protagonist  # volume: secondary
+python .claude/skills/map-stat-gates/scripts/gate_payoffs.py   --game "<game-path>" --protagonist Protagonist  # value: lead here
+python .claude/skills/map-stat-gates/scripts/gate_histogram.py --game "<game-path>" --protagonist Protagonist  # volume: secondary
 ```
 
 Lead with payoffs — a stat that gates hundreds of *flavor* lines is still a dump (modded CON gated 20
@@ -50,7 +51,7 @@ those must be covered by *base* stat at creation, since you can't buff in time �
 ## Step 2 — permanent stat economy (what you can gain, and where)
 
 ```bash
-python .claude/skills/plan-stat-build/stat_economy.py --game "<game-path>" --protagonist Protagonist
+python .claude/skills/plan-stat-build/scripts/stat_economy.py --game "<game-path>" --protagonist Protagonist
 # --no-spl to skip the spell scan if it's slow / empty
 ```
 

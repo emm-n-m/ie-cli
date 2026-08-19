@@ -33,6 +33,15 @@ SET_RE = re.compile(r'(Real)?SetGlobalTimer\("([^"]*)","([^"]*)",([^)]+)\)')
 CHK_RE = re.compile(r'(Real)?GlobalTimer(Not)?Expired\("([^"]*)","([^"]*)"\)')
 
 
+def default_iecli() -> str:
+    for profile in ("release", "debug"):
+        for name in ("iecli.exe", "iecli"):
+            candidate = os.path.join("target", profile, name)
+            if os.path.isfile(candidate):
+                return candidate
+    return os.path.join("target", "release", "iecli")
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--game", required=True, help="game install directory")
@@ -51,15 +60,21 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--timer", help="only report timers whose name contains this substring")
     p.add_argument(
         "--iecli",
-        default=os.path.join("target", "release", "iecli.exe"),
-        help="path to iecli executable (default: target/release/iecli.exe)",
+        default=None,
+        help="path to iecli executable (default: auto-detect target/release|debug)",
     )
     p.add_argument("--json", action="store_true", help="emit JSON instead of narrative")
     return p.parse_args()
 
 
 def run_json(iecli: str, args: list[str]):
-    out = subprocess.run([iecli, *args], capture_output=True, text=True)
+    out = subprocess.run(
+        [iecli, *args],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
     if out.returncode != 0:
         return None
     try:
@@ -201,19 +216,20 @@ def scan_bcs(bcs: dict) -> tuple[list[dict], list[dict]]:
 
 def main() -> int:
     args = parse_args()
-    if not os.path.isfile(args.iecli):
-        print(f"iecli not found at {args.iecli}; build with `cargo build --release`", file=sys.stderr)
+    iecli = args.iecli or default_iecli()
+    if not os.path.isfile(iecli):
+        print(f"iecli not found at {iecli}; build with `cargo build --release`", file=sys.stderr)
         return 2
     if not args.prefix and not args.resource:
         print("supply at least one --prefix or --resource", file=sys.stderr)
         return 2
 
-    GTIMES.update(load_gtimes(args.iecli, args.game))
-    targets = resolve_targets(args.iecli, args.game, args.prefix, args.resource)
+    GTIMES.update(load_gtimes(iecli, args.game))
+    targets = resolve_targets(iecli, args.game, args.prefix, args.resource)
     all_sets, all_checks = [], []
     scanned, failed = [], []
     for tgt in targets:
-        dump = run_json(args.iecli, ["dump", "--game", args.game, "--resource", tgt])
+        dump = run_json(iecli, ["dump", "--game", args.game, "--resource", tgt])
         if dump is None:
             failed.append(tgt)
             continue

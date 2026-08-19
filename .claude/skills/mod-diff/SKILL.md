@@ -12,7 +12,8 @@ natural Step 0 before exploring new content (`explore-dungeon`) or planning a ru
 
 ## Inputs
 
-- Modded game install path (auto-memory / `docs/LOCAL_GAME_PATHS.md`).
+- Modded game install path. Use one already provided in the conversation, then
+  check `docs/LOCAL_GAME_PATHS.md` if it exists; ask only if neither provides one.
 - *(Mode B, optional)* a **clean reference** — a directory of vanilla biff-extracted resources, or the
   mod's shipped binaries. Without it you get the shadow report (Mode A).
 
@@ -25,8 +26,8 @@ iecli must be built (`cargo build --release`).
 version. Hash comparison flags benign shadows (a byte-identical re-ship) vs. real changes.
 
 ```bash
-python .claude/skills/mod-diff/mod_diff.py --game "<game-path>"            # whole install
-python .claude/skills/mod-diff/mod_diff.py --game "<game-path>" --type DLG # one type
+python .claude/skills/mod-diff/scripts/mod_diff.py --game "<game-path>"            # whole install
+python .claude/skills/mod-diff/scripts/mod_diff.py --game "<game-path>" --type DLG # one type
 ```
 
 Output buckets: **MOD-ADDED** (override-only), **MOD-CHANGED** (override differs from stock biff),
@@ -36,7 +37,7 @@ Output buckets: **MOD-ADDED** (override-only), **MOD-CHANGED** (override differs
 added / removed / changed. This is the precise "what did the mod do" map for a fresh mod.
 
 ```bash
-python .claude/skills/mod-diff/mod_diff.py --game "<modded>" --against "<clean-ref-dir-or-file>"
+python .claude/skills/mod-diff/scripts/mod_diff.py --game "<modded>" --against "<clean-ref-dir-or-file>"
 ```
 
 Add `--json` to either to pass the raw `override-diff` output through.

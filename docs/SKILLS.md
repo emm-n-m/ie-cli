@@ -2,8 +2,8 @@
 
 This repository ships parallel game-exploration skills for Claude Code and Codex:
 
-- Claude Code packages: [`.claude/skills/`](../.claude/skills/)
-- Codex/Open Agent Skills packages: [`skills/`](../skills/)
+- Codex / Open Agent Skills packages: [`skills/`](../skills/) — canonical
+- Claude Code packages: [`.claude/skills/`](../.claude/skills/) — generated mirror
 
 Both sets turn `iecli`'s deterministic JSON into narrative answers for IE players and
 modders. The parser owns extraction; the skills own investigation workflows and readable
@@ -36,9 +36,15 @@ hundreds of dumps and debug builds are much slower; the bundled scripts auto-pre
 binary and accept `--iecli <path>` to override. Install paths come from
 [`LOCAL_GAME_PATHS.md`](LOCAL_GAME_PATHS.md).
 
-**Script paths differ by tree.** Command examples below use the Claude layout
-(`.claude/skills/<skill>/<script>.py`); the Codex equivalent is
-`skills/<skill>/scripts/<script>.py`. Flags are identical.
+The bundled scripts find the binary on any platform. Where a `SKILL.md` invokes `iecli`
+directly it is written `./target/release/iecli`; on Windows that is `iecli.exe`.
+
+**One source of truth.** `skills/` holds the canonical packages; `.claude/skills/` is a
+generated mirror of it. The two trees are byte-identical except for the script paths quoted
+inside `SKILL.md`, since each agent runs the helpers out of its own tree — so a command reads
+`skills/<skill>/scripts/<script>.py` for Codex and `.claude/skills/<skill>/scripts/<script>.py`
+for Claude Code. Flags and behavior are identical. CI enforces this; see
+[Adding or Updating a Skill](#adding-or-updating-a-skill).
 
 ## Skill Inventory
 
@@ -67,7 +73,7 @@ No bundled scripts — this one is pure prompt instructions.
 
 Codex: [`skills/diagnose-dialog/`](../skills/diagnose-dialog/)
 
-Claude: [`.claude/skills/diagnose-dialog.md`](../.claude/skills/diagnose-dialog.md)
+Claude: [`.claude/skills/diagnose-dialog/`](../.claude/skills/diagnose-dialog/)
 
 ### explore-dungeon
 
@@ -88,15 +94,15 @@ CRE/dialog/script links, and missing key items.
 Bundled helpers: `walk_graph.py`, `describe_rooms.py`.
 
 ```bash
-python .claude/skills/explore-dungeon/walk_graph.py --game "<game-path>" --start AR4300
-python .claude/skills/explore-dungeon/describe_rooms.py --game "<game-path>" --start AR4300
+python .claude/skills/explore-dungeon/scripts/walk_graph.py --game "<game-path>" --start AR4300
+python .claude/skills/explore-dungeon/scripts/describe_rooms.py --game "<game-path>" --start AR4300
 ```
 
 | Flag          | Purpose                                                      |
 |---------------|--------------------------------------------------------------|
 | `--game`      | Game install directory (required)                            |
 | `--start`     | Starting ARE resref, e.g. `AR4300` (required)                |
-| `--iecli`     | Path to iecli (default: `target/debug/iecli.exe`)            |
+| `--iecli`     | Path to iecli (default: release, then debug)                  |
 | `--max-depth` | Limit BFS depth                                              |
 | `--json`      | `walk_graph.py` only: emit JSON instead of text              |
 
@@ -140,8 +146,8 @@ Example prompts:
 Bundled helpers: `gate_payoffs.py`, `gate_histogram.py`.
 
 ```bash
-python .claude/skills/map-stat-gates/gate_payoffs.py   --game "<game-path>" --protagonist Protagonist
-python .claude/skills/map-stat-gates/gate_histogram.py --game "<game-path>" --protagonist Protagonist
+python .claude/skills/map-stat-gates/scripts/gate_payoffs.py   --game "<game-path>" --protagonist Protagonist
+python .claude/skills/map-stat-gates/scripts/gate_histogram.py --game "<game-path>" --protagonist Protagonist
 ```
 
 | Flag            | Purpose                                                                        |
@@ -184,8 +190,8 @@ Two modes:
   a clean reference to get added / removed / changed.
 
 ```bash
-python .claude/skills/mod-diff/mod_diff.py --game "<game-path>"
-python .claude/skills/mod-diff/mod_diff.py --game "<modded>" --against "<clean-ref>"
+python .claude/skills/mod-diff/scripts/mod_diff.py --game "<game-path>"
+python .claude/skills/mod-diff/scripts/mod_diff.py --game "<modded>" --against "<clean-ref>"
 ```
 
 | Flag        | Purpose                                          |
@@ -219,7 +225,7 @@ Example prompts:
 Bundled helper: `stat_economy.py`; it also uses the `map-stat-gates` helpers.
 
 ```bash
-python .claude/skills/plan-stat-build/stat_economy.py --game "<game-path>" --protagonist Protagonist
+python .claude/skills/plan-stat-build/scripts/stat_economy.py --game "<game-path>" --protagonist Protagonist
 ```
 
 | Flag            | Purpose                                             |
@@ -261,7 +267,7 @@ The distinction is the whole point: `FOUR_HOURS` = 1200 means 4 game hours under
 Bundled helper: `trace_timer.py`.
 
 ```bash
-python .claude/skills/trace-quest-timer/trace_timer.py --game "<BG2EE-path>" --prefix HEXXAT
+python .claude/skills/trace-quest-timer/scripts/trace_timer.py --game "<BG2EE-path>" --prefix HEXXAT
 ```
 
 | Flag         | Purpose                                                        |
@@ -294,9 +300,21 @@ was derived from and how to reproduce it. See the [guides index](guides/README.m
 2. Put trigger wording in the `name` and `description` frontmatter.
 3. Prefer narrative output; leave JSON extraction to `iecli`.
 4. Store deterministic repeated analysis in bundled scripts.
-5. Keep the Claude and Codex variants behaviorally aligned while adapting product-specific
-   paths and context assumptions.
-6. For Codex packages, regenerate `agents/openai.yaml` when metadata changes and run the
+5. **Edit `skills/` only** — it is the source of truth. Never hand-edit `.claude/skills/`;
+   it is generated and your changes will be overwritten.
+6. Regenerate the Claude mirror and verify it, then commit both trees together:
+
+   ```bash
+   python scripts/skill_parity.py --sync    # regenerate .claude/skills/
+   python scripts/skill_parity.py --check   # what CI runs
+   ```
+
+   The mirror is committed rather than symlinked so that Windows checkouts, which need
+   `core.symlinks` for a symlink to resolve, and Claude Code, which only discovers skills
+   under `.claude/skills/`, both work from a plain `git clone`.
+7. Keep helper scripts agent-agnostic — take the install path and `--iecli` as flags, and
+   avoid assuming any one agent's context features, so the same file serves both trees.
+8. For Codex packages, regenerate `agents/openai.yaml` when metadata changes and run the
    skill creator's `quick_validate.py` before committing.
-7. Add the skill to the at-a-glance table and inventory above, so it is discoverable when
+9. Add the skill to the at-a-glance table and inventory above, so it is discoverable when
    browsing the repo rather than only at runtime.

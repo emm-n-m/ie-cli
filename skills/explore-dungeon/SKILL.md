@@ -29,7 +29,7 @@ release or debug binary on Windows and Unix; use `--iecli` to override it.
 Before walking a modded dungeon by hand, run the install-wide ARE verifier over override content. It is the fastest way to surface mechanical cross-resource breakage:
 
 ```bash
-target/debug/iecli verify \
+./target/release/iecli verify \
     --game "<game-path>" \
     --source override \
     --format json

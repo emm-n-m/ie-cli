@@ -1,4 +1,4 @@
-# Near Infinity Rewrite Agent Guide
+# IE-CLI Agent Guide
 
 ## Purpose
 
@@ -18,7 +18,12 @@ Near Infinity is the behavioral reference when its behavior is clear and intenti
 
 ## Game Exploration Skills
 
-This repository keeps Codex-compatible game-exploration skills in [`skills/`](./skills/).
+This repository ships the same game-exploration skills to more than one coding agent, so
+contributors can work with the agent of their choice. [`skills/`](./skills/) holds the
+canonical Codex / Open Agent Skills packages; [`.claude/skills/`](./.claude/skills/) is a
+generated Claude Code mirror of them. See [docs/SKILLS.md](./docs/SKILLS.md) for the full
+inventory and the parity contract.
+
 When a request matches one of the workflows below, read that skill's `SKILL.md` completely
 before acting and follow its bundled scripts and reporting guidance:
 
@@ -32,7 +37,12 @@ before acting and follow its bundled scripts and reporting guidance:
 Codex normally discovers repository skills through `.agents/skills`. In environments where
 that directory is writable, point it at this repository's canonical packages with
 `ln -s ../skills .agents/skills`. The explicit routing above is the fallback for managed
-environments that mount `.agents` read-only.
+environments that mount `.agents` read-only. Claude Code discovers `.claude/skills/`
+directly, with no setup.
+
+Edit `skills/` only. After changing a skill, regenerate the mirror with
+`python scripts/skill_parity.py --sync` and commit both trees; CI fails the build when they
+drift apart.
 
 ## Product Direction
 
@@ -55,28 +65,6 @@ Do not spend early effort on:
 - supporting every resource format
 - broad architectural rewrites without a live milestone
 - clever abstractions that are not needed by current formats
-- a full Near Infinity clone
-
-## First-Phase Deliverable
-
-The first release-quality milestone should support:
-
-- game installation discovery
-- `KEY` parsing
-- `BIF` resource access
-- override precedence
-- `TLK` string resolution
-- JSON export for:
-  - `ITM`
-  - `SPL`
-  - `CRE`
-  - `STO`
-
-After that:
-
-- `DLG`
-- `BCS`
-- additional resource families
 
 ## Engineering Principles
 
@@ -90,33 +78,30 @@ After that:
 - Keep parsing, loading, and rendering separate.
 - Ship narrow vertical slices instead of horizontal half-implementations.
 
-## Suggested Repository Layout
+## Repository Layout
 
-Use a layout close to this unless the repo already established another one:
+The workspace is established; match it rather than proposing a new shape.
 
 ```text
 crates/
   ie-core/        # shared types, errors, resource ids, common helpers
-  ie-io/          # installation discovery, KEY/BIF/TLK loading
-  ie-formats/     # format-specific decoders: ITM, SPL, CRE, STO, later DLG/BCS
-  ie-cli/         # command-line frontend
-tests/
-  fixtures/
-    bg2ee/
-    bgee/
-    pstee/
+  ie-io/          # installation discovery, KEY/BIF/TLK/DLC loading
+  ie-formats/     # format decoders: ITM, SPL, CRE, STO, DLG, BCS, ARE
+  ie-cli/         # command-line frontend, one module per concern
+skills/           # canonical agent skills (mirrored to .claude/skills/)
+scripts/          # repo maintenance tooling
 docs/
-  formats/
-  decisions/
+  formats/        # per-format notes
+  decisions/      # <date>-<topic>.md decision records
+  guides/         # narrative output produced by the skill layer
 ```
 
-If the repo is still empty, start with fewer crates:
+Tests live beside the crate they exercise, in `crates/<crate>/tests/`, with committed
+goldens under `crates/ie-cli/tests/goldens/` and `crates/ie-formats/tests/goldens/`, and
+real-resource expectations under `crates/ie-cli/tests/expectations/`. There is no
+top-level `tests/` directory and no checked-in game data.
 
-- `ie-core`
-- `ie-formats`
-- `ie-cli`
-
-Only split further when a boundary is real, not speculative.
+Only split a crate further when a boundary is real, not speculative.
 
 ## Core Domain Model
 
@@ -145,10 +130,17 @@ Do not mix “bytes loading” with “field decoding” with “JSON presentati
 Agents should implement and preserve these assumptions unless tests prove otherwise:
 
 - override resources shadow container resources
+- resolution order is `override` → KEY-backed BIFF → read-only DLC archives (`dlc/*.zip`),
+  each DLC carrying a KEY of its own; `--source <auto|override|bif>` opts out
 - lookup should be case-insensitive where engine behavior is case-insensitive
-- preserve original resref spelling in output when available
+- **normalize `resource_name` in output, and keep the on-disk spelling in `source_path`.**
+  Override files match case-insensitively, so casing is the only thing the filesystem can
+  vary; emitting the on-disk spelling made the same resource serialize differently per
+  install. The JSON goldens depend on the normalized form — do not "restore" raw spelling
+  to `resource_name`.
 - support game path plus explicit resource path workflows
-- do not assume a single game variant
+- do not assume a single game variant; `game_variant` (`standard` / `iwd` / `pst`) is detected
+  from stable root files, never folder names, and selects the effect-opcode table
 
 ## Output Rules
 
@@ -197,24 +189,6 @@ If a value is unknown, prefer:
 
 over inventing semantics.
 
-## Validation Philosophy
-
-Near Infinity is the first comparison target, not the only authority.
-
-When behavior is unclear:
-
-1. inspect the relevant Near Infinity code path
-2. check IESDP or other primary format references
-3. compare real game files
-4. encode the decision in a test
-5. document any remaining ambiguity
-
-If Near Infinity appears to have format-specific heuristics, preserve that behavior only when:
-
-- it is clearly intentional
-- real files depend on it
-- the project documents it
-
 ## Near Infinity Validation Workflow
 
 For each newly supported format:
@@ -242,65 +216,13 @@ Validation is complete when:
 
 ## Milestones
 
-### Milestone 0: Skeleton
-
-- create Cargo workspace
-- define error types
-- define resource id / resref types
-- define shared JSON output conventions
-- add basic CLI command scaffolding
-
-### Milestone 1: Installation Access
-
-- locate game root
-- locate `chitin.key`
-- locate `dialog.tlk` and language folder
-- read `override`
-- implement resource lookup precedence
-
-### Milestone 2: Container Parsing
-
-- parse `KEY`
-- locate `BIF` entries
-- read raw resources from `BIF`
-- expose a `locate` and `dump-raw` command
-
-### Milestone 3: TLK
-
-- parse `dialog.tlk`
-- resolve `strref`
-- expose a `tlk` command
-- include resolved text in parsed JSON where applicable
-
-### Milestone 4: Item and Spell Family
-
-- parse `ITM`
-- parse `SPL`
-- export stable JSON
-- add real fixtures and tests
-
-### Milestone 5: Creature and Store Family
-
-- parse `CRE`
-- parse `STO`
-- export stable JSON
-- add real fixtures and tests
-
-### Milestone 6: Dialogue
-
-- parse `DLG`
-- resolve state and response strings
-- preserve transitions and references
-- provide a readable exported form
-
-### Milestone 7: Scripts
-
-- add `BCS` support only after representation is agreed
-- keep raw and interpreted forms separate if needed
+Milestone tracking lives in [ROADMAP.md](./ROADMAP.md) — see its Status Snapshot for what is
+done and Next Milestones for what is live. Do not restate project status here; this guide is
+meant to stay stable while the roadmap moves.
 
 ## Definition Of Done For A Resource Type
 
-A format is “done enough” for the current milestone when:
+A format is “done enough” for its current slice when:
 
 - real game files parse without hand-editing
 - header fields are covered by tests
@@ -325,7 +247,17 @@ Fixture guidance:
 - do not rely only on synthetic files
 - use real-world weirdness early
 
-If a test exists because NI behaves a certain way, say so in the test comment or docs.
+If a test exists because Near Infinity behaves a certain way, say so in the test comment or docs.
+
+The suite already has more structure than the list above implies, and it is worth reading
+before adding tests:
+
+- [`docs/TESTING.md`](./docs/TESTING.md) — the default suite is self-contained; real-install
+  tests are env-gated per installation (`IE_GAME_PATH`, `IE_BGEE_PATH`, `IE_IWDEE_PATH`,
+  `IE_PSTEE_PATH`) and no-op when a path is unset. Never make CI depend on game data.
+- [`docs/GOLDENS.md`](./docs/GOLDENS.md) — two tiers: exact-value goldens over synthetic
+  fixtures and a synthetic install, which run in CI; and normalized JSON *shape* goldens
+  checked against four real installs. Read a golden diff before committing it.
 
 ## Documentation Expectations
 
@@ -347,7 +279,9 @@ Agents must resist these failure modes:
 
 - adding support for a new format before finishing the current one
 - redesigning crate boundaries mid-feature
-- building write support before read support is trustworthy
+- building write support before read support is trustworthy — writes now exist, but only
+  as byte-exact fixed-offset patches; see the Write Support Framework in ROADMAP.md before
+  extending them to variable-length sections
 - creating large generic abstractions before the second concrete use
 - mixing parser correctness with output prettification
 
@@ -371,7 +305,7 @@ Implement read-only support for <FORMAT>.
 Scope:
 - parse the header and core nested structures needed for useful inspection
 - expose stable JSON export in the CLI
-- add fixture-based tests using real game resources
+- add tests over synthetic fixtures for CI, plus env-gated real-install coverage
 
 Constraints:
 - do not add write support
@@ -418,27 +352,29 @@ Before considering a task complete, verify:
 - are unknown values preserved rather than dropped?
 - are parser errors specific enough to debug?
 - does the CLI expose only supported fields, not accidental internals?
-- are tests tied to real resource behavior?
+- are tests tied to real resource behavior — while still leaving `cargo test --workspace`
+  passing with no game data and no env vars set?
+- if a skill changed, does `python scripts/skill_parity.py --check` pass?
 
-## Suggested CLI Surface
+## CLI Surface
 
-Commands worth targeting first:
+Twelve subcommands ship today. Extend this surface; do not reinvent it.
 
-```bash
-iecli locate --game /path/to/game --resource VICONI.CRE
-iecli dump-raw --game /path/to/game --resource FOA.ITM
-iecli tlk --game /path/to/game --strref 12345
-iecli dump --game /path/to/game --resource FOA.ITM --format json
-iecli dump --game /path/to/game --resource VICONI.CRE --format json
-iecli dump --game /path/to/game --resource IMOEN2.CRE --format json
-```
+| Command | Purpose |
+|---|---|
+| `locate` | resolve a resource and report its source, path, and `game_variant` |
+| `list` | enumerate resources by `--type` / `--name` glob / `--source` |
+| `dump` | typed JSON for `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`, `ARE`; DLG `--format dot\|mermaid` |
+| `dump-raw` | raw bytes for any located resource |
+| `patch` | Tier 1 fixed-offset writes (CRE scalars, ARE Travel regions) |
+| `override-diff` | override trust: BIFF shadow report, or hash diff against a clean reference |
+| `verify` | install-wide ARE cross-resource integrity |
+| `tlk` / `tlk-append` | resolve a `strref`; append strings for local testing |
+| `save-list` / `save-info` | discover save folders; decode `GAM` + the `SAV` container |
+| `save-add-item` | scoped PSTEE save mutation, hard-gated on unvalidated layouts |
 
-Later:
-
-```bash
-iecli dump --game /path/to/game --resource DPLAYER3.DLG --format json
-iecli diff --game /path/to/game --resource VICONI.CRE --other ./override/VICONI.CRE
-```
+Run `iecli <command> --help` for the current flags. New read commands default to
+`--format json`; keep any text mode a presentation layer over the same data.
 
 ## Good Defaults
 

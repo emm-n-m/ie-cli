@@ -30,7 +30,7 @@ If the user hasn't already dumped the DLG, check for `*_dialog.txt` or `*_dialog
 ## Step 2 — Dump the DLG
 
 ```bash
-./target/release/iecli dump --game "<game-path>" --resource <RESREF>.DLG > /c/tmp/<resref>.json
+./target/release/iecli dump --game "<game-path>" --resource <RESREF>.DLG > <resref>.json
 ```
 
 If the override/stock question matters, dump both:
@@ -67,8 +67,8 @@ For each gating variable, the next question is: *what sets it, and under what co
 If the gating variable is a global set by another NPC, find that NPC's DLG and grep its `action_text` fields:
 
 ```bash
-./target/release/iecli dump --game "<game-path>" --resource <UPSTREAM>.DLG > /c/tmp/upstream.json
-grep -n "SetGlobal.*\"<VarName>\"" /c/tmp/upstream.json
+./target/release/iecli dump --game "<game-path>" --resource <UPSTREAM>.DLG > upstream.json
+grep -n "SetGlobal.*\"<VarName>\"" upstream.json
 ```
 
 This reveals which transition path sets the variable — i.e. which conversation branch the player needed to take. That's the "missed hint" that often explains the symptom.

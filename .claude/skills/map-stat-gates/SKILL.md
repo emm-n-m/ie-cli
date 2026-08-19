@@ -20,8 +20,8 @@ the `plan-stat-build` skill, which calls these as its first step.)
 
 ## Inputs
 
-- Game install path. Use the user's install from auto-memory (see `docs/LOCAL_GAME_PATHS.md`)
-  unless they specify another.
+- Game install path. Use one already provided in the conversation, then check
+  `docs/LOCAL_GAME_PATHS.md` if it exists; ask only if neither source provides one.
 - Protagonist object name — `Protagonist` (PST) or `Player1` (BG/IWD). The script matches either
   by default; pass `--protagonist any` to count checks on *all* objects.
 
@@ -31,7 +31,7 @@ release binary; the DLG sweep is ~hundreds of dumps, so release is much faster t
 ## Step 1 — payoffs (lead with this)
 
 ```bash
-python .claude/skills/map-stat-gates/gate_payoffs.py \
+python .claude/skills/map-stat-gates/scripts/gate_payoffs.py \
     --game "<game-path>" --protagonist Protagonist     # or Player1 / any
 # --high-only to drop flavor; --json for the full records (agent reasons on these)
 ```
@@ -46,7 +46,7 @@ are visible) and the **raw action** — *you* judge value from those, the catego
 ## Step 2 — volume (secondary)
 
 ```bash
-python .claude/skills/map-stat-gates/gate_histogram.py --game "<game-path>" --protagonist Protagonist
+python .claude/skills/map-stat-gates/scripts/gate_histogram.py --game "<game-path>" --protagonist Protagonist
 ```
 
 Per stat: the `CheckStatGT` histogram (`need >= V : N branches`) + a `CheckStatLT` summary. Tells you

@@ -39,13 +39,23 @@ FACTIONS: list[tuple[str, re.Pattern[str]]] = [
 TRANSITION_THRESHOLD = 0.30  # 30% of room actors
 
 
+def default_iecli() -> str:
+    for profile in ("release", "debug"):
+        for name in ("iecli.exe", "iecli"):
+            candidate = os.path.join("target", profile, name)
+            if os.path.isfile(candidate):
+                return candidate
+    return os.path.join("target", "release", "iecli")
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--game", required=True)
     p.add_argument("--start", required=True)
     p.add_argument(
         "--iecli",
-        default=os.path.join("target", "debug", "iecli.exe"),
+        default=None,
+        help="path to iecli executable (default: auto-detect target/release|debug)",
     )
     p.add_argument("--max-depth", type=int, default=None)
     return p.parse_args()
@@ -274,12 +284,13 @@ def describe(resref: str, a: dict, prev_factions: dict[str, int] | None) -> dict
 
 def main() -> int:
     args = parse_args()
+    iecli = args.iecli or default_iecli()
 
-    if not os.path.isfile(args.iecli):
-        print(f"iecli not found at {args.iecli}; build with `cargo build`", file=sys.stderr)
+    if not os.path.isfile(iecli):
+        print(f"iecli not found at {iecli}; build with `cargo build`", file=sys.stderr)
         return 2
 
-    order = dfs_order(args.iecli, args.game, args.start, args.max_depth)
+    order = dfs_order(iecli, args.game, args.start, args.max_depth)
     print(f"DFS traversal order: {order}\n")
 
     # Track WED reuse across the dungeon for a final note.
@@ -287,7 +298,7 @@ def main() -> int:
 
     prev_factions: dict[str, int] | None = None
     for resref in order:
-        a = dump_are(args.iecli, args.game, resref)
+        a = dump_are(iecli, args.game, resref)
         if a is None:
             print(f"\n=== {resref} === [PARSE FAILED]")
             continue

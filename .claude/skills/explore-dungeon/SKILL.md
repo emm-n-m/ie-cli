@@ -18,16 +18,18 @@ Given a starting ARE, walk the area graph by following Travel regions, describe 
 ## Inputs
 
 - Starting ARE resref (e.g., `AR4300`). The user may give a level name — ask for the resref if unclear. Resrefs are max 8 chars.
-- Game install path. Use the user's BG:EE Steam install from auto-memory unless they specify another.
+- Game install path. Use one already provided in the conversation, then check
+  `docs/LOCAL_GAME_PATHS.md` if it exists; ask only if neither source provides one.
 
-iecli must be built. From the repo root: `cargo build`. The scripts default to `target/debug/iecli.exe`.
+Build `iecli` from the repo root with `cargo build`. The scripts auto-detect a
+release or debug binary on Windows and Unix; use `--iecli` to override it.
 
 ## Step 1 — Walk the graph
 
 Before walking a modded dungeon by hand, run the install-wide ARE verifier over override content. It is the fastest way to surface mechanical cross-resource breakage:
 
 ```bash
-target/debug/iecli verify \
+./target/release/iecli verify \
     --game "<game-path>" \
     --source override \
     --format json
@@ -38,7 +40,7 @@ Prioritize `phantom_entrance` and `dead_link` errors before interpreting travers
 Two cautions when reading the result. Errors are not automatically the mod's fault: stock BGEE ships six `dead_link` / `phantom_entrance` errors in BIF-backed areas, so drop `--source override` only if you are ready to triage shipped data too. And an area no Travel region reaches is not necessarily unreachable — on BG-family installs most outdoor areas are entered from the worldmap, which `iecli` does not parse. Treat the orphan list as suspects, not proof.
 
 ```bash
-python .claude/skills/explore-dungeon/walk_graph.py \
+python .claude/skills/explore-dungeon/scripts/walk_graph.py \
     --game "<game-path>" \
     --start <RESREF>
 ```
@@ -55,7 +57,7 @@ If the user is hunting for a missing level, the orphan list is the first thing t
 ## Step 2 — Describe the rooms
 
 ```bash
-python .claude/skills/explore-dungeon/describe_rooms.py \
+python .claude/skills/explore-dungeon/scripts/describe_rooms.py \
     --game "<game-path>" \
     --start <RESREF>
 ```

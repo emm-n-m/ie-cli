@@ -14,14 +14,23 @@ import sys
 from collections import deque
 
 
+def default_iecli() -> str:
+    for profile in ("release", "debug"):
+        for name in ("iecli.exe", "iecli"):
+            candidate = os.path.join("target", profile, name)
+            if os.path.isfile(candidate):
+                return candidate
+    return os.path.join("target", "release", "iecli")
+
+
 def parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--game", required=True, help="game install directory")
     p.add_argument("--start", required=True, help="starting ARE resref (e.g. AR4300)")
     p.add_argument(
         "--iecli",
-        default=os.path.join("target", "debug", "iecli.exe"),
-        help="path to iecli executable (default: target/debug/iecli.exe)",
+        default=None,
+        help="path to iecli executable (default: auto-detect target/release|debug)",
     )
     p.add_argument("--max-depth", type=int, default=None, help="limit BFS depth")
     p.add_argument("--json", action="store_true", help="emit JSON instead of text report")
@@ -205,13 +214,14 @@ def emit_text(walk_result: dict, orphans: list[dict]) -> None:
 
 def main() -> int:
     args = parse_args()
+    iecli = args.iecli or default_iecli()
 
-    if not os.path.isfile(args.iecli):
-        print(f"iecli not found at {args.iecli}; build with `cargo build`", file=sys.stderr)
+    if not os.path.isfile(iecli):
+        print(f"iecli not found at {iecli}; build with `cargo build`", file=sys.stderr)
         return 2
 
-    walk_result = walk(args.iecli, args.game, args.start, args.max_depth)
-    all_aes = list_aes(args.iecli, args.game)
+    walk_result = walk(iecli, args.game, args.start, args.max_depth)
+    all_aes = list_aes(iecli, args.game)
     orphans = find_orphans(all_aes, set(walk_result["reached"]))
 
     if args.json:

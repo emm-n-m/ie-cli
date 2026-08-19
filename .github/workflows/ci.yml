@@ -27,15 +27,35 @@ jobs:
       - name: Test
         run: cargo test --workspace --locked
 
+  skills:
+    name: skill parity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - name: Claude mirror matches canonical skills/
+        run: python scripts/skill_parity.py --check
+      - name: Skill helpers are importable
+        run: |
+          for script in skills/*/scripts/*.py; do
+            python "$script" --help > /dev/null
+          done
+
   ci:
     name: CI
-    needs: test
+    needs: [test, skills]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Verify matrix succeeded
+      - name: Verify upstream jobs succeeded
         run: |
           if [[ "${{ needs.test.result }}" != "success" ]]; then
             echo "matrix job result: ${{ needs.test.result }}"
+            exit 1
+          fi
+          if [[ "${{ needs.skills.result }}" != "success" ]]; then
+            echo "skill parity job result: ${{ needs.skills.result }}"
             exit 1
           fi

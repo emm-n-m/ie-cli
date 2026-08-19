@@ -1,6 +1,6 @@
 ---
 name: trace-quest-timer
-description: Trace how long until an Infinity Engine quest or companion event fires by finding the script timer that gates it, reporting the wait converted to real time and classified game-time (rest-skippable) vs real-time (must actually play). Use when the user asks "how long until X happens", "when does <companion> return/reappear", "how long before <quest> activates", or wants to know a script delay/cooldown.
+description: Trace how long until an Infinity Engine quest or companion event fires by finding the script timer that gates it, reporting the wait converted to real time and classified game-time (rest-skippable) vs real-time (must actually play). Use when the user asks how long until an event happens, when a companion returns or reappears, when a quest activates, or what delay or cooldown a script uses.
 ---
 
 # Trace IE Quest / Companion Timer
@@ -17,11 +17,11 @@ skippable). The same constant means very different waits in each: `FOUR_HOURS`
 
 - The companion/NPC whose event you're timing, as a **resref prefix** (e.g.
   `HEXXAT`, `JAN`). The companion's DLG/BCS resources share this prefix.
-- Game install path. Read `docs/LOCAL_GAME_PATHS.md` for the user's installs
-  (BG2EE is the usual target for companion quests); don't probe Steam folders.
+- Game install path. Use one already provided in the conversation, then read
+  `docs/LOCAL_GAME_PATHS.md` if it exists; ask only if neither source provides one.
 
-iecli must be built: from the repo root, `cargo build --release`. The script
-defaults to `target/release/iecli.exe`.
+Build `iecli` from the repo root with `cargo build --release`. The script
+auto-detects a release or debug binary on Windows and Unix; use `--iecli` to override it.
 
 This skill depends on the BCS action parser fix (commit "Fixed BCS bug",
 3a262d9b) — timer durations come from `int_args[0]` of `SetGlobalTimer`
@@ -30,7 +30,7 @@ actions, which were mislabeled before that commit.
 ## Step 1 — Run the tracer
 
 ```bash
-python .claude/skills/trace-quest-timer/trace_timer.py \
+python .claude/skills/trace-quest-timer/scripts/trace_timer.py \
     --game "<BG2EE-path>" \
     --prefix HEXXAT
 ```
