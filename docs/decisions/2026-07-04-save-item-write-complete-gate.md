@@ -5,7 +5,7 @@ Status: accepted as the first step toward BG/IWD support.
 `save-add-item` now selects save-write behavior through a `GamLayout` descriptor rather
 than a single global offset table. Only the PSTEE descriptor is enabled for writes. BG/BG2
 and IWDEE are hard-gated until their GAM section offsets and inventory slot maps are
-validated against Near Infinity/IESDP and real saves.
+validated against IESDP and real saves.
 
 The gate applies to the whole `add_item_to_save_gam` path, including explicit `--slot`
 selection. This closes the footgun where a non-PST save could bypass the PST-only

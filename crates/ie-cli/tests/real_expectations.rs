@@ -1,8 +1,8 @@
 //! Data-driven factual checks against real installations.
 //!
-//! Keep the expectation file small: it records individual facts inspected in
-//! Near Infinity or checked against the format specification, never complete
-//! resource dumps or localized text.
+//! Keep the expectation file small: it records individual facts checked against
+//! the IESDP format specification or the raw bytes, never complete resource
+//! dumps or localized text.
 
 use serde_json::Value;
 use std::ffi::OsString;

@@ -6,8 +6,8 @@ scoped PSTEE item write implemented for embedded party CRE inventories.**
 `SAV` zlib archive. The format facts below were verified against a real save on this
 machine (`000000007-Chapter 1 Start`); keep them as a reference for the remaining work.
 
-The behavioral reference is Near Infinity and [IESDP](https://gibberlings3.github.io/iesdp/),
-same as every other format here. The quality bar is `crates/ie-formats/src/are.rs`.
+The specification reference is [IESDP](https://gibberlings3.github.io/iesdp/), with real saves
+as the tiebreaker — same as every other format here. The quality bar is `crates/ie-formats/src/are.rs`.
 
 (Background: a first attempt, `save_gam.rs`/`save_sav.rs`, was reviewed and reverted
 because it heuristically scanned bytes instead of parsing the formats and found zero
@@ -61,20 +61,20 @@ saves on a real install. See "Pitfalls" — they're documented so they don't rec
 - **Env-gated real-install test** — codify the manual validation as an `IE_GAME_PATH`-gated
   smoke test, following the ARE/BCS pattern, plus a small committed real fixture. The
   current read-only PSTEE slot-table regression is gated by `IE_PSTEE_SAVES`. **[mechanical]**
-- **Near Infinity visual check for PST inventory slots** — real-save data now confirms
-  the chosen `Quick-Save-4` auto slot, but NI should still be used to visually confirm
+- **Second-source check for PST inventory slots** — real-save data now confirms
+  the chosen `Quick-Save-4` auto slot, but a second real save should still confirm
   that the range maps to backpack inventory cells rather than quick/equipment slots.
   **[judgment]**
 - **BG/IWD inventory slot maps** — `save-add-item --slot auto` intentionally rejects
   non-PST variants until their general-inventory cell ranges are verified against real
-  CREs/Near Infinity. The whole save write is now gated for BG/IWD, including explicit
+  CREs and the IESDP CRE slot table. The whole save write is now gated for BG/IWD, including explicit
   slot indices, until the GAM layouts and slot maps are validated. **[judgment]**
 - **Field naming** — `GameNpcJson.character_name` is actually the CRE *resref*; the display
   name is `character_name_long`. Consider renaming to `cre_resref` / `character_name` for
   JSON consumers. **[mechanical]**
 - **Variable `type_flags`** — the bitfield decode yields `[]` for real saved globals
   (raw type is typically 0; the value lives in `int_value`). Confirm the GAM variable
-  "type" semantics against Near Infinity and adjust or drop the decode. **[judgment]**
+  "type" semantics against the IESDP GAM page and adjust or drop the decode. **[judgment]**
 - **Save `verify`** — optional cross-checks (party CRE resrefs resolvable, current-area
   present, journal strrefs in range) once a workflow needs them. **[mechanical]**
 - **Decode SAV members** — reuse the existing ARE/CRE parsers on inflated entries when a
@@ -126,6 +126,6 @@ saves on a real install. See "Pitfalls" — they're documented so they don't rec
 ## References
 
 - `crates/ie-formats/src/are.rs` — parsing/JSON quality bar.
-- `AGENTS.md` — Near Infinity validation workflow, fixture conventions.
+- `AGENTS.md` — IESDP validation workflow, fixture conventions.
 - `docs/LOCAL_GAME_PATHS.md` — local install paths for real validation.
 - IESDP `GAM` v2.0 and `SAV` v1.0 format pages.

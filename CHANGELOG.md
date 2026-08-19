@@ -6,6 +6,28 @@ the `Release` workflow extracts the section matching the pushed tag.
 Versions before `0.3.0-rc.1` shipped without notes; their entries here were
 reconstructed from history and are summaries rather than contemporaneous records.
 
+## [Unreleased]
+
+### Changed
+
+- **Agent skills now have one source of truth.** `skills/` holds the canonical Codex /
+  Open Agent Skills packages and `.claude/skills/` is generated from it by
+  `scripts/skill_parity.py`, enforced by a CI job. The two trees had drifted: the Claude
+  copies hardcoded Windows-only binary paths and so failed to start on Linux and macOS,
+  `diagnose-dialog` was a flat file that Claude Code never discovered, and one subprocess
+  fix was missing. All are fixed by generating the mirror.
+- **Documentation now treats IESDP as the format authority.** Near Infinity was originally
+  the reference implementation; developing directly against IESDP, with real game resources
+  as the tiebreaker, turned out to be simpler. Validation workflows, planned comparison
+  coverage, and save-write gates were rewritten accordingly. Near Infinity remains
+  credited, and historical records of comparisons that actually happened are unchanged.
+- Corrected stale guidance in `AGENTS.md` and `ARCHITECTURE.md`: a documented rule to
+  preserve raw resref spelling in output contradicted the shipped normalized
+  `resource_name` the JSON goldens depend on, a `tests/fixtures/` layout that never existed,
+  a fixture policy that conflicted with keeping CI free of game data, an `iecli diff`
+  command that never shipped, and completed milestones restated from `ROADMAP.md`.
+  `CHR` decoding and patching were missing from `README.md` and `ARCHITECTURE.md`.
+
 ## [0.3.0-rc.1] - 2026-08-17
 
 The theme is validation. All four Enhanced Edition titles now have real-install

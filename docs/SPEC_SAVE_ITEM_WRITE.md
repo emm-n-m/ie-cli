@@ -2,7 +2,7 @@
 
 Status: **proposed** — first write feature for saved games. 2026-07-04.
 
-Behavioral reference is Near Infinity + IESDP, same as every other format here.
+Specification reference is IESDP, with real saves as the tiebreaker, same as every other format here.
 Quality/structure bar: `crates/ie-formats/src/are.rs` (parsing) and the existing
 scalar writer `patch_cre_scalars` in `crates/ie-formats/src/cre.rs` (write pattern).
 
@@ -133,7 +133,7 @@ Requirements:
   (`slot_name` already flags `selected_weapon*`, `cre.rs:978`).
 - The general-inventory slot **range differs by game/variant** (PST has a different slot
   layout and count than BG). Add a small per-`GameVariant` slot-map (inventory-cell index
-  range) rather than guessing. Populate PST first from IESDP/Near Infinity and validate
+  range) rather than guessing. Populate PST first from the IESDP CRE slot table and validate
   against a real PST CRE; leave BG/IWD as a documented follow-up if not verified.
 - If no empty inventory slot exists, error clearly (inventory full) — do **not** silently
   overwrite.
@@ -194,8 +194,8 @@ Follow the ARE/BCS env-gated pattern (`IE_GAME_PATH`, plus a PST-specific gate).
   save to a temp dir, add `CUBE` to the protagonist, re-parse, assert the Cube is present
   and all six party members re-parse. Use the real motivating save (`…-Quick-Save-4`) as
   the reference. Gate + temp-dir isolation like the existing `save.rs`/`tlk_append` tests.
-- **Near Infinity cross-check**: open the edited save's CRE in NI, confirm the item and
-  slot render correctly and NI reports no structural error. Record in the PR.
+- **Structural re-walk**: re-parse the edited save with `iecli save-info` and `dump`, confirm
+  every section offset still resolves and the item lands in the intended slot. Record in the PR.
 
 ## 8. Risks / edge cases to handle explicitly
 
@@ -255,7 +255,7 @@ Validation (all required):
 - IE_GAME_PATH-gated real-install test: copy a real PSTEE save, add CUBE to the protagonist,
   re-parse, assert the Modron Cube is present and all party members re-parse
 - in-code round-trip assertion gating every write (spec §6.2)
-- cross-check one edited CRE in Near Infinity; note results in the PR
+- re-parse one edited CRE and confirm its slot contents; note results in the PR
 
 Acceptance: on the real PSTEE save (…-Quick-Save-4), `iecli save-add-item --item CUBE`
 produces a save that loads in-game with the Modron Cube in inventory and party/areas intact.

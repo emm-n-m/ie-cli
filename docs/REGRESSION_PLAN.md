@@ -1,7 +1,7 @@
 # Regression Plan: Real Installation Verification
 
 This document defines specific resources to test against real game installations,
-what to verify for each, and how to compare results against Near Infinity.
+what to verify for each, and how to check results against the IESDP layout.
 
 ## Environment Setup
 
@@ -23,8 +23,10 @@ Tests silently skip when the variable is unset, so CI passes without game data.
 
 Small factual expectations live in
 `crates/ie-cli/tests/expectations/real_resources.json` and are executed by the reusable
-`real_expectations` integration test. Each case must include provenance distinguishing a manual
-Near Infinity comparison from an IESDP/raw-byte check; do not label the latter as NI-verified.
+`real_expectations` integration test. Each case must state its provenance: which IESDP table or raw-byte
+check produced the expected value, and which install it came from. Never claim a stronger
+provenance than the one actually used. A few early cases carry Near Infinity provenance and are
+left as recorded — that is history, not a template for new cases.
 
 Two further variables regenerate goldens rather than select an install. They are write switches, not
 inputs — set either one and the run rewrites checked-in expectations instead of asserting against
@@ -79,7 +81,7 @@ These validate the loading pipeline independent of any format decoder.
 |--------------------------------|--------|----------|------------------------------------------------------|
 | Resolve strref 0               | BG2EE  | 0        | Returns empty or placeholder (game-dependent)        |
 | Resolve strref 1               | BG2EE  | 1        | Returns non-empty string                             |
-| Resolve known item name        | BG2EE  | (from ACIDBL.ITM header) | Matches Near Infinity's displayed name |
+| Resolve known item name        | BG2EE  | (from ACIDBL.ITM header) | Matches the name stored at the ITM header strref |
 | Out-of-range strref            | BG2EE  | 99999999 | Returns `StrRefOutOfRange`                           |
 
 ### 1.5 Packed DLC Mounting
@@ -116,18 +118,18 @@ Choose items that exercise different parser paths:
 
 ### 2.2 Field Verification Matrix
 
-For each ITM resource, verify these fields against Near Infinity:
+For each ITM resource, verify these fields against the IESDP ITM layout:
 
 | Field group         | What to check                                                         |
 |---------------------|-----------------------------------------------------------------------|
 | **Header**          | `signature`, `version`, `name` (resolved), `identified_name`         |
 | **Flags**           | All item flags match (droppable, displayable, cursed, etc.)           |
 | **Type**            | `item_type` raw + decoded label                                       |
-| **Usability**       | Usability flags match Near Infinity's checkboxes                      |
+| **Usability**       | Usability flags match the IESDP usability bit table                   |
 | **Stats**           | `price`, `stack_size`, `weight`, `lore`, `enchantment`                |
 | **Abilities**       | Count matches, each ability's `attack_type`, `target`, `dice_*`      |
 | **Effects**         | Count matches, each effect's `opcode` (raw + decoded), `target`, timing, parameters |
-| **String refs**     | All resolved strings match Near Infinity's displayed text             |
+| **String refs**     | All resolved strings match `dialog.tlk` at that strref                 |
 | **Version-specific**| V1.1 fields present only when version is `V1.1`                      |
 
 ### 2.3 Edge Cases
@@ -161,7 +163,7 @@ For each ITM resource, verify these fields against Near Infinity:
 
 ### 3.2 Field Verification Matrix
 
-For each SPL resource, verify these fields against Near Infinity:
+For each SPL resource, verify these fields against the IESDP SPL layout:
 
 | Field group          | What to check                                                        |
 |----------------------|----------------------------------------------------------------------|
@@ -324,28 +326,36 @@ to catch game-specific assumptions.
 
 ---
 
-## 7. Near Infinity Comparison Procedure
+## 7. Verification Procedure
 
-When verifying a resource against Near Infinity:
+When verifying a resource:
 
-1. Open Near Infinity pointed at the same game installation.
-2. Navigate to the resource (e.g., Items > ACIDBL).
+1. Open the relevant IESDP page for the format and version and note the offset table.
+2. Dump the resource with `iecli dump --game <path> --resource <RESREF>.<EXT>`.
 3. For each field group in the verification matrix:
-   - Record the NI value.
-   - Run `iecli dump` and compare the JSON field.
-   - Note any discrepancies with an explanation.
+   - Read the expected value from the IESDP offset table, or from the raw bytes at that offset
+     (`iecli dump-raw` piped through a hex viewer) when IESDP is ambiguous.
+   - Compare against the JSON field.
+   - Note any discrepancy with an explanation.
 4. Pay special attention to:
-   - Flag decoding: NI shows named checkboxes; iecli shows raw + decoded array.
-   - String resolution: NI shows inline text; iecli shows strref + resolved text.
-   - Effect opcodes: NI uses its own label set; iecli labels may differ in wording.
-5. Acceptable differences:
-   - Label wording (e.g., "Two-handed" vs "two_handed") as long as the meaning is the same.
-   - Field ordering in JSON vs NI's panel layout.
-6. Unacceptable differences:
-   - Missing fields that NI shows.
-   - Wrong numeric values.
-   - Missing or wrong flag bits.
+   - Flag decoding: iecli emits the raw value *and* a decoded array; both must be right.
+   - String resolution: the strref and the resolved text are separate assertions.
+   - Effect opcodes: the table is variant-specific — PST uses its own, so check
+     `game_variant` before trusting an opcode name.
+   - Field widths: a field IESDP lists as one byte must not be read as two, and the
+     surrounding fields must still land correctly.
+5. Acceptable differences from IESDP:
+   - Label wording, as long as the meaning is the same.
+   - Field ordering and nesting in JSON.
+6. Unacceptable:
+   - Missing fields that IESDP documents and real files populate.
+   - Wrong numeric values or flag bits.
    - Wrong string resolution.
+   - Silently dropped unknown bytes.
+7. Record the outcome as a case in `crates/ie-cli/tests/expectations/real_resources.json`
+   with provenance naming the IESDP table and the install.
+
+When real files disagree with IESDP, the files win — write a note in `docs/decisions/`.
 
 ---
 

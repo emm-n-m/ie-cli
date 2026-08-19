@@ -367,7 +367,7 @@ impl TestInstallation {
             .expect("clock should be monotonic")
             .as_nanos();
         root.push(format!(
-            "nearinfinity-{label}-{unique}-{}",
+            "iecli-{label}-{unique}-{}",
             std::process::id()
         ));
         fs::create_dir_all(&root).expect("temporary installation root should be creatable");

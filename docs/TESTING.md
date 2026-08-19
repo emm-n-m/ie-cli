@@ -49,7 +49,7 @@ IE_IWDEE_PATH=/path/to/iwdee cargo test -p iecli --test verify
 ### Factual expectations
 
 [`real_resources.json`](../crates/ie-cli/tests/expectations/real_resources.json) records small,
-non-localized facts checked against Near Infinity or the relevant IESDP layout. Every case states
+non-localized facts checked against the relevant IESDP layout. Every case states
 its provenance; the harness reports that provenance with a failing JSON pointer. It currently
 covers ITM, SPL, CRE, STO, DLG, BCS, and ARE, including an external-dialog transition.
 
@@ -75,4 +75,4 @@ updates must be reviewed as interface changes.
 
 Do not commit raw game resources, full JSON dumps of game resources, or TLK text dumps. Record
 independently verified factual constants as focused assertions instead. The full validation matrix
-and Near Infinity comparison procedure are in [REGRESSION_PLAN.md](./REGRESSION_PLAN.md).
+and validation procedure are in [REGRESSION_PLAN.md](./REGRESSION_PLAN.md).

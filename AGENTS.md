@@ -2,11 +2,11 @@
 
 ## Purpose
 
-This document gives coding agents a strict working guide for building a CLI-first, Rust-based Infinity Engine resource inspector inspired by Near Infinity.
+This document gives coding agents a strict working guide for building a CLI-first, Rust-based Infinity Engine resource inspector.
 
 For current project status, active milestones, and the driving use case, see [ROADMAP.md](./ROADMAP.md). This guide is stable; the roadmap changes each session.
 
-The first goal is not a full Near Infinity replacement. The first goal is a reliable parser and exporter that can turn installed game resources into stable, machine-readable output for:
+The first goal is a reliable parser and exporter that can turn installed game resources into stable, machine-readable output for:
 
 - human inspection
 - AI-assisted analysis
@@ -14,7 +14,9 @@ The first goal is not a full Near Infinity replacement. The first goal is a reli
 - scripting
 - future WeiDU patch generation workflows
 
-Near Infinity is the behavioral reference when its behavior is clear and intentional.
+[IESDP](https://gibberlings3.github.io/iesdp/) is the specification reference for format work.
+When it is ambiguous, real game resources decide — not another implementation. See
+[docs/FORMAT_REFERENCES.md](./docs/FORMAT_REFERENCES.md).
 
 ## Game Exploration Skills
 
@@ -189,12 +191,12 @@ If a value is unknown, prefer:
 
 over inventing semantics.
 
-## Near Infinity Validation Workflow
+## IESDP Validation Workflow
 
 For each newly supported format:
 
 1. Pick 3-5 real sample resources from at least one installed game.
-2. Inspect the same resources in Near Infinity.
+2. Work out the expected values from the relevant IESDP offset table.
 3. Record key expected values:
    - version
    - header fields
@@ -247,7 +249,7 @@ Fixture guidance:
 - do not rely only on synthetic files
 - use real-world weirdness early
 
-If a test exists because Near Infinity behaves a certain way, say so in the test comment or docs.
+If a test exists because a specific real resource behaves a certain way, name that resource and its game in the test comment or docs.
 
 The suite already has more structure than the list above implies, and it is worth reading
 before adding tests:
@@ -265,7 +267,7 @@ Add a short decision note when:
 
 - a format detail is ambiguous
 - a field name is inferred rather than directly specified
-- a Near Infinity behavior is mirrored for compatibility
+- real game files contradict IESDP, and the files win
 - output structure choices may affect downstream tools
 
 Suggested docs:
@@ -314,8 +316,8 @@ Constraints:
 - document any ambiguous field interpretation
 
 Validation:
-- compare behavior against Near Infinity for at least 3 real resources
-- note any discrepancies
+- decode at least 3 real resources and check the fields against the IESDP offset table
+- note any discrepancies between IESDP and the real files
 ```
 
 ### Add CLI Support
@@ -333,7 +335,7 @@ Requirements:
 ### Investigate A Mismatch
 
 ```text
-Investigate a parsing mismatch between this tool and Near Infinity for <RESOURCE>.
+Investigate a parsing mismatch between this tool and the IESDP layout for <RESOURCE>.
 
 Tasks:
 - identify which field or offset differs
@@ -366,7 +368,7 @@ Twelve subcommands ship today. Extend this surface; do not reinvent it.
 | `list` | enumerate resources by `--type` / `--name` glob / `--source` |
 | `dump` | typed JSON for `ITM`, `SPL`, `CRE`, `STO`, `DLG`, `BCS`, `ARE`; DLG `--format dot\|mermaid` |
 | `dump-raw` | raw bytes for any located resource |
-| `patch` | Tier 1 fixed-offset writes (CRE scalars, ARE Travel regions) |
+| `patch` | Tier 1 fixed-offset writes (`CRE`/`CHR` scalars, `ARE` Travel regions) |
 | `override-diff` | override trust: BIFF shadow report, or hash diff against a clean reference |
 | `verify` | install-wide ARE cross-resource integrity |
 | `tlk` / `tlk-append` | resolve a `strref`; append strings for local testing |

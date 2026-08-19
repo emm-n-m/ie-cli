@@ -42,26 +42,25 @@ The Rust rewrite is in progress. The current workspace already supports:
   - `DLG`
   - `BCS`
   - `ARE`
+  - `CHR` (a wrapper around a complete embedded `CRE`)
 - DLG graph export via `dump --format dot|mermaid`, with optional extern following
 - override shadow/reference comparison via `override-diff`
 - install-wide ARE cross-resource verification via `verify` (dead Travel links, phantom entrances, missing scripts/actors/items)
 - game-variant detection (`standard` / `iwd` / `pst`) with PST-specific effect-opcode decoding, reported by `locate` as `game_variant`
 - save inspection via `save-list` and `save-info` (`GAM` v2.0/2.1/2.2 and the `SAV` archive)
 - scoped PSTEE save mutation via `save-add-item` (one item into a party member's embedded CRE)
-- Tier 1 CRE scalar patching with byte-exact copy behavior outside requested fixed-offset fields
+- Tier 1 `CRE`/`CHR` scalar patching with byte-exact copy behavior outside requested fixed-offset fields
 - Tier 1 ARE Travel-region patching (`destination_area`, `destination_entrance`)
 - agent [skills](./docs/SKILLS.md) for Claude Code and Codex that turn the JSON into narrative answers about a real install
 
 Not implemented yet:
 
-- real-resource fixture coverage for decoded formats
-- broad Near Infinity comparison coverage for `ITM` and `SPL`
 - structured write support for variable-length resource sections
 
 Current validation for decoded formats already includes:
 
 - real-install `dump` smoke coverage for `ITM` and `SPL`
-- manual Near Infinity comparison for selected BG2EE `SPL` resources
+- early manual Near Infinity comparison for selected BG2EE `SPL` resources
 - env-gated real-install regression tests for validated `SPL` resources
 - output [goldens](./docs/GOLDENS.md) in two tiers: exact-value goldens over synthetic fixtures and a synthetic install, covering every decoded format plus graph, save-listing, TLK, and human-text output modes and running in CI; and normalized JSON shape goldens checked against four real installs
 - whole-install PSTEE sweeps across every dialogue in the game (859 DLGs), plus resource enumeration and diffing over a 2,313-resource PST mod, exercising `DLG`, `ITM`, `SPL`, and `CRE` decoding at scale (see [guides](./docs/guides/))
@@ -77,18 +76,17 @@ The Rust workspace is organized into:
 - `crates/ie-formats`
 - `crates/ie-cli`
 
-IESDP and Near Infinity remain the main external references for format work. See [Format References](./docs/NEAR_INFINITY_REFERENCE.md) for the expected workflow.
+IESDP is the specification reference for format work, with real game resources as the tiebreaker. See [Format References](./docs/FORMAT_REFERENCES.md) for the expected workflow.
 
 ## Acknowledgements
 
-This tool has been developed with two important references:
+Two projects shaped this one:
 
-- [IESDP](https://gibberlings3.github.io/iesdp/) for Infinity Engine file-format specifications, offsets, and field descriptions.
-- [Near Infinity](https://github.com/Argent77/NearInfinity) for behavioral comparison, resource-loading behavior, and validation of parser output against real game resources.
+- [IESDP](https://gibberlings3.github.io/iesdp/) for Infinity Engine file-format specifications, offsets, and field descriptions. It is the specification source the parsers are written against.
+- [Near Infinity](https://github.com/Argent77/NearInfinity) for the inspiration behind this project, and for behavioral comparison during early parser validation. It remains the mature GUI tool `iecli` deliberately does not try to replace.
 
-`iecli` is a separate Rust implementation with a CLI-first product direction. It is not a Near Infinity fork, but it
-does explicitly use IESDP as a specification source and Near Infinity as a comparison target when behavior needs to
-match established engine-facing tooling.
+`iecli` is a separate Rust implementation with a CLI-first product direction, not a Near Infinity
+fork. Formats are decoded from IESDP and pinned against real game resources.
 
 ## Build
 
@@ -150,7 +148,7 @@ is not plain graphic ASCII, and splitting the unquoted text output on whitespace
 - [Regression plan](./docs/REGRESSION_PLAN.md)
 - [JSON goldens](./docs/GOLDENS.md) — why real installs can pin shape but not values, and how to regenerate both tiers
 - [Testing notes](./docs/TESTING.md) — env-gated real-install test setup
-- [Format references](./docs/NEAR_INFINITY_REFERENCE.md)
+- [Format references](./docs/FORMAT_REFERENCES.md) — IESDP-first workflow
 - [DLG graph export + override diff](./docs/DLG_GRAPH_AND_OVERRIDE_DIFF.md)
 - [Save support status](./docs/SAVE_SUPPORT_TODO.md) and the write gate in [SPEC_SAVE_ITEM_WRITE_COMPLETE](./docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md)
 - [DLC mounting spec](./docs/SPEC_DLC_MOUNTING.md) — how Enhanced Edition `dlc/*.zip` overlays resolve, why a DLC's own KEY has to be merged, and how precedence is decided

@@ -37,7 +37,7 @@ Both sample files record offset `0x64` (100) and lengths of 1608 and 1712, match
 `V1.0`, `V2.0`, `V2.2` and `V9.0`, and the only versions available to sample here are `V2.0`. Rather
 than invent field names that cannot be checked, the bytes are preserved verbatim as
 `header.unknown_header_bytes_0x30`, following the `unknown_header_bytes_0x24` precedent in the STO
-decoder. Decoding them needs a Near Infinity comparison against files of each version.
+decoder. Decoding them needs real files of each version checked against the IESDP CHR layout.
 
 **The header name is a literal string, not a strref.** It is whatever the player typed, so it has no
 `dialog.tlk` entry. The embedded CRE's `long_name` / `short_name` are usually `-1` for a player

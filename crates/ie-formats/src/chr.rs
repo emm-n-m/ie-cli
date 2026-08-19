@@ -16,9 +16,9 @@
 //! | 0x30 | .. | quick weapon/spell/item slots, version-specific |
 //!
 //! Only the fields above are decoded. The quick-slot region differs between
-//! `V1.0`, `V2.0`, `V2.2` and `V9.0`, and this crate has no Near Infinity
-//! comparison for the versions it cannot sample, so those bytes are preserved
-//! raw instead of being given invented names.
+//! `V1.0`, `V2.0`, `V2.2` and `V9.0`, and this crate has no real sample for
+//! the versions it cannot reach, so those bytes are preserved raw instead of
+//! being given invented names.
 
 use crate::common::signature_mismatch;
 use crate::cre::{CreatureJson, parse_cre_with_variant};

@@ -26,7 +26,7 @@ into stale tail data after the inserted CRE bytes.
 
 Auto slot selection is populated only for PST/PSTEE. It is covered by a real-save
 regression against `Quick-Save-4`: slots 20..32 are occupied and slot 33 is the first
-empty cell selected for `CUBE`. A Near Infinity visual check is still useful before
+empty cell selected for `CUBE`. A second real save should still be checked before
 calling the slot-map fully validated. Other variants reject `--slot auto` until their
-general-inventory ranges are verified against real CREs and Near Infinity. Explicit
+general-inventory ranges are verified against real CREs and the IESDP CRE slot table. Explicit
 slot indices are still allowed when the target slot exists and is empty.

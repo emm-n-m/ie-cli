@@ -97,7 +97,7 @@ Completed:
 - Add stable JSON export for both.
 - Add CLI `dump` support for decoded resources.
 - Add parser unit tests for both formats.
-- Validate selected `SPL` outputs against Near Infinity using real BG2EE resources.
+- Validate selected `SPL` outputs against the IESDP layout using real BG2EE resources.
 - Add real-install `dump` regression coverage for validated `SPL` resources when `IE_GAME_PATH` is set.
 - Add reusable env-gated factual expectations for stock BGEE `SW1H01.ITM` and `SPWI112.SPL`.
 
@@ -108,7 +108,7 @@ Remaining:
 - Expand env-gated factual assertions for decoded `ITM` and `SPL` fields against more real
   resources. Raw game resources and full derived dumps are not committed; see
   [docs/REGRESSION_PLAN.md](./docs/REGRESSION_PLAN.md).
-- Broaden Near Infinity comparison coverage for `ITM` and additional `SPL` resources.
+- Broaden real-resource expectation coverage for `ITM` and additional `SPL` resources.
 
 Suggested verification resources:
 
@@ -137,7 +137,7 @@ Remaining:
 
 - Add env-gated factual assertions for additional representative `CRE` and `STO` resources and
   other game families.
-- Verify representative resources against Near Infinity. Exact synthetic JSON goldens already pin both
+- Verify representative resources against the IESDP layout. Exact synthetic JSON goldens already pin both
   formats' exported shape and values.
 
 Suggested verification resources:
@@ -163,7 +163,7 @@ Completed:
 
 Remaining:
 
-- Add more real-install and Near Infinity validation for representative dialogue files.
+- Add more real-install validation for representative dialogue files.
 - Expand regression coverage for edge cases such as external-dialog references.
 
 Important constraint:
@@ -304,7 +304,7 @@ Current high-value follow-up issues:
 
 1. Broaden the initial BGEE factual expectation matrix across BG2EE, PSTEE, and IWDEE when those
    installs are available.
-2. Add manual Near Infinity comparisons for representative `ITM`, `CRE`, `STO`, `DLG`, `BCS`, and
+2. Add real-resource expectations with stated provenance for representative `ITM`, `CRE`, `STO`, `DLG`, `BCS`, and
    `ARE` resources; record the findings in the existing expectation manifest.
 3. Add more real external-dialog edges and script constructs beyond the BGEE `ALATOS`/`BALDUR`
    anchors.

@@ -59,7 +59,7 @@ If the slice touches a format decoder:
 - If IESDP is the spec source for any offset/field, fetch the relevant page from `https://gibberlings3.github.io/iesdp/` and quote the offset/field definitions in the PR body. WebFetch is allowed only for that domain.
 - Mark anything ambiguous under "Open questions" in the PR body. Do not silently pick.
 
-The owner does the real-install + Near Infinity cross-check at PR review on their machine. Make their job easy: list every offset, opcode, and field you touched, plus the IESDP citation, so they know exactly what to spot-check.
+The owner does the real-install cross-check at PR review on their machine. Make their job easy: list every offset, opcode, and field you touched, plus the IESDP citation, so they know exactly what to spot-check.
 
 ## 5. Ship
 

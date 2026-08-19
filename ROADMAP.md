@@ -50,7 +50,7 @@ Current as of 2026-08-17.
 - Variant-aware effect decoding: PST uses its own opcode table, so `ITM`, `SPL`, and `CRE` effect names decode correctly on PSTEE instead of silently borrowing BG opcode meanings.
 - Install-wide `verify` for ARE cross-resource integrity, with `--severity`, `--max-issues`, `--source`, and `--format text|json`. Categories: `dead_link`, `phantom_entrance`, `missing_area_script`, `missing_region_script`, `missing_actor_cre`, `missing_actor_dialog`, `missing_actor_script`, `missing_key_item`, `parse_error`.
 - Override trust workflow via `override-diff`: shadow reports against BIFF and hash-based comparison against reference directories/files.
-- Real-install smoke coverage for `ITM` and `SPL`; selected Near Infinity comparisons for `SPL`.
+- Real-install smoke coverage for `ITM` and `SPL`; early Near Infinity comparisons for `SPL` (historical — IESDP is now the reference).
 - Env-gated CLI smoke coverage for `BCS` and PSTEE `ARE`.
 - Initial CRE scalar patch support for fixed-offset fields, with byte-exact copy-only behavior.
 - Initial ARE region patch support for `regions.<selector>.destination_entrance` and `regions.<selector>.destination_area`, addressed by region name or 0-based index, byte-exact copy-only behavior.
@@ -163,7 +163,7 @@ Current graph slice includes:
 
 Remaining follow-up:
 
-- verify more real PSTEE dialogues against Near Infinity
+- verify more real PSTEE dialogues against the IESDP DLG layout
 - expand regression coverage for external-dialog references and edge cases
 
 #### Override Diff
@@ -182,7 +182,7 @@ Implemented. `iecli dump --resource FOO.BCS` now exports condition/response bloc
 Remaining follow-up:
 
 - broaden real-install validation beyond the current smoke coverage
-- compare representative scripts against Near Infinity and encode findings in assertions
+- check representative scripts against the IESDP BCS/trigger-action tables and encode findings in assertions
 - decide whether later script-adjacent tooling should add pretty-printing or cross-reference output
 
 #### ARE Read + JSON Export
@@ -193,7 +193,7 @@ Validated locally against PSTEE `AR0202.ARE` and `AR0500.ARE`.
 
 Remaining follow-up:
 
-- compare selected area actor fields against Near Infinity
+- check selected area actor fields against the IESDP ARE layout
 - expand ARE support only when a concrete workflow needs additional region fields, doors, containers, spawn points, or ambients
 
 #### Scalar Patching, TLK Append, and Save Item Write
@@ -206,7 +206,7 @@ Implemented:
 
 Remaining validation:
 
-- confirm the PSTEE inventory-slot range visually in Near Infinity
+- confirm the PSTEE inventory-slot range against real saves and the IESDP CRE slot table
 - add a committed real save fixture or broader env-gated real-save coverage
 - keep BG/BG2/IWD save writes disabled until each layout and slot map satisfies the validation gate in [docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md](./docs/SPEC_SAVE_ITEM_WRITE_COMPLETE.md)
 
@@ -279,13 +279,13 @@ current milestone strengthens existing formats rather than adding another resour
 - keep synthetic exact-value and real-install shape goldens green across installations
 - pin stock-install `verify` behavior with per-game expectations (IWDEE clean; BGEE known issues)
 - cover malformed and truncated inputs for critical parsers
-- add factual real-resource assertions and Near Infinity comparisons for existing formats
+- add factual real-resource assertions with explicit provenance for existing formats
 
 The reusable expectation harness, representative stock BGEE+SoD cases for every decoded family
 (including complex ITM/SPL, hostile CRE, special-purpose STO, and a real external-DLG edge), and
 deterministic adversarial-input coverage are complete. Remaining work in this pass is
-broader factual coverage across the other available installs and additional manual Near Infinity
-comparisons, particularly for ITM, CRE, STO, DLG, BCS, and ARE.
+broader factual coverage across the other available installs, particularly for ITM, CRE, STO,
+DLG, BCS, and ARE.
 
 Candidates after this validation pass:
 

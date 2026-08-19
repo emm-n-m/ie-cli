@@ -956,7 +956,7 @@ mod tests {
                 .expect("clock should be monotonic")
                 .as_nanos();
             root.push(format!(
-                "nearinfinity-cli-{label}-{unique}-{}",
+                "iecli-cli-{label}-{unique}-{}",
                 std::process::id()
             ));
             fs::create_dir_all(&root).expect("temporary installation root should be creatable");

@@ -28,20 +28,23 @@ The system should be divided into a few clear layers:
 
 Each layer should have a narrow responsibility.
 
-## Recommended Workspace Layout
+## Workspace Layout
 
 ```text
 crates/
-  ie-core/
-  ie-io/
-  ie-formats/
-  ie-cli/
-tests/
-  fixtures/
+  ie-core/        # shared types, errors, resource ids
+  ie-io/          # installation discovery, KEY/BIF/TLK/DLC loading
+  ie-formats/     # typed decoders and scoped write paths
+  ie-cli/         # command frontend, one module per concern
+skills/           # canonical agent skills (mirrored to .claude/skills/)
+scripts/          # repo maintenance tooling
 docs/
 ```
 
-If the project is still small, `ie-core` and `ie-io` can begin in the same crate and be split later.
+Tests live in `crates/<crate>/tests/`, with committed goldens under `tests/goldens/` and
+real-resource expectations under `crates/ie-cli/tests/expectations/`. There is no top-level
+`tests/` directory and no committed game data. The four crates are already split; keep the
+boundaries rather than merging or re-cutting them mid-feature.
 
 ## Crate Responsibilities
 
@@ -83,6 +86,7 @@ Responsible for typed decoding of resource bytes:
 - `DLG`
 - `BCS`
 - `ARE`
+- `CHR` (a wrapper around a complete embedded `CRE`)
 - `GAM` / `SAV` (save containers)
 
 Each format should have:
@@ -95,7 +99,8 @@ Each format should have:
 Cross-cutting modules also live here where they operate on decoded resources rather than bytes:
 `effects` (variant-aware opcode tables) and `verify` (ARE cross-resource integrity checks).
 
-Scoped write paths (`patch_cre_scalars`, `patch_are_scalars`, `add_item_to_save_gam`) belong to this
+Scoped write paths (`patch_cre_scalars`, `patch_chr_scalars`, `patch_are_scalars`,
+`add_item_to_save_gam`) belong to this
 crate too. They must preserve every byte outside the declared edit, repair only an explicit offset
 set, and refuse layouts they have not been validated against.
 
@@ -112,7 +117,6 @@ Responsible for user-facing commands:
 - `override-diff`
 - `verify`
 - `save-list`, `save-info`, `save-add-item`
-- later `diff` for decoded resources
 
 It should not contain parsing logic beyond argument handling and output formatting. As the command
 surface grew, `main.rs` was split into per-concern modules (`dialog_graph`, `override_diff`,
@@ -288,7 +292,8 @@ Preserve enough context to debug:
 
 ## Testing Strategy
 
-Tests should exist at three levels:
+Tests exist at four levels. See [docs/TESTING.md](./docs/TESTING.md) for how to run them and
+[docs/GOLDENS.md](./docs/GOLDENS.md) for the two golden tiers.
 
 ### Unit tests
 
@@ -311,34 +316,46 @@ For:
 
 For:
 
-- full command execution against fixture installs
+- full command execution against a synthetic install
 - override precedence
 - TLK resolution in exported JSON
 
+### Golden and expectation tests
+
+For:
+
+- exact-value goldens over synthetic fixtures, covering every decoded format and every
+  human-readable output mode, running in CI
+- normalized JSON *shape* goldens checked against real installs, which pin structure without
+  committing values
+- real-resource expectations with stated provenance
+- deterministic adversarial-input coverage proving no decoder panics
+
 ## Fixture Policy
 
-Prefer real resources over synthetic-only inputs.
+No game data is committed. `cargo test --workspace` must pass on a clean checkout with no
+installs and no environment variables set, so the default suite runs on synthetic fixtures and a
+synthetic installation. Real installs are reached only through env-gated tests that no-op when
+their variable is unset — see [docs/TESTING.md](./docs/TESTING.md).
 
-Each fixture should document:
+Real-resource facts are recorded as expectations rather than checked-in files. Each case should
+document:
 
-- source game
+- source game and install (its provenance)
 - original resource name
 - why it exists
 - what edge or behavior it covers
 
-Use small fixtures where possible, but do not avoid weird real-world files.
+Keep expectations to individual non-localized facts, never whole dumps. Do not avoid weird
+real-world files — reach them through an env-gated test.
 
-## Near Infinity As Reference
+## Format Authority
 
-Near Infinity should be used as:
+[IESDP](https://gibberlings3.github.io/iesdp/) is the specification reference; real game
+resources across several installs are the tiebreaker when IESDP is ambiguous or wrong. Neither
+dictates architecture — decode from the spec, then shape the output for this tool's consumers.
 
-- a format reference
-- a behavior oracle for edge cases
-- a comparison target
-
-It should not dictate architecture.
-
-If a parser rewrite is cleaner and still behaviorally compatible, prefer the cleaner rewrite.
+See [docs/FORMAT_REFERENCES.md](./docs/FORMAT_REFERENCES.md) for the workflow.
 
 ## Serialization Rules
 
@@ -395,7 +412,7 @@ Do not build those now, but avoid blocking them accidentally.
 - `ie-formats` must not depend on terminal output concerns
 - text resolution must remain swappable
 
-## Initial Success Criteria
+## Success Criteria
 
 The architecture is working if the project can reliably:
 
@@ -403,6 +420,6 @@ The architecture is working if the project can reliably:
 - dump an `ITM` as stable JSON
 - resolve `strref` text from `dialog.tlk`
 - prove override precedence with a test
-- compare output meaningfully against Near Infinity
+- pin that output with a real-resource expectation that states its provenance
 
 That is enough to make the project useful before it becomes large.

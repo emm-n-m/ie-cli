@@ -142,7 +142,7 @@ impl TestInstallation {
             .expect("clock should be monotonic")
             .as_nanos();
         root.push(format!(
-            "nearinfinity-tlk-{label}-{unique}-{}",
+            "iecli-tlk-{label}-{unique}-{}",
             std::process::id()
         ));
 

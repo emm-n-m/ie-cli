@@ -121,7 +121,7 @@ vanishing). Faction classification is regex-based on display names — extend th
 when a mod introduces a new creature family. A final pass flags WED-tileset reuse across rooms.
 
 **Patching broken exits:** once a dead link or phantom entrance is identified, fix it with
-`iecli patch` rather than dropping to NearInfinity. Two ARE fields are supported —
+`iecli patch` rather than dropping to a GUI editor. Two ARE fields are supported —
 `regions.<selector>.destination_entrance` (32-byte string) and
 `regions.<selector>.destination_area` (8-byte resref) — where the selector is the region's exact
 name (case-sensitive, NUL-truncated) or its 0-based index. Back up first, and note that the engine

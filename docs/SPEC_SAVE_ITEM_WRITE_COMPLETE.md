@@ -5,8 +5,8 @@ specified and delivered the **PSTEE** slice (commit `8950c9c4`). This spec is ab
 making `save-add-item` correct and safe for the **whole Infinity Engine EE family**
 (BGEE, BG2EE, IWDEE, PSTEE), not just PST.
 
-Behavioral reference: Near Infinity (its `GamResource` / `CreResource` field maps are
-the definitive layout source) + IESDP GAM/CRE pages. Quality bar: `are.rs`.
+Specification reference: the IESDP GAM/CRE pages, confirmed against real saves of the
+target game. Quality bar: `are.rs`.
 
 ---
 
@@ -80,8 +80,7 @@ whether BGEE, BG2EE, and BGEE:SoD (V2.0 vs V2.1) share one descriptor or need sp
 For each (game, version), the list MUST be produced by this procedure, not by pattern-
 matching one save:
 
-1. **Authoritative field map.** Read Near Infinity's `GamResource` for that version and
-   the IESDP GAM v2.0/2.1/2.2 page. Enumerate every field documented as an *offset to* a
+1. **Authoritative field map.** Read the IESDP GAM v2.0/2.1/2.2 page for that version. Enumerate every field documented as an *offset to* a
    section (party NPC, party inventory, non-party NPC, globals, journal, familiar, and any
    version/PST-specific sections). That set — and only that set — goes in the list.
 2. **Confirm on ≥2 real saves per game.** For each listed field, verify its value is either
@@ -139,7 +138,7 @@ Slot index → meaning is fixed per game. Auto-placement must target only genera
   inventory-cell range(s) and validate against a real BG CRE.
 - **IWD (IWDEE):** same procedure; confirm whether it matches BG or differs.
 
-Source each map from Near Infinity's slot definitions for that game and confirm against a
+Source each map from the IESDP CRE slot table for that game and confirm against a
 real member CRE (dump `item_slots`, check which indices hold backpack items vs equipment).
 `--slot INDEX` stays available and is validated only for emptiness + bounds (game-agnostic).
 
@@ -169,7 +168,7 @@ Per game (PST already done; add BG, IWD):
   variant-specific sections, asserting each listed offset shifts and byte-exactness holds.
 - **Env-gated real-install** (`IE_GAME_PATH` per game): copy a real save, add a known item,
   full structural re-walk (§6), assert item present + all sections parse.
-- **Near Infinity cross-check:** open the edited CRE/GAM, confirm no structural error.
+- **Structural re-walk:** re-parse the edited CRE/GAM and confirm every offset resolves.
 - **In-game load** on a real save of that game — the acceptance test.
 
 Keep the existing PST regression test (non-party creature after insertion) as the template.
@@ -210,7 +209,7 @@ Order of work:
 2. Replace GAM_V2_HEADER_OFFSET_FIELDS with a per-variant GamLayout {section_offset_fields,
    inventory_slots}, selected by (gam_version, game_family). Expand GameVariant/detection if
    BG and IWD prove to differ.
-3. Derive each game's section_offset_fields from Near Infinity's GamResource + IESDP — NOT
+3. Derive each game's section_offset_fields from the IESDP GAM page — NOT
    by pattern-matching one save. Confirm on >=2 real saves, prove with a grow-and-reparse
    structural re-walk, and load-test in-game. Record tables + sources in docs/decisions/.
 4. Per-game inventory slot maps from NI slot definitions, validated against a real member
@@ -223,6 +222,6 @@ read NPC table base offsets from the post-shift buffer (the non-party crash fix)
 0xFFFFFFFF/0 sentinels; checked_add as backstop.
 
 Validation per game: unit fixture (party + non-party + variant sections), IE_GAME_PATH-
-gated real-save test with full structural re-walk, Near Infinity cross-check, in-game load.
-Lift the safety gate for a game only after all four pass. Do not touch BALDUR.SAV.
+gated real-save test with full structural re-walk, and in-game load.
+Lift the safety gate for a game only after all of those pass. Do not touch BALDUR.SAV.
 ```
