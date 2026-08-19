@@ -49,8 +49,8 @@ IE_IWDEE_PATH=/path/to/iwdee cargo test -p iecli --test verify
 ### Factual expectations
 
 [`real_resources.json`](../crates/ie-cli/tests/expectations/real_resources.json) records small,
-non-localized facts checked against the relevant IESDP layout. Every case states
-its provenance; the harness reports that provenance with a failing JSON pointer. It currently
+non-localized facts read from real resources at the offsets the relevant IESDP
+layout documents. Every case states its provenance; the harness reports that provenance with a failing JSON pointer. It currently
 covers ITM, SPL, CRE, STO, DLG, BCS, and ARE, including an external-dialog transition.
 
 ```bash

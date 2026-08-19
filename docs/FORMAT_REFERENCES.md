@@ -12,14 +12,18 @@ When a task needs format details:
 - preserve raw values when IESDP is ambiguous or incomplete, and say so in the field name
   (`unknown_*`) or a decision note
 
-When IESDP is not enough, the tiebreaker is real game data, not another implementation:
+IESDP is a specification, not a data source. It tells you where a field sits, how wide it is,
+and what its bits and enums mean — it cannot tell you what any particular resource contains.
+Every expected *value* therefore comes from a real file:
 
+- read the value out of the resource's own bytes at the offset IESDP names
 - decode the same resource across several installs and variants
-- record the observed values as a real-resource expectation with explicit provenance
-  (see [GOLDENS.md](./GOLDENS.md) and [TESTING.md](./TESTING.md))
-- if real files disagree with IESDP, the files win — document the discrepancy in
+- record it as a real-resource expectation whose provenance names both halves: the resource and
+  install it was read from, and the IESDP table used to read it (see [GOLDENS.md](./GOLDENS.md)
+  and [TESTING.md](./TESTING.md))
+- when a real file's layout disagrees with IESDP, the file wins — document the discrepancy in
   `docs/decisions/`
 
-Early parser validation also used Near Infinity as a comparison target, and some historical
-notes and decision records still refer to it. That is history, not the current process:
-new format work is developed against IESDP and pinned by real-resource expectations.
+Early parser validation read those real files through Near Infinity's GUI rather than through
+`dump-raw`, and some historical notes and expectation records still name it that way. It was a
+reading tool, never a specification source. New format work reads the bytes directly.

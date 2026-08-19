@@ -76,7 +76,7 @@ The Rust workspace is organized into:
 - `crates/ie-formats`
 - `crates/ie-cli`
 
-IESDP is the specification reference for format work, with real game resources as the tiebreaker. See [Format References](./docs/FORMAT_REFERENCES.md) for the expected workflow.
+IESDP is the layout reference for format work — offsets, field widths, and enum meanings. Expected values come from real game resources, since a specification cannot say what a given file contains. See [Format References](./docs/FORMAT_REFERENCES.md) for the workflow.
 
 ## Acknowledgements
 

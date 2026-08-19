@@ -351,9 +351,12 @@ real-world files — reach them through an env-gated test.
 
 ## Format Authority
 
-[IESDP](https://gibberlings3.github.io/iesdp/) is the specification reference; real game
-resources across several installs are the tiebreaker when IESDP is ambiguous or wrong. Neither
-dictates architecture — decode from the spec, then shape the output for this tool's consumers.
+[IESDP](https://gibberlings3.github.io/iesdp/) is the layout authority: where each field sits,
+how wide it is, what its bits and enums mean. It is not a data source — what any particular
+resource contains can only be read from the file, so expected values always come from real
+resources across several installs. When a real file's layout disagrees with IESDP, the file wins.
+Neither dictates architecture: decode from the spec, then shape the output for this tool's
+consumers.
 
 See [docs/FORMAT_REFERENCES.md](./docs/FORMAT_REFERENCES.md) for the workflow.
 

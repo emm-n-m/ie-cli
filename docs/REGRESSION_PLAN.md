@@ -23,10 +23,12 @@ Tests silently skip when the variable is unset, so CI passes without game data.
 
 Small factual expectations live in
 `crates/ie-cli/tests/expectations/real_resources.json` and are executed by the reusable
-`real_expectations` integration test. Each case must state its provenance: which IESDP table or raw-byte
-check produced the expected value, and which install it came from. Never claim a stronger
-provenance than the one actually used. A few early cases carry Near Infinity provenance and are
-left as recorded — that is history, not a template for new cases.
+`real_expectations` integration test. Expected values come from the resource's own bytes — IESDP cannot supply
+them, it only says where a field sits and how to read it. So each case must state both halves of
+its provenance: the resource and install the value was read from, and the IESDP table used to
+locate and interpret that field. Never claim a stronger provenance than the one actually used.
+A few early cases record Near Infinity as the tool the bytes were read through; that is history,
+not a template for new cases.
 
 Two further variables regenerate goldens rather than select an install. They are write switches, not
 inputs — set either one and the run rewrites checked-in expectations instead of asserting against
@@ -333,8 +335,9 @@ When verifying a resource:
 1. Open the relevant IESDP page for the format and version and note the offset table.
 2. Dump the resource with `iecli dump --game <path> --resource <RESREF>.<EXT>`.
 3. For each field group in the verification matrix:
-   - Read the expected value from the IESDP offset table, or from the raw bytes at that offset
-     (`iecli dump-raw` piped through a hex viewer) when IESDP is ambiguous.
+   - Read the expected value out of the resource's own bytes at the offset IESDP names
+     (`iecli dump-raw` piped through a hex viewer). IESDP gives the offset, width, and enum
+     meanings; the value itself only exists in the file.
    - Compare against the JSON field.
    - Note any discrepancy with an explanation.
 4. Pay special attention to:
@@ -352,10 +355,12 @@ When verifying a resource:
    - Wrong numeric values or flag bits.
    - Wrong string resolution.
    - Silently dropped unknown bytes.
-7. Record the outcome as a case in `crates/ie-cli/tests/expectations/real_resources.json`
-   with provenance naming the IESDP table and the install.
+7. Record the outcome as a case in `crates/ie-cli/tests/expectations/real_resources.json`,
+   with provenance naming the resource and install the value came from and the IESDP table
+   used to read it.
 
-When real files disagree with IESDP, the files win — write a note in `docs/decisions/`.
+When a real file's layout disagrees with IESDP, the file wins — that is how the ITM byte-width
+bug was found. Write a note in `docs/decisions/`.
 
 ---
 

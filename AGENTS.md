@@ -14,9 +14,10 @@ The first goal is a reliable parser and exporter that can turn installed game re
 - scripting
 - future WeiDU patch generation workflows
 
-[IESDP](https://gibberlings3.github.io/iesdp/) is the specification reference for format work.
-When it is ambiguous, real game resources decide — not another implementation. See
-[docs/FORMAT_REFERENCES.md](./docs/FORMAT_REFERENCES.md).
+[IESDP](https://gibberlings3.github.io/iesdp/) is the layout reference for format work: offsets,
+field widths, enum meanings. It cannot tell you what a given resource contains, so expected
+values are always read from real files. When a real file's layout disagrees with IESDP, the file
+wins. See [docs/FORMAT_REFERENCES.md](./docs/FORMAT_REFERENCES.md).
 
 ## Game Exploration Skills
 

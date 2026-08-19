@@ -2,7 +2,7 @@
 
 Status: **proposed** — first write feature for saved games. 2026-07-04.
 
-Specification reference is IESDP, with real saves as the tiebreaker, same as every other format here.
+IESDP is the layout reference; expected values are read from real saves, same as every other format here.
 Quality/structure bar: `crates/ie-formats/src/are.rs` (parsing) and the existing
 scalar writer `patch_cre_scalars` in `crates/ie-formats/src/cre.rs` (write pattern).
 

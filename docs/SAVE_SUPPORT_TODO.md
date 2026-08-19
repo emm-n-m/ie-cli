@@ -6,8 +6,8 @@ scoped PSTEE item write implemented for embedded party CRE inventories.**
 `SAV` zlib archive. The format facts below were verified against a real save on this
 machine (`000000007-Chapter 1 Start`); keep them as a reference for the remaining work.
 
-The specification reference is [IESDP](https://gibberlings3.github.io/iesdp/), with real saves
-as the tiebreaker — same as every other format here. The quality bar is `crates/ie-formats/src/are.rs`.
+The layout reference is [IESDP](https://gibberlings3.github.io/iesdp/); expected values are read
+from real saves — same as every other format here. The quality bar is `crates/ie-formats/src/are.rs`.
 
 (Background: a first attempt, `save_gam.rs`/`save_sav.rs`, was reviewed and reverted
 because it heuristically scanned bytes instead of parsing the formats and found zero

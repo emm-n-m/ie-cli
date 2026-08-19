@@ -17,8 +17,8 @@ reconstructed from history and are summaries rather than contemporaneous records
   `diagnose-dialog` was a flat file that Claude Code never discovered, and one subprocess
   fix was missing. All are fixed by generating the mirror.
 - **Documentation now treats IESDP as the format authority.** Near Infinity was originally
-  the reference implementation; developing directly against IESDP, with real game resources
-  as the tiebreaker, turned out to be simpler. Validation workflows, planned comparison
+  the reference implementation; working from IESDP for layout and reading expected values
+  straight out of real game files turned out to be simpler. Validation workflows, planned comparison
   coverage, and save-write gates were rewritten accordingly. Near Infinity remains
   credited, and historical records of comparisons that actually happened are unchanged.
 - Corrected stale guidance in `AGENTS.md` and `ARCHITECTURE.md`: a documented rule to
