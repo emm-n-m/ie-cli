@@ -1,6 +1,6 @@
 # Parser Coverage Matrix
 
-Current as of 2026-08-17. This matrix tracks what the typed JSON parsers expose today and what remains shallow or deferred.
+Current as of 2026-08-23. This matrix tracks what the typed JSON parsers expose today and what remains shallow or deferred.
 
 `Deferred (offset/count only)` means the parser reads section pointers from the header but does not decode the referenced records. `Other gaps` covers fields or semantics that are omitted, preserved as raw bytes, or only lightly decoded.
 
@@ -13,8 +13,8 @@ Effect opcode names are **game-variant aware**: `ITM`, `SPL`, and `CRE` decode e
 | CHR | signature, version, character name, embedded-CRE offset/length, and the full embedded CRE via the CRE decoder | none | quick weapon/spell/item slots (0x30 until the CRE offset) are preserved raw, not decoded — the layout is version-specific and only `V2.0` files were available to sample. See [formats/chr.md](formats/chr.md) |
 | CRE | header, names, flags, stats, portraits, AC, saves, resistances, thief skills, soundset, class levels, attributes, kit, scripts, classification, actor IDs, death variable, known spells, spell memorization, memorized spells, effects, items, item slots | none | proficiency bytes and object references are preserved as raw byte ranges; EFF V2 prefix/tail bytes preserved raw; item slot names are fixed parser labels |
 | DLG | header, states, transitions, state triggers, transition triggers, actions, script text, linked transitions per state, strrefs | none | script text is not parsed as BCS/BAF; external-dialog references are surfaced as resrefs but not recursively resolved |
-| ITM | header, strrefs, flags, full IESDP category labels, stat requirements, kit-usability bytes, weapon proficiency, icons, descriptions, abilities, ability-local effects, global effects | none | ITM effect tail fields after resource are not surfaced; several enum/bitfield values remain raw or shallowly decoded; no opaque byte preservation for omitted fields |
-| SPL | header, strrefs, flags, spell type/school/secondary type, extended headers, feature blocks | none | extended header has omitted bytes/fields; enum/opcode coverage is partial; no opaque byte preservation for omitted fields |
+| ITM | complete fixed-size V1/V1.1 headers, strrefs, flags, full IESDP category labels, stat requirements, kit-usability bytes, weapon proficiency, icons/sounds/descriptions, complete ability records, complete ability-local and global effect records | none | several enum/bitfield values remain raw or shallowly decoded; V1.1 fields whose semantics are unknown are preserved as raw byte ranges |
+| SPL | complete fixed-size header, strrefs, flags, spell type/school/secondary type, complete extended headers, complete feature blocks | none | enum/opcode coverage is partial; fields documented as unused remain named raw values rather than inferred semantics |
 | STO | header, store type, flags, room prices, items for sale, drinks, cures, purchased item categories | none | unknown header byte ranges are preserved raw; version-specific store variants are not deeply distinguished |
 
 ## Save Formats

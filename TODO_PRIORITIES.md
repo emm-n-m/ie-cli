@@ -100,6 +100,9 @@ Completed:
 - Validate selected `SPL` outputs against the IESDP layout using real BG2EE resources.
 - Add real-install `dump` regression coverage for validated `SPL` resources when `IE_GAME_PATH` is set.
 - Add reusable env-gated factual expectations for stock BGEE `SW1H01.ITM` and `SPWI112.SPL`.
+- Complete the fixed-size ITM V1/V1.1 and SPL V1 records needed for future byte-faithful
+  serialization. This includes the ITM effect tail, SPL's documented unused header/extended-header
+  fields, full-width SPL extended-header values, and preservation of the unknown ITM V1.1 tail.
 
 - Add JSON golden coverage for exported output: exact-value goldens over synthetic fixtures, plus normalized shape goldens against real installs. See [docs/GOLDENS.md](./docs/GOLDENS.md).
 

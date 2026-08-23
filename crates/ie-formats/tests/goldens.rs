@@ -237,7 +237,8 @@ const SPL_HEADER_SIZE: usize = 0x72;
 const CRE_HEADER_SIZE: usize = 0x2D4;
 
 fn minimal_itm() -> Vec<u8> {
-    let mut bytes = vec![0u8; ITM_HEADER_SIZE];
+    const ITM_EFFECT_SIZE: usize = 0x30;
+    let mut bytes = vec![0u8; ITM_HEADER_SIZE + ITM_EFFECT_SIZE];
     bytes[0..4].copy_from_slice(b"ITM ");
     bytes[4..8].copy_from_slice(b"V1  ");
     bytes[0x08..0x0C].copy_from_slice(&1u32.to_le_bytes()); // unidentified name
@@ -249,11 +250,34 @@ fn minimal_itm() -> Vec<u8> {
     bytes[0x44..0x4C].copy_from_slice(b"GRND\0\0\0\0");
     bytes[0x4C..0x50].copy_from_slice(&456u32.to_le_bytes()); // weight
     bytes[0x64..0x68].copy_from_slice(&(ITM_HEADER_SIZE as u32).to_le_bytes());
+    bytes[0x6A..0x6E].copy_from_slice(&(ITM_HEADER_SIZE as u32).to_le_bytes());
+    bytes[0x70..0x72].copy_from_slice(&1u16.to_le_bytes());
+
+    let effect = ITM_HEADER_SIZE;
+    bytes[effect..effect + 2].copy_from_slice(&12u16.to_le_bytes()); // Damage
+    bytes[effect + 2] = 1; // Self
+    bytes[effect + 3] = 2;
+    bytes[effect + 4..effect + 8].copy_from_slice(&3u32.to_le_bytes());
+    bytes[effect + 8..effect + 12].copy_from_slice(&4u32.to_le_bytes());
+    bytes[effect + 12] = 2; // Instant/While Equipped
+    bytes[effect + 13] = 3;
+    bytes[effect + 14..effect + 18].copy_from_slice(&5u32.to_le_bytes());
+    bytes[effect + 18] = 90;
+    bytes[effect + 19] = 10;
+    bytes[effect + 20..effect + 28].copy_from_slice(b"EFFRES\0\0");
+    bytes[effect + 28..effect + 32].copy_from_slice(&6u32.to_le_bytes());
+    bytes[effect + 32..effect + 36].copy_from_slice(&7u32.to_le_bytes());
+    bytes[effect + 36..effect + 40].copy_from_slice(&8u32.to_le_bytes());
+    bytes[effect + 40..effect + 44].copy_from_slice(&(-9i32).to_le_bytes());
+    bytes[effect + 44..effect + 48].copy_from_slice(&10u32.to_le_bytes());
     bytes
 }
 
 fn minimal_spl() -> Vec<u8> {
-    let mut bytes = vec![0u8; SPL_HEADER_SIZE];
+    const SPL_EXTENDED_HEADER_SIZE: usize = 0x28;
+    const SPL_FEATURE_BLOCK_SIZE: usize = 0x30;
+    let feature_offset = SPL_HEADER_SIZE + SPL_EXTENDED_HEADER_SIZE;
+    let mut bytes = vec![0u8; feature_offset + SPL_FEATURE_BLOCK_SIZE];
     bytes[0..4].copy_from_slice(b"SPL ");
     bytes[4..8].copy_from_slice(b"V1  ");
     bytes[0x08..0x0C].copy_from_slice(&1u32.to_le_bytes()); // name
@@ -266,6 +290,47 @@ fn minimal_spl() -> Vec<u8> {
     bytes[0x34..0x38].copy_from_slice(&1u32.to_le_bytes()); // spell level
     bytes[0x3A..0x42].copy_from_slice(b"ICON\0\0\0\0");
     bytes[0x64..0x68].copy_from_slice(&(SPL_HEADER_SIZE as u32).to_le_bytes());
+    bytes[0x68..0x6A].copy_from_slice(&1u16.to_le_bytes());
+    bytes[0x6A..0x6E].copy_from_slice(&(feature_offset as u32).to_le_bytes());
+
+    let extended = SPL_HEADER_SIZE;
+    bytes[extended] = 2; // Projectile
+    bytes[extended + 1] = 4;
+    bytes[extended + 2..extended + 4].copy_from_slice(&2u16.to_le_bytes()); // Spell
+    bytes[extended + 4..extended + 12].copy_from_slice(b"MEMICON\0");
+    bytes[extended + 12] = 1; // Living actor
+    bytes[extended + 13] = 2;
+    bytes[extended + 14..extended + 16].copy_from_slice(&30i16.to_le_bytes());
+    bytes[extended + 16..extended + 18].copy_from_slice(&300u16.to_le_bytes());
+    bytes[extended + 18..extended + 20].copy_from_slice(&400u16.to_le_bytes());
+    bytes[extended + 20..extended + 22].copy_from_slice(&5u16.to_le_bytes());
+    bytes[extended + 22..extended + 24].copy_from_slice(&6u16.to_le_bytes());
+    bytes[extended + 24..extended + 26].copy_from_slice(&7u16.to_le_bytes());
+    bytes[extended + 26..extended + 28].copy_from_slice(&8u16.to_le_bytes());
+    bytes[extended + 28..extended + 30].copy_from_slice(&9u16.to_le_bytes());
+    bytes[extended + 30..extended + 32].copy_from_slice(&1u16.to_le_bytes());
+    bytes[extended + 32..extended + 34].copy_from_slice(&0u16.to_le_bytes());
+    bytes[extended + 34..extended + 36].copy_from_slice(&10u16.to_le_bytes());
+    bytes[extended + 36..extended + 38].copy_from_slice(&11u16.to_le_bytes());
+    bytes[extended + 38..extended + 40].copy_from_slice(&12u16.to_le_bytes());
+
+    let feature = feature_offset;
+    bytes[feature..feature + 2].copy_from_slice(&12u16.to_le_bytes()); // Damage
+    bytes[feature + 2] = 2; // Projectile target
+    bytes[feature + 3] = 3;
+    bytes[feature + 4..feature + 8].copy_from_slice(&4u32.to_le_bytes());
+    bytes[feature + 8..feature + 12].copy_from_slice(&5u32.to_le_bytes());
+    bytes[feature + 12] = 1; // Instant/Permanent
+    bytes[feature + 13] = 2;
+    bytes[feature + 14..feature + 18].copy_from_slice(&6u32.to_le_bytes());
+    bytes[feature + 18] = 80;
+    bytes[feature + 19] = 20;
+    bytes[feature + 20..feature + 28].copy_from_slice(b"EFFRES\0\0");
+    bytes[feature + 28..feature + 32].copy_from_slice(&7u32.to_le_bytes());
+    bytes[feature + 32..feature + 36].copy_from_slice(&8u32.to_le_bytes());
+    bytes[feature + 36..feature + 40].copy_from_slice(&9u32.to_le_bytes());
+    bytes[feature + 40..feature + 44].copy_from_slice(&(-10i32).to_le_bytes());
+    bytes[feature + 44..feature + 48].copy_from_slice(&11u32.to_le_bytes());
     bytes
 }
 
@@ -591,8 +656,8 @@ fn minimal_gam() -> Vec<u8> {
 /// and inflates them for sizing rather than decoding them, and the golden should
 /// pin that boundary rather than blur it.
 fn minimal_sav() -> Vec<u8> {
-    use flate2::Compression;
     use flate2::write::ZlibEncoder;
+    use flate2::Compression;
     use std::io::Write;
 
     let payload = b"AREA bytes";

@@ -6,6 +6,7 @@ use serde::Serialize;
 use thiserror::Error;
 
 const ITM_HEADER_SIZE: usize = 0x72;
+const ITM_V11_HEADER_SIZE: usize = 0x9A;
 const ITEM_ABILITY_SIZE: usize = 56;
 
 #[derive(Debug, Clone, Serialize)]
@@ -29,15 +30,15 @@ pub struct ItemHeaderJson {
     pub unusable_by: u32,
     pub equipped_appearance: u16,
     pub min_level: u16,
-    pub min_strength: u16,
-    pub min_strength_bonus: u8,
-    pub kit_usability: [u8; 4],
-    pub min_intelligence: u8,
-    pub min_dexterity: u8,
-    pub min_wisdom: u8,
-    pub min_constitution: u8,
-    pub weapon_proficiency: u8,
-    pub min_charisma: u16,
+    pub min_strength: Option<u16>,
+    pub min_strength_bonus: Option<u8>,
+    pub kit_usability: Option<[u8; 4]>,
+    pub min_intelligence: Option<u8>,
+    pub min_dexterity: Option<u8>,
+    pub min_wisdom: Option<u8>,
+    pub min_constitution: Option<u8>,
+    pub weapon_proficiency: Option<u8>,
+    pub min_charisma: Option<u16>,
     pub price: u32,
     pub max_in_stack: u16,
     pub icon: Option<ResRef>,
@@ -47,6 +48,7 @@ pub struct ItemHeaderJson {
     pub general_description: ResolvedStrRef,
     pub identified_description: ResolvedStrRef,
     pub description_image: Option<ResRef>,
+    pub pickup_sound: Option<ResRef>,
     pub enchantment: u32,
     pub abilities_offset: u32,
     pub ability_count: u16,
@@ -56,6 +58,8 @@ pub struct ItemHeaderJson {
     pub dialogue: Option<ResRef>,
     pub speaker_name: Option<ResolvedStrRef>,
     pub weapon_color: Option<u16>,
+    pub unused_v11_requirement_bytes_0x26: Option<Vec<u8>>,
+    pub unknown_v11_header_bytes_0x80: Option<Vec<u8>>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -108,6 +112,11 @@ pub struct ItemEffectJson {
     pub duration: u32,
     pub probability_1: u8,
     pub probability_2: u8,
+    pub dice_thrown_max_level: u32,
+    pub dice_sides_min_level: u32,
+    pub saving_throw_type: u32,
+    pub saving_throw_bonus: i32,
+    pub special: u32,
 }
 
 const ITEM_EFFECT_SIZE: usize = 48;
@@ -152,6 +161,13 @@ pub(crate) fn parse_itm_with_variant(
     }
 
     let version = parse_ascii_string(bytes, 4, 4)?;
+    if version == "V1.1" && bytes.len() < ITM_V11_HEADER_SIZE {
+        return Err(ItemParseError::UnexpectedEof(format!(
+            "ITM V1.1 resource must contain at least {} header bytes",
+            ITM_V11_HEADER_SIZE
+        ))
+        .into());
+    }
     let general_name = parse_strref(bytes, 0x08, resolver)?;
     let identified_name = parse_strref(bytes, 0x0C, resolver)?;
 
@@ -172,19 +188,44 @@ pub(crate) fn parse_itm_with_variant(
     let unusable_by = parse_u32(bytes, 0x1E)?;
     let equipped_appearance = parse_u16(bytes, 0x22)?;
     let min_level = parse_u16(bytes, 0x24)?;
-    let min_strength = parse_u16(bytes, 0x26)?;
+    let min_strength_raw = parse_u16(bytes, 0x26)?;
     // The stat requirements are interleaved with four independent kit-usability
     // bytes. Reading them as u16 values silently folded the adjacent kit byte
     // into the requirement (for example stock BGEE SW1H01 reported Constitution
     // 22784 instead of 0). Keep both halves explicit.
-    let min_strength_bonus = bytes[0x28];
-    let kit_usability = [bytes[0x29], bytes[0x2B], bytes[0x2D], bytes[0x2F]];
-    let min_intelligence = bytes[0x2A];
-    let min_dexterity = bytes[0x2C];
-    let min_wisdom = bytes[0x2E];
-    let min_constitution = bytes[0x30];
-    let weapon_proficiency = bytes[0x31];
-    let min_charisma = parse_u16(bytes, 0x32)?;
+    let min_strength_bonus_raw = bytes[0x28];
+    let kit_usability_raw = [bytes[0x29], bytes[0x2B], bytes[0x2D], bytes[0x2F]];
+    let min_intelligence_raw = bytes[0x2A];
+    let min_dexterity_raw = bytes[0x2C];
+    let min_wisdom_raw = bytes[0x2E];
+    let min_constitution_raw = bytes[0x30];
+    let weapon_proficiency_raw = bytes[0x31];
+    let min_charisma_raw = parse_u16(bytes, 0x32)?;
+    let (
+        min_strength,
+        min_strength_bonus,
+        kit_usability,
+        min_intelligence,
+        min_dexterity,
+        min_wisdom,
+        min_constitution,
+        weapon_proficiency,
+        min_charisma,
+    ) = if version == "V1.1" {
+        (None, None, None, None, None, None, None, None, None)
+    } else {
+        (
+            Some(min_strength_raw),
+            Some(min_strength_bonus_raw),
+            Some(kit_usability_raw),
+            Some(min_intelligence_raw),
+            Some(min_dexterity_raw),
+            Some(min_wisdom_raw),
+            Some(min_constitution_raw),
+            Some(weapon_proficiency_raw),
+            Some(min_charisma_raw),
+        )
+    };
     let price = parse_u32(bytes, 0x34)?;
     let max_in_stack = parse_u16(bytes, 0x38)?;
     let icon = parse_resref_option(bytes, 0x3A, 8)?;
@@ -193,7 +234,11 @@ pub(crate) fn parse_itm_with_variant(
     let weight = parse_u32(bytes, 0x4C)?;
     let general_description = parse_strref(bytes, 0x50, resolver)?;
     let identified_description = parse_strref(bytes, 0x54, resolver)?;
-    let description_image = parse_resref_option(bytes, 0x58, 8)?;
+    let (description_image, pickup_sound) = if version == "V1.1" {
+        (None, parse_resref_option(bytes, 0x58, 8)?)
+    } else {
+        (parse_resref_option(bytes, 0x58, 8)?, None)
+    };
     let enchantment = parse_u32(bytes, 0x60)?;
     let abilities_offset = parse_u32(bytes, 0x64)?;
     let ability_count = parse_u16(bytes, 0x68)?;
@@ -201,14 +246,18 @@ pub(crate) fn parse_itm_with_variant(
     let first_effect_index = parse_u16(bytes, 0x6E)?;
     let global_effect_count = parse_u16(bytes, 0x70)?;
 
-    let (dialogue, speaker_name, weapon_color) = if bytes.len() >= 0x80 && version == "V1.1" {
+    let (dialogue, speaker_name, weapon_color) = if version == "V1.1" {
         let dialogue = parse_resref_option(bytes, 0x72, 8)?;
-        let speaker_name = parse_strref(bytes, 0x7A, resolver).ok();
-        let weapon_color = parse_u16(bytes, 0x7E).ok();
+        let speaker_name = Some(parse_strref(bytes, 0x7A, resolver)?);
+        let weapon_color = Some(parse_u16(bytes, 0x7E)?);
         (dialogue, speaker_name, weapon_color)
     } else {
         (None, None, None)
     };
+
+    let unused_v11_requirement_bytes_0x26 = (version == "V1.1").then(|| bytes[0x26..0x34].to_vec());
+    let unknown_v11_header_bytes_0x80 =
+        (version == "V1.1").then(|| bytes[0x80..ITM_V11_HEADER_SIZE].to_vec());
 
     let header = ItemHeaderJson {
         identified_name,
@@ -244,6 +293,7 @@ pub(crate) fn parse_itm_with_variant(
         general_description,
         identified_description,
         description_image,
+        pickup_sound,
         enchantment,
         abilities_offset,
         ability_count,
@@ -253,6 +303,8 @@ pub(crate) fn parse_itm_with_variant(
         dialogue,
         speaker_name,
         weapon_color,
+        unused_v11_requirement_bytes_0x26,
+        unknown_v11_header_bytes_0x80,
     };
 
     let mut abilities = parse_abilities(bytes, abilities_offset, ability_count, resolver)?;
@@ -344,6 +396,11 @@ fn parse_effect(
     let probability_1 = parse_u8(bytes, offset + 0x12)?;
     let probability_2 = parse_u8(bytes, offset + 0x13)?;
     let resource = parse_resref_option(bytes, offset + 0x14, 8)?;
+    let dice_thrown_max_level = parse_u32(bytes, offset + 0x1C)?;
+    let dice_sides_min_level = parse_u32(bytes, offset + 0x20)?;
+    let saving_throw_type = parse_u32(bytes, offset + 0x24)?;
+    let saving_throw_bonus = parse_i32(bytes, offset + 0x28)?;
+    let special = parse_u32(bytes, offset + 0x2C)?;
 
     Ok(ItemEffectJson {
         opcode: RawDecoded {
@@ -366,6 +423,11 @@ fn parse_effect(
         duration,
         probability_1,
         probability_2,
+        dice_thrown_max_level,
+        dice_sides_min_level,
+        saving_throw_type,
+        saving_throw_bonus,
+        special,
     })
 }
 
@@ -597,6 +659,13 @@ fn parse_i16(bytes: &[u8], offset: usize) -> Result<i16, ItemParseError> {
         ItemParseError::UnexpectedEof(format!("unable to read i16 at {}", offset))
     })?;
     Ok(i16::from_le_bytes([raw[0], raw[1]]))
+}
+
+fn parse_i32(bytes: &[u8], offset: usize) -> Result<i32, ItemParseError> {
+    let raw = bytes.get(offset..offset + 4).ok_or_else(|| {
+        ItemParseError::UnexpectedEof(format!("unable to read i32 at {}", offset))
+    })?;
+    Ok(i32::from_le_bytes([raw[0], raw[1], raw[2], raw[3]]))
 }
 
 fn decode_item_category(value: u16) -> Option<&'static str> {
@@ -832,10 +901,64 @@ mod tests {
         let error = parse_itm_with_variant(&bytes, "SHORT.ITM", None, GameVariant::Standard)
             .expect_err("truncated ITM ability table should fail");
 
-        assert!(
-            error
-                .to_string()
-                .contains("ability table exceeds ITM length")
+        assert!(error
+            .to_string()
+            .contains("ability table exceeds ITM length"));
+    }
+
+    #[test]
+    fn rejects_itm_v11_shorter_than_its_variant_header() {
+        let mut bytes = vec![0u8; ITM_V11_HEADER_SIZE - 1];
+        bytes[0..4].copy_from_slice(b"ITM ");
+        bytes[4..8].copy_from_slice(b"V1.1");
+
+        let error = parse_itm_with_variant(&bytes, "SHORT.ITM", None, GameVariant::Pst)
+            .expect_err("truncated ITM V1.1 header should fail");
+
+        assert!(error.to_string().contains("at least 154 header bytes"));
+    }
+
+    #[test]
+    fn parse_itm_v11_preserves_variant_header_tail_and_sound_fields() {
+        let mut bytes = vec![0u8; ITM_V11_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"ITM ");
+        bytes[4..8].copy_from_slice(b"V1.1");
+        bytes[0x10..0x18].copy_from_slice(b"DROPSND\0");
+        bytes[0x26..0x34].copy_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+        bytes[0x58..0x60].copy_from_slice(b"PICKUP\0\0");
+        bytes[0x64..0x68].copy_from_slice(&(ITM_V11_HEADER_SIZE as u32).to_le_bytes());
+        bytes[0x72..0x7A].copy_from_slice(b"ITEMDLG\0");
+        bytes[0x7A..0x7E].copy_from_slice(&22u32.to_le_bytes());
+        bytes[0x7E..0x80].copy_from_slice(&23u16.to_le_bytes());
+        for (index, byte) in bytes[0x80..ITM_V11_HEADER_SIZE].iter_mut().enumerate() {
+            *byte = index as u8;
+        }
+
+        let item =
+            parse_itm_with_variant(&bytes, "PSTITEM.ITM", Some(&NullResolver), GameVariant::Pst)
+                .expect("complete ITM V1.1 header should parse");
+
+        assert!(item.header.used_up_item.is_none());
+        assert_eq!(item.header.drop_sound.as_ref().unwrap().as_str(), "DROPSND");
+        assert!(item.header.description_image.is_none());
+        assert_eq!(
+            item.header.pickup_sound.as_ref().unwrap().as_str(),
+            "PICKUP"
+        );
+        assert_eq!(item.header.dialogue.as_ref().unwrap().as_str(), "ITEMDLG");
+        assert_eq!(item.header.speaker_name.as_ref().unwrap().strref.0, 22);
+        assert_eq!(item.header.weapon_color, Some(23));
+        assert!(item.header.min_strength.is_none());
+        assert!(item.header.min_strength_bonus.is_none());
+        assert!(item.header.kit_usability.is_none());
+        assert!(item.header.weapon_proficiency.is_none());
+        assert_eq!(
+            item.header.unused_v11_requirement_bytes_0x26,
+            Some(vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])
+        );
+        assert_eq!(
+            item.header.unknown_v11_header_bytes_0x80,
+            Some((0..0x1A).collect())
         );
     }
 
@@ -902,14 +1025,14 @@ mod tests {
         let item = parse_itm_with_variant(&bytes, "REQUIRE.ITM", None, GameVariant::Standard)
             .expect("ITM requirements should parse");
 
-        assert_eq!(item.header.min_strength_bonus, 18);
-        assert_eq!(item.header.kit_usability, [0x59, 0x58, 0x57, 0x56]);
-        assert_eq!(item.header.min_intelligence, 17);
-        assert_eq!(item.header.min_dexterity, 16);
-        assert_eq!(item.header.min_wisdom, 15);
-        assert_eq!(item.header.min_constitution, 14);
-        assert_eq!(item.header.weapon_proficiency, 89);
-        assert_eq!(item.header.min_charisma, 13);
+        assert_eq!(item.header.min_strength_bonus, Some(18));
+        assert_eq!(item.header.kit_usability, Some([0x59, 0x58, 0x57, 0x56]));
+        assert_eq!(item.header.min_intelligence, Some(17));
+        assert_eq!(item.header.min_dexterity, Some(16));
+        assert_eq!(item.header.min_wisdom, Some(15));
+        assert_eq!(item.header.min_constitution, Some(14));
+        assert_eq!(item.header.weapon_proficiency, Some(89));
+        assert_eq!(item.header.min_charisma, Some(13));
     }
 
     #[test]
@@ -1030,5 +1153,24 @@ mod tests {
             item.global_effects[1].timing.decoded.as_deref(),
             Some("Instant/While Equipped")
         );
+    }
+
+    #[test]
+    fn parse_itm_preserves_complete_effect_tail() {
+        let mut bytes = vec![0u8; ITEM_EFFECT_SIZE];
+        bytes[0x1C..0x20].copy_from_slice(&0x1122_3344u32.to_le_bytes());
+        bytes[0x20..0x24].copy_from_slice(&0x5566_7788u32.to_le_bytes());
+        bytes[0x24..0x28].copy_from_slice(&0x0300_041Fu32.to_le_bytes());
+        bytes[0x28..0x2C].copy_from_slice(&(-7i32).to_le_bytes());
+        bytes[0x2C..0x30].copy_from_slice(&0x4136_0001u32.to_le_bytes());
+
+        let effect = parse_effect(&bytes, 0, GameVariant::Standard)
+            .expect("complete ITM effect should parse");
+
+        assert_eq!(effect.dice_thrown_max_level, 0x1122_3344);
+        assert_eq!(effect.dice_sides_min_level, 0x5566_7788);
+        assert_eq!(effect.saving_throw_type, 0x0300_041F);
+        assert_eq!(effect.saving_throw_bonus, -7);
+        assert_eq!(effect.special, 0x4136_0001);
     }
 }

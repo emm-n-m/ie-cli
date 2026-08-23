@@ -1,6 +1,34 @@
 {
   "abilities": [],
-  "global_effects": [],
+  "global_effects": [
+    {
+      "dice_sides_min_level": 7,
+      "dice_thrown_max_level": 6,
+      "duration": 5,
+      "opcode": {
+        "decoded": "Damage",
+        "raw": 12
+      },
+      "parameter1": 3,
+      "parameter2": 4,
+      "power": 2,
+      "probability_1": 90,
+      "probability_2": 10,
+      "resource": "EFFRES",
+      "saving_throw_bonus": -9,
+      "saving_throw_type": 8,
+      "special": 10,
+      "target_type": {
+        "decoded": "Self",
+        "raw": 1
+      },
+      "timing": {
+        "decoded": "Instant/While Equipped",
+        "raw": 2
+      },
+      "timing_dispel": 3
+    }
+  ],
   "header": {
     "abilities_offset": 114,
     "ability_count": 0,
@@ -11,7 +39,7 @@
     "description_image": null,
     "dialogue": null,
     "drop_sound": null,
-    "effects_offset": 0,
+    "effects_offset": 114,
     "enchantment": 0,
     "equipped_appearance": 0,
     "first_effect_index": 0,
@@ -29,7 +57,7 @@
       "strref": 1,
       "text": "<string 1>"
     },
-    "global_effect_count": 0,
+    "global_effect_count": 1,
     "ground_icon": "GRND",
     "icon": "ICON",
     "identified_description": {
@@ -56,9 +84,12 @@
     "min_strength": 0,
     "min_strength_bonus": 0,
     "min_wisdom": 0,
+    "pickup_sound": null,
     "price": 123,
     "speaker_name": null,
+    "unknown_v11_header_bytes_0x80": null,
     "unusable_by": 0,
+    "unused_v11_requirement_bytes_0x26": null,
     "used_up_item": null,
     "weapon_color": null,
     "weapon_proficiency": 0,

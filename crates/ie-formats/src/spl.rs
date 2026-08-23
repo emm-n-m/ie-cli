@@ -22,16 +22,33 @@ pub struct SpellJson {
 #[derive(Debug, Clone, Serialize)]
 pub struct SpellHeaderJson {
     pub spell_name: ResolvedStrRef,
+    pub identified_name: ResolvedStrRef,
     pub completion_sound: Option<ResRef>,
     pub flags: RawDecodedFlags,
     pub spell_type: RawDecoded<u16>,
     pub exclusion_flags: RawDecodedFlags,
     pub casting_graphics: u16,
+    pub min_level: u8,
     pub school: RawDecoded<u8>,
+    pub min_strength: u8,
     pub secondary_type: RawDecoded<u8>,
+    pub min_strength_bonus: u8,
+    pub usability: [u8; 4],
+    pub min_intelligence: u8,
+    pub min_dexterity: u8,
+    pub min_wisdom: u8,
+    pub min_constitution: u16,
+    pub min_charisma: u16,
     pub spell_level: u32,
+    pub max_in_stack: u16,
     pub spellbook_icon: Option<ResRef>,
+    pub lore_to_identify: u16,
+    pub ground_icon: Option<ResRef>,
+    pub weight: u32,
     pub description: ResolvedStrRef,
+    pub identified_description: ResolvedStrRef,
+    pub description_image: Option<ResRef>,
+    pub enchantment: u32,
     pub extended_headers_offset: u32,
     pub extended_headers_count: u16,
     pub feature_block_offset: u32,
@@ -43,16 +60,22 @@ pub struct SpellHeaderJson {
 pub struct SpellExtendedHeaderJson {
     pub spell_form: RawDecoded<u8>,
     pub type_flags: u8,
-    pub location: RawDecoded<u8>,
+    pub location: RawDecoded<u16>,
     pub memorized_icon: Option<ResRef>,
     pub target_type: RawDecoded<u8>,
     pub target_count: u8,
     pub range: i16,
-    pub level_required: u8,
-    pub casting_time: u8,
+    pub level_required: u16,
+    pub casting_time: u16,
     pub times_per_day: u16,
+    pub dice_sides: u16,
+    pub dice_thrown: u16,
+    pub enchanted: u16,
+    pub damage_type: u16,
     pub feature_block_count: u16,
     pub feature_block_index: u16,
+    pub charges: u16,
+    pub charge_depletion: u16,
     pub projectile: u16,
 }
 
@@ -117,16 +140,33 @@ pub(crate) fn parse_spl_with_variant(
 
     let version = parse_ascii_string(bytes, 4, 4)?;
     let spell_name = parse_strref(bytes, 0x08, resolver)?;
+    let identified_name = parse_strref(bytes, 0x0C, resolver)?;
     let completion_sound = parse_resref_option(bytes, 0x10, 8)?;
     let flags = parse_u32(bytes, 0x18)?;
     let spell_type = parse_u16(bytes, 0x1C)?;
     let exclusion_flags = parse_u32(bytes, 0x1E)?;
     let casting_graphics = parse_u16(bytes, 0x22)?;
+    let min_level = parse_u8(bytes, 0x24)?;
     let school = parse_u8(bytes, 0x25)?;
+    let min_strength = parse_u8(bytes, 0x26)?;
     let secondary_type = parse_u8(bytes, 0x27)?;
+    let min_strength_bonus = parse_u8(bytes, 0x28)?;
+    let usability = [bytes[0x29], bytes[0x2B], bytes[0x2D], bytes[0x2F]];
+    let min_intelligence = parse_u8(bytes, 0x2A)?;
+    let min_dexterity = parse_u8(bytes, 0x2C)?;
+    let min_wisdom = parse_u8(bytes, 0x2E)?;
+    let min_constitution = parse_u16(bytes, 0x30)?;
+    let min_charisma = parse_u16(bytes, 0x32)?;
     let spell_level = parse_u32(bytes, 0x34)?;
+    let max_in_stack = parse_u16(bytes, 0x38)?;
     let spellbook_icon = parse_resref_option(bytes, 0x3A, 8)?;
+    let lore_to_identify = parse_u16(bytes, 0x42)?;
+    let ground_icon = parse_resref_option(bytes, 0x44, 8)?;
+    let weight = parse_u32(bytes, 0x4C)?;
     let description = parse_strref(bytes, 0x50, resolver)?;
+    let identified_description = parse_strref(bytes, 0x54, resolver)?;
+    let description_image = parse_resref_option(bytes, 0x58, 8)?;
+    let enchantment = parse_u32(bytes, 0x60)?;
     let extended_headers_offset = parse_u32(bytes, 0x64)?;
     let extended_headers_count = parse_u16(bytes, 0x68)?;
     let feature_block_offset = parse_u32(bytes, 0x6A)?;
@@ -135,6 +175,7 @@ pub(crate) fn parse_spl_with_variant(
 
     let header = SpellHeaderJson {
         spell_name,
+        identified_name,
         completion_sound,
         flags: RawDecodedFlags {
             raw: flags,
@@ -149,17 +190,33 @@ pub(crate) fn parse_spl_with_variant(
             decoded: decode_exclusion_flags(exclusion_flags),
         },
         casting_graphics,
+        min_level,
         school: RawDecoded {
             raw: school,
             decoded: decode_school(school).map(str::to_string),
         },
+        min_strength,
         secondary_type: RawDecoded {
             raw: secondary_type,
             decoded: decode_secondary_type(secondary_type).map(str::to_string),
         },
+        min_strength_bonus,
+        usability,
+        min_intelligence,
+        min_dexterity,
+        min_wisdom,
+        min_constitution,
+        min_charisma,
         spell_level,
+        max_in_stack,
         spellbook_icon,
+        lore_to_identify,
+        ground_icon,
+        weight,
         description,
+        identified_description,
+        description_image,
+        enchantment,
         extended_headers_offset,
         extended_headers_count,
         feature_block_offset,
@@ -233,16 +290,22 @@ fn parse_extended_header(
 
     let spell_form = parse_u8(bytes, offset)?;
     let type_flags = parse_u8(bytes, offset + 1)?;
-    let location = parse_u8(bytes, offset + 2)?;
+    let location = parse_u16(bytes, offset + 2)?;
     let memorized_icon = parse_resref_option(bytes, offset + 4, 8)?;
     let target_type = parse_u8(bytes, offset + 0x0C)?;
     let target_count = parse_u8(bytes, offset + 0x0D)?;
     let range = parse_i16(bytes, offset + 0x0E)?;
-    let level_required = parse_u8(bytes, offset + 0x10)?;
-    let casting_time = parse_u8(bytes, offset + 0x12)?;
+    let level_required = parse_u16(bytes, offset + 0x10)?;
+    let casting_time = parse_u16(bytes, offset + 0x12)?;
     let times_per_day = parse_u16(bytes, offset + 0x14)?;
+    let dice_sides = parse_u16(bytes, offset + 0x16)?;
+    let dice_thrown = parse_u16(bytes, offset + 0x18)?;
+    let enchanted = parse_u16(bytes, offset + 0x1A)?;
+    let damage_type = parse_u16(bytes, offset + 0x1C)?;
     let feature_block_count = parse_u16(bytes, offset + 0x1E)?;
     let feature_block_index = parse_u16(bytes, offset + 0x20)?;
+    let charges = parse_u16(bytes, offset + 0x22)?;
+    let charge_depletion = parse_u16(bytes, offset + 0x24)?;
     let projectile = parse_u16(bytes, offset + 0x26)?;
 
     Ok(SpellExtendedHeaderJson {
@@ -265,8 +328,14 @@ fn parse_extended_header(
         level_required,
         casting_time,
         times_per_day,
+        dice_sides,
+        dice_thrown,
+        enchanted,
+        damage_type,
         feature_block_count,
         feature_block_index,
+        charges,
+        charge_depletion,
         projectile,
     })
 }
@@ -545,7 +614,7 @@ fn decode_spell_form(value: u8) -> Option<&'static str> {
     }
 }
 
-fn decode_spell_location(value: u8) -> Option<&'static str> {
+fn decode_spell_location(value: u16) -> Option<&'static str> {
     match value {
         0 => Some("None"),
         1 => Some("Weapon"),
@@ -614,11 +683,9 @@ mod tests {
         let error = parse_spl_with_variant(&bytes, "SHORT.SPL", None, GameVariant::Standard)
             .expect_err("truncated SPL extended-header table should fail");
 
-        assert!(
-            error
-                .to_string()
-                .contains("extended header table exceeds SPL length")
-        );
+        assert!(error
+            .to_string()
+            .contains("extended header table exceeds SPL length"));
     }
 
     #[test]
@@ -708,6 +775,101 @@ mod tests {
         );
         assert_eq!(effect.dice_thrown_max_level, 1);
         assert_eq!(effect.dice_sides_min_level, 4);
+    }
+
+    #[test]
+    fn parse_spell_header_preserves_documented_unused_fields() {
+        let mut bytes = vec![0u8; SPL_HEADER_SIZE];
+        bytes[0..4].copy_from_slice(b"SPL ");
+        bytes[4..8].copy_from_slice(b"V1  ");
+        bytes[0x0C..0x10].copy_from_slice(&9u32.to_le_bytes());
+        bytes[0x24] = 1;
+        bytes[0x26] = 2;
+        bytes[0x28] = 3;
+        bytes[0x29] = 4;
+        bytes[0x2A] = 5;
+        bytes[0x2B] = 6;
+        bytes[0x2C] = 7;
+        bytes[0x2D] = 8;
+        bytes[0x2E] = 9;
+        bytes[0x2F] = 10;
+        bytes[0x30..0x32].copy_from_slice(&11u16.to_le_bytes());
+        bytes[0x32..0x34].copy_from_slice(&12u16.to_le_bytes());
+        bytes[0x38..0x3A].copy_from_slice(&13u16.to_le_bytes());
+        bytes[0x42..0x44].copy_from_slice(&14u16.to_le_bytes());
+        bytes[0x44..0x4C].copy_from_slice(b"GROUND\0\0");
+        bytes[0x4C..0x50].copy_from_slice(&15u32.to_le_bytes());
+        bytes[0x54..0x58].copy_from_slice(&16u32.to_le_bytes());
+        bytes[0x58..0x60].copy_from_slice(b"DESCIMG\0");
+        bytes[0x60..0x64].copy_from_slice(&17u32.to_le_bytes());
+
+        let spell = parse_spl_with_variant(
+            &bytes,
+            "UNUSED.SPL",
+            Some(&NullResolver),
+            GameVariant::Standard,
+        )
+        .expect("SPL header should preserve its unused fields");
+
+        assert_eq!(spell.header.identified_name.strref.0, 9);
+        assert_eq!(spell.header.min_level, 1);
+        assert_eq!(spell.header.min_strength, 2);
+        assert_eq!(spell.header.min_strength_bonus, 3);
+        assert_eq!(spell.header.usability, [4, 6, 8, 10]);
+        assert_eq!(spell.header.min_intelligence, 5);
+        assert_eq!(spell.header.min_dexterity, 7);
+        assert_eq!(spell.header.min_wisdom, 9);
+        assert_eq!(spell.header.min_constitution, 11);
+        assert_eq!(spell.header.min_charisma, 12);
+        assert_eq!(spell.header.max_in_stack, 13);
+        assert_eq!(spell.header.lore_to_identify, 14);
+        assert_eq!(
+            spell.header.ground_icon.as_ref().unwrap().as_str(),
+            "GROUND"
+        );
+        assert_eq!(spell.header.weight, 15);
+        assert_eq!(spell.header.identified_description.strref.0, 16);
+        assert_eq!(
+            spell.header.description_image.as_ref().unwrap().as_str(),
+            "DESCIMG"
+        );
+        assert_eq!(spell.header.enchantment, 17);
+    }
+
+    #[test]
+    fn parse_spell_extended_header_uses_full_field_widths_and_preserves_tail() {
+        let mut bytes = vec![0u8; SPL_EXTENDED_HEADER_SIZE];
+        bytes[0x02..0x04].copy_from_slice(&0x0104u16.to_le_bytes());
+        bytes[0x10..0x12].copy_from_slice(&0x1234u16.to_le_bytes());
+        bytes[0x12..0x14].copy_from_slice(&0x2345u16.to_le_bytes());
+        bytes[0x14..0x16].copy_from_slice(&3u16.to_le_bytes());
+        bytes[0x16..0x18].copy_from_slice(&4u16.to_le_bytes());
+        bytes[0x18..0x1A].copy_from_slice(&5u16.to_le_bytes());
+        bytes[0x1A..0x1C].copy_from_slice(&6u16.to_le_bytes());
+        bytes[0x1C..0x1E].copy_from_slice(&7u16.to_le_bytes());
+        bytes[0x1E..0x20].copy_from_slice(&8u16.to_le_bytes());
+        bytes[0x20..0x22].copy_from_slice(&9u16.to_le_bytes());
+        bytes[0x22..0x24].copy_from_slice(&10u16.to_le_bytes());
+        bytes[0x24..0x26].copy_from_slice(&11u16.to_le_bytes());
+        bytes[0x26..0x28].copy_from_slice(&12u16.to_le_bytes());
+
+        let header =
+            parse_extended_header(&bytes, 0).expect("complete SPL extended header should parse");
+
+        assert_eq!(header.location.raw, 0x0104);
+        assert_eq!(header.location.decoded, None);
+        assert_eq!(header.level_required, 0x1234);
+        assert_eq!(header.casting_time, 0x2345);
+        assert_eq!(header.times_per_day, 3);
+        assert_eq!(header.dice_sides, 4);
+        assert_eq!(header.dice_thrown, 5);
+        assert_eq!(header.enchanted, 6);
+        assert_eq!(header.damage_type, 7);
+        assert_eq!(header.feature_block_count, 8);
+        assert_eq!(header.feature_block_index, 9);
+        assert_eq!(header.charges, 10);
+        assert_eq!(header.charge_depletion, 11);
+        assert_eq!(header.projectile, 12);
     }
 
     #[test]

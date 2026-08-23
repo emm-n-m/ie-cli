@@ -1,6 +1,65 @@
 {
-  "extended_headers": [],
-  "feature_blocks": [],
+  "extended_headers": [
+    {
+      "casting_time": 400,
+      "charge_depletion": 11,
+      "charges": 10,
+      "damage_type": 9,
+      "dice_sides": 6,
+      "dice_thrown": 7,
+      "enchanted": 8,
+      "feature_block_count": 1,
+      "feature_block_index": 0,
+      "level_required": 300,
+      "location": {
+        "decoded": "Spell",
+        "raw": 2
+      },
+      "memorized_icon": "MEMICON",
+      "projectile": 12,
+      "range": 30,
+      "spell_form": {
+        "decoded": "Ranged",
+        "raw": 2
+      },
+      "target_count": 2,
+      "target_type": {
+        "decoded": "Living actor",
+        "raw": 1
+      },
+      "times_per_day": 5,
+      "type_flags": 4
+    }
+  ],
+  "feature_blocks": [
+    {
+      "dice_sides_min_level": 8,
+      "dice_thrown_max_level": 7,
+      "duration": 6,
+      "opcode": {
+        "decoded": "Damage",
+        "raw": 12
+      },
+      "parameter1": 4,
+      "parameter2": 5,
+      "power": 3,
+      "probability_1": 80,
+      "probability_2": 20,
+      "resource": "EFFRES",
+      "saving_throw_bonus": -10,
+      "saving_throw_type": 9,
+      "special": 11,
+      "target_type": {
+        "decoded": "Projectile Target",
+        "raw": 2
+      },
+      "timing": {
+        "decoded": "Instant/Permanent",
+        "raw": 1
+      },
+      "timing_dispel": 2
+    }
+  ],
   "header": {
     "casting_graphics": 0,
     "completion_sound": "SOUND",
@@ -8,15 +67,17 @@
       "strref": 0,
       "text": "<string 0>"
     },
+    "description_image": null,
+    "enchantment": 0,
     "exclusion_flags": {
       "decoded": [
         "Invokers"
       ],
       "raw": 2048
     },
-    "extended_headers_count": 0,
+    "extended_headers_count": 1,
     "extended_headers_offset": 114,
-    "feature_block_offset": 0,
+    "feature_block_offset": 154,
     "first_feature_block_index": 0,
     "flags": {
       "decoded": [
@@ -26,6 +87,25 @@
       "raw": 1536
     },
     "global_feature_block_count": 0,
+    "ground_icon": null,
+    "identified_description": {
+      "strref": 0,
+      "text": "<string 0>"
+    },
+    "identified_name": {
+      "strref": 0,
+      "text": "<string 0>"
+    },
+    "lore_to_identify": 0,
+    "max_in_stack": 0,
+    "min_charisma": 0,
+    "min_constitution": 0,
+    "min_dexterity": 0,
+    "min_intelligence": 0,
+    "min_level": 0,
+    "min_strength": 0,
+    "min_strength_bonus": 0,
+    "min_wisdom": 0,
     "school": {
       "decoded": "Invoker",
       "raw": 6
@@ -43,7 +123,14 @@
       "decoded": "Wizard",
       "raw": 1
     },
-    "spellbook_icon": "ICON"
+    "spellbook_icon": "ICON",
+    "usability": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "weight": 0
   },
   "resource_name": "SPWI112.SPL",
   "resource_type": "SPL",
